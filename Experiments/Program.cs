@@ -1,19 +1,41 @@
-﻿using Keystone;
+﻿using System.IO.MemoryMappedFiles;
+using Keystone;
 using UnicornManaged;
 using UnicornManaged.Const;
 
 const string code = @"
-start:
-adr r0, value
-ldr r7, [r0]
-svc 0
 
-value: 
-.word 1234
+ldr r0, =0xFF
+ldr r7, =value
+ldr r7, [r7]
+mov r2, #0x7D
+mov r1, #0
+
+kek: 
+str r2, [r0, r1]
+add r1, r1, #1
+cmp r1, #15
+
+bne kek
 ";
 
-using var keystone = new Engine(Architecture.ARM, Mode.ARM) { ThrowOnError = true };
+using var keystone = new Engine(Architecture.ARM, Mode.ARM | Mode.V8 | Mode.LITTLE_ENDIAN) { ThrowOnError = true };
+keystone.ResolveSymbol += (string symbol, ref ulong value) =>
+{
+    if (symbol == "_printf")
+    {
+        value = int.MaxValue;
+        return true;
+    }
 
+    if (symbol == "value")
+    {
+        value = 0xF0;
+        return true;
+    }
+
+    return false;
+};
 
 Console.WriteLine("--- Assembling ---");
 
@@ -37,12 +59,14 @@ Console.WriteLine("\n\n--- Execution ---");
 
 using var unicorn = new Unicorn(Common.UC_ARCH_ARM, Common.UC_MODE_ARM);
 
-unicorn.MemMap(0, 2 * 1024 * 1024, Common.UC_PROT_ALL);
+unicorn.MemMap(0, 4 * 1024, Common.UC_PROT_ALL);
 unicorn.MemWrite(0, encodedData.Buffer);
-unicorn.RegWrite(Arm.UC_ARM_REG_SP, 0x200000);
+unicorn.MemWrite(0xF0, new byte[] { 127, 255, 0, 0 });
+unicorn.RegWrite(Arm.UC_ARM_REG_SP, 512);
 
 unicorn.AddCodeHook((engine, address, size, data) => Console.WriteLine($"Address: {address:X}\tSize: {size}"),
     0, encodedData.Buffer.Length);
+
 
 unicorn.AddInterruptHook(((unicorn1, i1, o) => unicorn1.EmuStop()));
 unicorn.AddBlockHook(((unicorn1, l, i1, o) => Console.WriteLine("Block")), null, 0, encodedData.Buffer.Length);
