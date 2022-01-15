@@ -5,7 +5,7 @@ open System.Runtime.InteropServices
 
 // internal hooks to be passed to native Unicorn library
 [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-type internal CodeHookInternal = delegate of IntPtr * Int64 * Int32 * IntPtr -> unit
+type internal CodeHookInternal = delegate of IntPtr * UInt64 * UInt32 * IntPtr -> unit
 
 [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
 type internal BlockHookInternal = delegate of IntPtr * Int64 * Int32 * IntPtr -> unit

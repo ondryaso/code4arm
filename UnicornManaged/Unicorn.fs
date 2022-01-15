@@ -8,7 +8,7 @@ open UnicornManaged.Const
 open UnicornManaged.Binding
 
 // exported hooks
-type CodeHook = delegate of Unicorn * Int64 * Int32 * Object -> unit
+type CodeHook = delegate of Unicorn * UInt64 * UInt32 * Object -> unit
 and BlockHook = delegate of Unicorn * Int64 * Int32 * Object -> unit
 and InterruptHook = delegate of Unicorn * Int32 * Object -> unit
 and MemReadHook = delegate of Unicorn * Int64 * Int32 * Object -> unit
@@ -148,7 +148,7 @@ and Unicorn(arch: Int32, mode: Int32, binding: IBinding) =
         Marshal.PtrToStringAnsi(errorStringPointer)
 
     member this.AddCodeHook(callback: CodeHook, userData: Object, beginAddr: Int64, endAddr: Int64) =   
-        let trampoline(u: IntPtr) (addr: Int64) (size: Int32) (user: IntPtr) =
+        let trampoline(u: IntPtr) (addr: UInt64) (size: UInt32) (user: IntPtr) =
             _codeHooks
             |> Seq.iter(fun (callback, userData) -> callback.Invoke(this, addr, size, userData))
         
