@@ -10,4 +10,9 @@
       <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="6.0.1" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj" />
+      <ProjectReference Include="..\UnicornManaged\UnicornManaged.fsproj" />
+    </ItemGroup>
+
 </Project>

@@ -64,7 +64,10 @@ unicorn.MemWrite(0, encodedData.Buffer);
 unicorn.MemWrite(0xF0, new byte[] { 127, 255, 0, 0 });
 unicorn.RegWrite(Arm.UC_ARM_REG_SP, 512);
 
-unicorn.AddCodeHook((engine, address, size, data) => Console.WriteLine($"Address: {address:X}\tSize: {size}"),
+unicorn.AddCodeHook((engine, address, size, data) =>
+    {
+        Console.WriteLine($"Address: {address:X}\tSize: {size}\tThread: {Environment.CurrentManagedThreadId}");
+    },
     0, encodedData.Buffer.Length);
 
 
@@ -76,6 +79,7 @@ unicorn.AddEventMemHook(((unicorn1, i1, l, i2, l1, o) =>
     return true;
 }), Common.UC_HOOK_MEM_FETCH);
 
+Console.Write(Environment.CurrentManagedThreadId);
 unicorn.EmuStart(0, encodedData.Buffer.Length, 0, 0);
 
 Console.WriteLine($"Results: R0: {unicorn.RegRead(Arm.UC_ARM_REG_R0)}, R7: {unicorn.RegRead(Arm.UC_ARM_REG_R7)}");

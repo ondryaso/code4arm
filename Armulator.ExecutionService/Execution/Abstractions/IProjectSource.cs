@@ -13,5 +13,5 @@ public interface IProjectSource
     int AssembledCodeLength { get; }
     int AssembledDataLength { get; }
 
-    void Assemble(string source, ref int codeAddress, ref int dataAddress);
+    void Assemble(string source, ref uint codeAddress, ref uint dataAddress);
 }

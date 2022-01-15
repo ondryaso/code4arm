@@ -9,5 +9,5 @@ public interface IProjectState
 {
     IRegisterFile<int> Registers { get; }
     IRegisterFile<BigInteger> VectorRegisters { get; }
-    List<IBreakpoint> Breakpoints { get; }
+    IEnumerable<IBreakpoint> Breakpoints { get; }
 }

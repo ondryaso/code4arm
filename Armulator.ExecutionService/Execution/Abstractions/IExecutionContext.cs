@@ -15,7 +15,7 @@ public interface IExecutionContext : IDisposable
 
     IRegisterFile<int> Registers => this.InternalState.Registers;
     IRegisterFile<BigInteger> VectorRegisters => this.InternalState.VectorRegisters;
-    List<IBreakpoint> Breakpoints => this.InternalState.Breakpoints;
+    IEnumerable<IBreakpoint> Breakpoints => this.InternalState.Breakpoints;
 
     IBreakpoint? CurrentBreakpoint { get; }
 
