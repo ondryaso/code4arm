@@ -16,7 +16,7 @@ public class PoCExecutionRegisters : IRegisterFile<int>
     {
         return number switch
         {
-            > 0 and <= 12 => Arm.UC_ARM_REG_R0 + number,
+            >= 0 and <= 12 => Arm.UC_ARM_REG_R0 + number,
             13 => Arm.UC_ARM_REG_SP,
             14 => Arm.UC_ARM_REG_LR,
             15 => Arm.UC_ARM_REG_PC,

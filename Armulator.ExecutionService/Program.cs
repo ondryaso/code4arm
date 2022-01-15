@@ -1,3 +1,5 @@
+using Armulator.ExecutionService.Hubs;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR()
@@ -5,6 +7,8 @@ builder.Services.AddSignalR()
 
 var app = builder.Build();
 
-app.MapGet("/", () => "Hello World!");
+app.UseRouting();
+app.UseEndpoints(endpoints =>
+    endpoints.MapHub<PoCProjectHub>(""));
 
 app.Run();

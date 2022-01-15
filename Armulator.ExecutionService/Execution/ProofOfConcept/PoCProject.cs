@@ -34,15 +34,13 @@ public class PoCProject : IProject
 
     public IExecutionContext InitExecution()
     {
-        if (PoCSource.Source != null)
-        {
-            uint a = 0;
-            PoCSource.Assemble(PoCSource.Source, ref a, ref a);
-        }
-        
         if (PoCSource.AssembledCodeLength <= 0)
         {
-            throw new InvalidOperationException("No assembled source exists.");
+            if (PoCSource.Source == null)
+                throw new InvalidOperationException("No source for assembly exists.");
+
+            uint a = 0;
+            PoCSource.Assemble(PoCSource.Source, ref a, ref a);
         }
 
         var ctx = new PoCExecutionContext(this);

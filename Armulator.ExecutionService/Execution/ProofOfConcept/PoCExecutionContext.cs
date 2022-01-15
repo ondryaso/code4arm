@@ -15,11 +15,13 @@ public class PoCExecutionContext : IExecutionContext
     internal readonly Unicorn Unicorn;
     internal PoCProject Project { get; }
 
+    private const int MemorySize = 4096 * 1;
+
     internal PoCExecutionContext(PoCProject project)
     {
         this.Project = project;
         Unicorn = new Unicorn(Common.UC_ARCH_ARM,
-            Common.UC_MODE_ARM | Common.UC_MODE_V8 | Common.UC_MODE_LITTLE_ENDIAN);
+            Common.UC_MODE_ARM);
         _state = new PoCInternalExecutionState(this);
         _memory = new PoCExecutionMemory(this);
 
@@ -28,7 +30,7 @@ public class PoCExecutionContext : IExecutionContext
 
         var src = project.PoCSource;
 
-        Unicorn.MemMap(0, src.AssembledCodeLength, Common.UC_PROT_READ | Common.UC_PROT_EXEC);
+        Unicorn.MemMap(0, MemorySize, Common.UC_PROT_ALL);
         Unicorn.MemWrite(0, src.AssembledCode!.Value.ToArray());
         Unicorn.AddCodeHook(this.CodeHook, 0, src.AssembledCodeLength);
 
@@ -50,6 +52,7 @@ public class PoCExecutionContext : IExecutionContext
     public Stream Output { get; }
 
     private int _currentAddress;
+
     private int _currentLine;
     //private int _currentInstruction;
 
@@ -60,16 +63,16 @@ public class PoCExecutionContext : IExecutionContext
         //_currentInstruction = this.Project.PoCSource.LineToInstruction(_currentLine);
     }
 
-    public void Run()
+    public void RunToBreakpoint()
     {
         if (this.Ended ||
-            _currentAddress >= this.Project.PoCSource.AssembledCodeLength)
+            _currentAddress >= this.Project.PoCSource.AssembledCodeLength * 4)
         {
             return;
         }
 
         var nextBreakpoint = _state.Breakpoints.FirstOrDefault(s => s.Line >= _currentLine);
-        var nextAddress = this.Project.PoCSource.AssembledCodeLength;
+        var nextAddress = this.Project.PoCSource.AssembledCodeLength * 4;
 
         if (nextBreakpoint != null)
         {
@@ -87,7 +90,28 @@ public class PoCExecutionContext : IExecutionContext
 
         _currentAddress = nextAddress;
 
-        if (nextAddress >= this.Project.PoCSource.AssembledCodeLength)
+        if (nextAddress >= this.Project.PoCSource.AssembledCodeLength * 4)
+        {
+            this.Ended = true;
+            this.ExecutionState = ExecutionState.Ended;
+        }
+    }
+
+    public void Step()
+    {
+        if (this.Ended ||
+            _currentAddress >= this.Project.PoCSource.AssembledCodeLength * 4)
+        {
+            return;
+        }
+
+        Unicorn.EmuStart(_currentAddress, _currentAddress + 4, 0, 0);
+        this.ExecutionState = ExecutionState.Breakpoint;
+        this.CurrentBreakpoint = new PoCBreakpoint()
+            { Line = this.Project.PoCSource.AddressToLine((uint)_currentAddress) };
+        _currentAddress += 4;
+
+        if (_currentAddress >= this.Project.PoCSource.AssembledCodeLength * 4)
         {
             this.Ended = true;
             this.ExecutionState = ExecutionState.Ended;
@@ -107,7 +131,7 @@ public class PoCExecutionContext : IExecutionContext
             this.Halt();
         }
 
-        Unicorn.MemUnmap(0, this.Project.PoCSource.AssembledCodeLength);
+        Unicorn.MemUnmap(0, MemorySize);
         Unicorn.Dispose();
     }
 }

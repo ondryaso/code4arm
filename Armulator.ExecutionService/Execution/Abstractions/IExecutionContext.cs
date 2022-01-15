@@ -22,6 +22,7 @@ public interface IExecutionContext : IDisposable
     Stream Input { get; }
     Stream Output { get; }
 
-    void Run();
+    void RunToBreakpoint();
+    void Step();
     void Halt();
 }

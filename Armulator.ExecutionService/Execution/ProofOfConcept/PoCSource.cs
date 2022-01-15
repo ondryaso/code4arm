@@ -27,8 +27,13 @@ public class PoCSource : IProjectSource
         => _instructionPtrs?[line] * 4 ?? throw new InvalidOperationException();
 
     public int InstructionToLine(int instruction)
-        => _linePtrs?[instruction] ?? throw new InvalidOperationException();
+    {
+        if (_linePtrs is null)
+            throw new InvalidOperationException();
 
+        return instruction < _linePtrs.Length ? _linePtrs[instruction] : _linePtrs[^1] + 1;
+    }
+    
     public int AddressToLine(uint address)
         => this.InstructionToLine((int)(address / 4));
 
