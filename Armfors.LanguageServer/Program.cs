@@ -1,5 +1,6 @@
 ﻿#define USE_SOCKETS
 
+using System.IO.Abstractions;
 using System.Net;
 using System.Net.Sockets;
 using Armfors.LanguageServer.Handlers;
@@ -56,5 +57,6 @@ tcpServer.Stop();
 static void ConfigureServices(IServiceCollection services)
 {
     services.AddLogging();
+    services.AddSingleton<IFileSystem, FileSystem>();
     services.AddScoped<ISourceStore, FileSourceStore>();
 }

@@ -52,7 +52,6 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     /// <returns>Nothing (a <see cref="Unit"/>).</returns>
     public override Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
-        
         throw new NotImplementedException();
     }
 
