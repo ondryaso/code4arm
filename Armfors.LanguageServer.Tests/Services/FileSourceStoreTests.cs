@@ -20,7 +20,7 @@ namespace Armfors.LanguageServer.Tests.Services;
 public class FileSourceStoreTests
 {
     private FileSourceStore _store = null!;
-    private DocumentUri _mockFileUri;
+    private DocumentUri _mockFileUri = null!;
 
     private const string MockFileName = "file";
     private const string MockFileText = "Mock text\nMock text line 2";
@@ -54,14 +54,8 @@ public class FileSourceStoreTests
     [Test]
     public void DocumentLifecycle()
     {
-        var documentItem = new TextDocumentItem()
-        {
-            LanguageId = Constants.ArmUalLanguageId,
-            Text = MockFileText,
-            Uri = _mockFileUri,
-            Version = 0
-        };
-
+        var documentItem = this.MakeDocumentItem();
+        
         Assert.That(async () => await _store.IsOpen(documentItem.Uri), Is.False);
         Assert.That(async () => await _store.LoadDocument(documentItem), Throws.Nothing);
         Assert.That(async () => await _store.IsOpen(documentItem.Uri), Is.True);
@@ -126,6 +120,57 @@ public class FileSourceStoreTests
         {
             Assert.That(async () => await fileSource.GetText(range), Is.EqualTo(expectedOutput));
         }
+    }
+    
+    [Test]
+    public async Task BufferedSourceWholeTextAsync()
+    {
+        var documentItem = this.MakeDocumentItem();
+        await _store.LoadDocument(documentItem);
+        var bufferedSource = await _store.GetDocument(_mockFileUri);
+        
+        Assert.That(async () => await bufferedSource.GetText(), Is.EqualTo(MockFileText));
+    }
+
+    [Test]
+    public async Task BufferedSourceWholeTextSync()
+    {
+        var documentItem = this.MakeDocumentItem();
+        await _store.LoadDocument(documentItem);
+        var bufferedSource = await _store.GetDocument(_mockFileUri);
+        
+        Assert.That(() => bufferedSource.Text, Is.EqualTo(MockFileText));
+    }
+
+    [Test]
+    [TestCaseSource(nameof(_testRanges))]
+    public async Task BufferedSourceRangeAsync(Range range)
+    {
+        var documentItem = this.MakeDocumentItem();
+        await _store.LoadDocument(documentItem);
+        var bufferedSource = await _store.GetDocument(_mockFileUri);
+        
+        var expectedOutput = Splice(MockFileText, range);
+
+        if (expectedOutput is null)
+        {
+            Assert.That(async () => await bufferedSource.GetText(range), Throws.ArgumentException);
+        }
+        else
+        {
+            Assert.That(async () => await bufferedSource.GetText(range), Is.EqualTo(expectedOutput));
+        }
+    }
+
+    private TextDocumentItem MakeDocumentItem()
+    {
+        return new TextDocumentItem()
+        {
+            LanguageId = Constants.ArmUalLanguageId,
+            Text = MockFileText,
+            Uri = _mockFileUri,
+            Version = 0
+        };
     }
 
     private static string? Splice(string text, Range range)
