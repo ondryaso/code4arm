@@ -57,6 +57,13 @@ public class BufferedSource : ISource
         }
     }
 
+    /// <summary>
+    /// Returns an index in a text corresponding to a given <see cref="Position"/> in this text.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="position">The position to get text index for.</param>
+    /// <returns>The index in <paramref name="text"/> or -1 if the position's <see cref="Position.Character"/> is higher
+    /// than the length of the corresponding line in the text.</returns>
     private static int GetIndexForPosition(string text, Position position)
     {
         var pos = 0;
@@ -64,6 +71,17 @@ public class BufferedSource : ISource
         for (var i = 0; i < position.Line; i++)
         {
             pos = text.IndexOf('\n', pos) + 1;
+        }
+
+        var nextLineEndPosition = text.IndexOf('\n', pos);
+        if (nextLineEndPosition == -1)
+        {
+            nextLineEndPosition = text.Length;
+        }
+
+        if (pos + position.Character > nextLineEndPosition)
+        {
+            return -1;
         }
 
         return pos + position.Character;
