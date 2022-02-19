@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gee.External.Capstone", "..
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armfors.LanguageServer", "Armfors.LanguageServer\Armfors.LanguageServer.csproj", "{C827533A-7569-40C2-8F0D-4A292B73C591}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armfors.LanguageServer.Tests", "Armfors.LanguageServer.Tests\Armfors.LanguageServer.Tests.csproj", "{852EF7FD-68CC-4157-B8B6-6578B9D6D939}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,5 +50,9 @@ Global
 		{C827533A-7569-40C2-8F0D-4A292B73C591}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C827533A-7569-40C2-8F0D-4A292B73C591}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C827533A-7569-40C2-8F0D-4A292B73C591}.Release|Any CPU.Build.0 = Release|Any CPU
+		{852EF7FD-68CC-4157-B8B6-6578B9D6D939}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{852EF7FD-68CC-4157-B8B6-6578B9D6D939}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{852EF7FD-68CC-4157-B8B6-6578B9D6D939}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{852EF7FD-68CC-4157-B8B6-6578B9D6D939}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
