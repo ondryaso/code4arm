@@ -22,7 +22,13 @@ public class BufferedSource : ISource
     public DocumentUri Uri { get; }
     public int? Version { get; internal set; }
 
-    public string Text { get; internal set; }
+    private string _text = null!;
+
+    public string Text
+    {
+        get => _text;
+        internal set => _text = value.Replace("\r\n", "\n").Replace('\r', '\n');
+    }
 
     public Task<string> GetTextAsync()
     {
@@ -45,6 +51,8 @@ public class BufferedSource : ISource
             var start = GetIndexForPosition(this.Text, range.Start);
             var end = GetIndexForPosition(this.Text, range.End);
 
+            if (start == -1 || end == -1) throw new ArgumentException("Invalid range.", nameof(range));
+
             return this.Text[start..end];
         }
 
@@ -53,6 +61,8 @@ public class BufferedSource : ISource
             var start = GetIndexForPosition(this.Text, range.Start);
             var end = GetIndexForPosition(this.Text, range.End);
 
+            if (start == -1 || end == -1) throw new ArgumentException("Invalid range.", nameof(range));
+            
             this.Text = this.Text[..start] + value + this.Text[end..];
         }
     }
@@ -67,15 +77,26 @@ public class BufferedSource : ISource
     private static int GetIndexForPosition(string text, Position position)
     {
         var pos = 0;
-
         for (var i = 0; i < position.Line; i++)
         {
+            if (pos > text.Length)
+            {
+                return -1;
+            }
+            
             pos = text.IndexOf('\n', pos) + 1;
+            
+            if (pos == 0)
+            {
+                // End of file with no terminating \n reached
+                return position.Character == 0 ? text.Length : -1;
+            }
         }
 
         var nextLineEndPosition = text.IndexOf('\n', pos);
         if (nextLineEndPosition == -1)
         {
+            // No \n at the end of the last line
             nextLineEndPosition = text.Length;
         }
 
