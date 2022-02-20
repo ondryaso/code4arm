@@ -38,6 +38,26 @@ public class FileSourceStoreTests
         new(0, 2, 0, 4)
     };
 
+    /// <summary>
+    /// Generates all possible line/character index pairs in a given text.
+    /// Used as a test case source for <see cref="ApplyIncrementalChangeInsertInto"/>.
+    /// </summary>
+    /// <remarks>
+    /// The end-of-line index (equal to the line's length) is also returned.
+    /// </remarks>
+    /// <returns>An enumerable of object arrays that have two integer elements (line index and character index).</returns>
+    private static IEnumerable<object[]> GetPossiblePositionsInText(string text)
+    {
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        for (var line = 0; line < lines.Length; line++)
+        {
+            for (var ch = 0; ch <= lines[line].Length; ch++)
+            {
+                yield return new object[] { line, ch };
+            }
+        }
+    }
+
     [SetUp]
     protected void SetUp()
     {
@@ -55,7 +75,7 @@ public class FileSourceStoreTests
     public void DocumentLifecycle()
     {
         var documentItem = this.MakeDocumentItem();
-        
+
         Assert.That(async () => await _store.IsOpen(documentItem.Uri), Is.False);
         Assert.That(async () => await _store.LoadDocument(documentItem), Throws.Nothing);
         Assert.That(async () => await _store.IsOpen(documentItem.Uri), Is.True);
@@ -121,14 +141,14 @@ public class FileSourceStoreTests
             Assert.That(async () => await fileSource.GetTextAsync(range), Is.EqualTo(expectedOutput));
         }
     }
-    
+
     [Test]
     public async Task BufferedSourceWholeTextAsync()
     {
         var documentItem = this.MakeDocumentItem();
         await _store.LoadDocument(documentItem);
         var bufferedSource = await _store.GetDocument(_mockFileUri);
-        
+
         Assert.That(async () => await bufferedSource.GetTextAsync(), Is.EqualTo(MockFileText));
     }
 
@@ -138,7 +158,7 @@ public class FileSourceStoreTests
         var documentItem = this.MakeDocumentItem();
         await _store.LoadDocument(documentItem);
         var bufferedSource = await _store.GetDocument(_mockFileUri);
-        
+
         Assert.That(() => bufferedSource.Text, Is.EqualTo(MockFileText));
     }
 
@@ -149,7 +169,7 @@ public class FileSourceStoreTests
         var documentItem = this.MakeDocumentItem();
         await _store.LoadDocument(documentItem);
         var bufferedSource = await _store.GetDocument(_mockFileUri);
-        
+
         var expectedOutput = Splice(MockFileText, range);
 
         if (expectedOutput is null)
@@ -161,6 +181,44 @@ public class FileSourceStoreTests
             Assert.That(async () => await bufferedSource.GetTextAsync(range), Is.EqualTo(expectedOutput));
         }
     }
+
+    [Test]
+    public async Task ApplyFullChange()
+    {
+        var documentItem = this.MakeDocumentItem();
+        await _store.LoadDocument(documentItem);
+        var bufferedSource = await _store.GetDocument(_mockFileUri);
+
+        var newText = TestContext.CurrentContext.Random.GetString();
+
+        await _store.ApplyFullChange(_mockFileUri, newText, documentItem.Version + 1);
+
+        Assert.That(bufferedSource.Text, Is.EqualTo(newText));
+        Assert.That(async () => await bufferedSource.GetTextAsync(), Is.EqualTo(newText));
+    }
+
+    [Test]
+    [TestCaseSource(nameof(GetPossiblePositionsInText), new object[] { MockFileText })]
+    public async Task ApplyIncrementalChangeInsertInto(int insertedPosLine, int insertedPosChar)
+    {
+        var documentItem = this.MakeDocumentItem();
+        await _store.LoadDocument(documentItem);
+        var bufferedSource = await _store.GetDocument(_mockFileUri);
+
+        var currentText = documentItem.Text;
+        var insertedText = TestContext.CurrentContext.Random.GetString();
+        var insertedPos = GetIndexForPosition(currentText, insertedPosLine, insertedPosChar);
+        var newText = currentText.Insert(insertedPos, insertedText);
+
+        await _store.ApplyIncrementalChange(_mockFileUri,
+            new Range(insertedPosLine, insertedPosChar, insertedPosLine, insertedPosChar),
+            insertedText, documentItem.Version + 1);
+
+        Assert.That(bufferedSource.Text, Is.EqualTo(newText));
+        Assert.That(async () => await bufferedSource.GetTextAsync(), Is.EqualTo(newText));
+    }
+    
+    // TODO: Incremental changes outside the text range (not defined by the spec though – is it even possible?).
 
     private TextDocumentItem MakeDocumentItem()
     {
@@ -228,5 +286,17 @@ public class FileSourceStoreTests
         }
 
         return sb.ToString();
+    }
+
+    private static int GetIndexForPosition(string text, int line, int character)
+    {
+        var pos = 0;
+
+        for (var i = 0; i < line; i++)
+        {
+            pos = text.IndexOf('\n', pos) + 1;
+        }
+
+        return pos + character;
     }
 }
