@@ -24,12 +24,12 @@ public class BufferedSource : ISource
 
     public string Text { get; internal set; }
 
-    public Task<string> GetText()
+    public Task<string> GetTextAsync()
     {
         return Task.FromResult(this.Text);
     }
 
-    public Task<string> GetText(Range range)
+    public Task<string> GetTextAsync(Range range)
     {
         return Task.FromResult(this[range]);
     }

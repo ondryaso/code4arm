@@ -95,7 +95,7 @@ public class FileSourceStoreTests
     public async Task FileSourceWholeTextAsync()
     {
         var fileSource = await _store.GetDocument(_mockFileUri);
-        Assert.That(async () => await fileSource.GetText(), Is.EqualTo(MockFileText));
+        Assert.That(async () => await fileSource.GetTextAsync(), Is.EqualTo(MockFileText));
     }
 
     [Test]
@@ -114,11 +114,11 @@ public class FileSourceStoreTests
 
         if (expectedOutput is null)
         {
-            Assert.That(async () => await fileSource.GetText(range), Throws.ArgumentException);
+            Assert.That(async () => await fileSource.GetTextAsync(range), Throws.ArgumentException);
         }
         else
         {
-            Assert.That(async () => await fileSource.GetText(range), Is.EqualTo(expectedOutput));
+            Assert.That(async () => await fileSource.GetTextAsync(range), Is.EqualTo(expectedOutput));
         }
     }
     
@@ -129,7 +129,7 @@ public class FileSourceStoreTests
         await _store.LoadDocument(documentItem);
         var bufferedSource = await _store.GetDocument(_mockFileUri);
         
-        Assert.That(async () => await bufferedSource.GetText(), Is.EqualTo(MockFileText));
+        Assert.That(async () => await bufferedSource.GetTextAsync(), Is.EqualTo(MockFileText));
     }
 
     [Test]
@@ -154,11 +154,11 @@ public class FileSourceStoreTests
 
         if (expectedOutput is null)
         {
-            Assert.That(async () => await bufferedSource.GetText(range), Throws.ArgumentException);
+            Assert.That(async () => await bufferedSource.GetTextAsync(range), Throws.ArgumentException);
         }
         else
         {
-            Assert.That(async () => await bufferedSource.GetText(range), Is.EqualTo(expectedOutput));
+            Assert.That(async () => await bufferedSource.GetTextAsync(range), Is.EqualTo(expectedOutput));
         }
     }
 

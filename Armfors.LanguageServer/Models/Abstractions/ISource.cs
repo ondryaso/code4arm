@@ -50,12 +50,12 @@ public interface ISource
     /// <summary>
     /// Asynchronously determines and returns the current contents of the document.
     /// </summary>
-    Task<string> GetText();
+    Task<string> GetTextAsync();
 
     /// <summary>
     /// Asynchronously determines and returns a substring of the document's text on the position given by
     /// a provided range.
     /// </summary>
     /// <param name="range">The range to get text in.</param>
-    Task<string> GetText(Range range);
+    Task<string> GetTextAsync(Range range);
 }

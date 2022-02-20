@@ -53,7 +53,7 @@ public class FileSource : ISource
         get { throw new NotImplementedException(); }
     }
 
-    public async Task<string> GetText()
+    public async Task<string> GetTextAsync()
     {
         // TODO: optimise this to use pre-allocated memory
         // or at least check modification times and use cached results
@@ -62,7 +62,7 @@ public class FileSource : ISource
         return await reader.ReadToEndAsync();
     }
 
-    public async Task<string> GetText(Range range)
+    public async Task<string> GetTextAsync(Range range)
     {
         // TODO: optimise
         if (range.Start == range.End)
