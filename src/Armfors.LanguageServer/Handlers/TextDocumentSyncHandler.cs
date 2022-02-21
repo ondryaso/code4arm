@@ -28,7 +28,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         _sourceStore = sourceStore;
     }
-    
+
     /// <summary>
     /// Called when the client opens a text document.
     /// </summary>
@@ -38,9 +38,10 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     /// <a href="https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocument_didOpen">LSP docs</a>.
     /// </remarks>
     /// <returns>Nothing (a <see cref="Unit"/>).</returns>
-    public override Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        await _sourceStore.LoadDocument(request.TextDocument).ConfigureAwait(false);
+        return Unit.Value;
     }
 
     /// <summary>
@@ -50,9 +51,29 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     /// <a href="https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocument_didChange">LSP docs</a>
     /// </remarks>
     /// <returns>Nothing (a <see cref="Unit"/>).</returns>
-    public override Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        Serilog.Log.Information("Before: {Content}", (await _sourceStore.GetDocument(request.TextDocument.Uri)).Text);
+
+        foreach (var change in request.ContentChanges)
+        {
+            if (change.Range is null)
+            {
+                await _sourceStore.ApplyFullChange(request.TextDocument.Uri, change.Text, request.TextDocument.Version)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await _sourceStore.ApplyIncrementalChange(request.TextDocument.Uri, change.Range, change.Text,
+                    request.TextDocument.Version).ConfigureAwait(false);
+            }
+        }
+
+        Serilog.Log.Information("After: {Content}", (await _sourceStore.GetDocument(request.TextDocument.Uri)).Text);
+
+        // TODO: trigger parsing?
+
+        return Unit.Value;
     }
 
     /// <summary>
@@ -63,9 +84,10 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     /// <a href="https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocument_didClose">LSP docs</a>
     /// </remarks>
     /// <returns>Nothing (a <see cref="Unit"/>).</returns>
-    public override Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        await _sourceStore.CloseDocument(request.TextDocument.Uri).ConfigureAwait(false);
+        return Unit.Value;
     }
 
     /// <summary>

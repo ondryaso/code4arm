@@ -58,5 +58,5 @@ static void ConfigureServices(IServiceCollection services)
 {
     services.AddLogging();
     services.AddSingleton<IFileSystem, FileSystem>();
-    services.AddScoped<ISourceStore, FileSourceStore>();
+    services.AddSingleton<ISourceStore, FileSourceStore>();
 }

@@ -8,8 +8,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj" />
       <ProjectReference Include="..\..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj" />
       <ProjectReference Include="..\UnicornManaged\UnicornManaged.fsproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="ELFSharp" Version="2.13.2" />
     </ItemGroup>
 
 </Project>
