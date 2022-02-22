@@ -36,7 +36,49 @@
                 "scopeName": "source.armual",
                 "path": "./syntaxes/arm-ual.tmLanguage.json"
             }
-        ]
+        ],
+        "semanticTokenTypes": [
+            {
+                "id": "instruction",
+                "superType": "function",
+                "description": "An Arm UAL instruction mnemonic."
+            },
+            {
+                "id": "directive",
+                "superType": "keyword",
+                "description": "An assembler directive."
+            },
+            {
+                "id": "register",
+                "superType": "variable",
+                "description": "An Arm register."
+            }
+        ],
+        "semanticTokenModifiers": [
+            {
+                "id": "condition_code",
+                "description": "An Arm UAL condition code appended to an instruction mnemonic."
+            },
+            {
+                "id": "set_flags_flag",
+                "description": "An Arm UAL flag appended to an instruction mnemonic that controls if the instruction sets processor flags."
+            },
+            {
+                "id": "vector_data_type",
+                "description": "An Arm UAL vector instruction data type appended to a vector instruction mnemonic."
+            }
+        ],
+        "configurationDefaults": {
+            "[arm-ual]": {
+                "editor.semanticHighlighting.enabled": true
+            },
+            "editor.semanticTokenColorCustomizations": {
+                "enabled": true,
+                "rules": {
+                    "label": "#6e6cff"
+                }
+            }
+        }
     },
     "activationEvents": [
         "onLanguage:arm-ual"
