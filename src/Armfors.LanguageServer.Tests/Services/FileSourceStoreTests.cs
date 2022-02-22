@@ -23,6 +23,7 @@ public class FileSourceStoreTests
     private DocumentUri _mockFileUri = null!;
 
     private const string MockFileName = "file";
+    // TODO: use text with mixed \n and \r\n line endings
     private const string MockFileText = "Mock text\nMock text line 2";
 
     private static Range[] _testRanges =
@@ -285,7 +286,7 @@ public class FileSourceStoreTests
             }
         }
 
-        return sb.ToString();
+        return sb.ToString().ReplaceLineEndings("\n");
     }
 
     private static int GetIndexForPosition(string text, int line, int character)
