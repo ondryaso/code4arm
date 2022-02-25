@@ -8,6 +8,7 @@ using Armfors.LanguageServer.Services;
 using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Serilog;
 
@@ -44,7 +45,8 @@ var languageServer = await LanguageServer.From(options =>
             .AddLanguageProtocolLogging()
             .SetMinimumLevel(LogLevel.Information))
         .WithServices(ConfigureServices)
-        .WithHandler<TextDocumentSyncHandler>();
+        .WithHandler<TextDocumentSyncHandler>()
+        .WithHandler<SemanticTokensHandler>();
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);
