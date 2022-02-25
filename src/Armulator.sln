@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "UnicornManaged", "UnicornManaged\UnicornManaged.fsproj", "{466F8E6A-FF45-4412-991F-9BD439F29657}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Keystone.Net", "..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj", "{24B73AB3-A8F4-4219-BD6D-37EA4473743F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Keystone.Net", "..\..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj", "{24B73AB3-A8F4-4219-BD6D-37EA4473743F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Experiments", "Experiments\Experiments.csproj", "{252ABD8D-4776-4292-92DB-D2B3A706AA8B}"
 EndProject
@@ -10,7 +10,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armulator.ExecutionService"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoClient", "DemoClient\DemoClient.csproj", "{34A40455-1832-4928-AB64-716394842447}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gee.External.Capstone", "..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj", "{CA3E56A5-B5E3-4FDD-82A2-E995BCF8011E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gee.External.Capstone", "..\..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj", "{CA3E56A5-B5E3-4FDD-82A2-E995BCF8011E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armfors.LanguageServer", "Armfors.LanguageServer\Armfors.LanguageServer.csproj", "{C827533A-7569-40C2-8F0D-4A292B73C591}"
 EndProject

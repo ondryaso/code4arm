@@ -8,8 +8,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj" />
-      <ProjectReference Include="..\..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj" />
+      <ProjectReference Include="..\..\..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj" />
+      <ProjectReference Include="..\..\..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj" />
       <ProjectReference Include="..\UnicornManaged\UnicornManaged.fsproj" />
     </ItemGroup>
 
