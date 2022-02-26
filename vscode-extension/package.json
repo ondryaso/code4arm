@@ -33,7 +33,7 @@
         "grammars": [
             {
                 "language": "arm-ual",
-                "scopeName": "source.armual",
+                "scopeName": "source.arm-ual",
                 "path": "./syntaxes/arm-ual.tmLanguage.json"
             }
         ],
@@ -52,20 +52,60 @@
                 "id": "register",
                 "superType": "variable",
                 "description": "An Arm register."
-            }
-        ],
-        "semanticTokenModifiers": [
+            },
             {
                 "id": "condition_code",
+                "superType": "decorator",
                 "description": "An Arm UAL condition code appended to an instruction mnemonic."
             },
             {
-                "id": "set_flags_flag",
+                "id": "sets_flags_flag",
+                "superType": "decorator",
                 "description": "An Arm UAL flag appended to an instruction mnemonic that controls if the instruction sets processor flags."
             },
             {
                 "id": "vector_data_type",
-                "description": "An Arm UAL vector instruction data type appended to a vector instruction mnemonic."
+                "superType": "decorator",
+                "description": "An ARM UAL vector data type flag."
+            }
+        ],
+        "semanticTokenModifiers": [
+            {
+                "id": "conditional",
+                "description": "Marks an instruction that is executed conditionally."
+            },
+            {
+                "id": "sets_flags",
+                "description": "Marks an instruction that controls if the instruction sets processor flags."
+            },
+            {
+                "id": "vector_instruction",
+                "description": "Marks a SIMD/FP Arm UAL instruction."
+            }
+        ],
+        "semanticTokenScopes": [
+            {
+                "language": "arm-ual",
+                "scopes": {
+                    "instruction": [
+                        "support.function.mnemonic.arm-ual"
+                    ],
+                    "directive": [
+                        "keyword.control.directive.arm-ual"
+                    ],
+                    "register": [
+                        "storage.register.arm-ual"
+                    ],
+                    "condition_code": [
+                        "keyword.operator.arm-ual"
+                    ],
+                    "sets_flags_flag": [
+                        "keyword.operator.arm-ual"
+                    ],
+                    "vector_data_type": [
+                        "entity.name.type.arm-ual"
+                    ]
+                }
             }
         ],
         "configurationDefaults": {
@@ -75,7 +115,6 @@
             "editor.semanticTokenColorCustomizations": {
                 "enabled": true,
                 "rules": {
-                    "label": "#6e6cff"
                 }
             }
         }
