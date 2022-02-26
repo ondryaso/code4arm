@@ -1,5 +1,5 @@
 import * as net from 'net';
-import { workspace, ExtensionContext, commands, OutputChannel, window } from 'vscode';
+import { workspace, ExtensionContext, commands, OutputChannel, window, SignatureHelp } from 'vscode';
 
 import {
 	LanguageClient,
@@ -71,6 +71,9 @@ async function initLanguageServer(context: ExtensionContext) {
 				workspace.createFileSystemWatcher('**/.s'),
 				workspace.createFileSystemWatcher('**/.S')
 			]
+		},
+		markdown: {
+			isTrusted: true
 		}
 	};
 
