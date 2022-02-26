@@ -1,4 +1,7 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+﻿using System.Collections.Concurrent;
+using Armfors.LanguageServer.Services.Abstractions;
+using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
@@ -6,33 +9,58 @@ namespace Armfors.LanguageServer.Handlers;
 
 public class SemanticTokensHandler : SemanticTokensHandlerBase
 {
-    protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(SemanticTokensCapability capability,
-        ClientCapabilities clientCapabilities)
+    private readonly ITokenizer _tokenizer;
+
+    private static readonly SemanticTokenType[] UsedTokenTypes = new[]
     {
-        return new SemanticTokensRegistrationOptions()
-        {
-            Full = new SemanticTokensCapabilityRequestFull() {Delta = true},
-            Range = true,
-            DocumentSelector = Constants.ArmUalDocumentSelector,
-            Legend = new SemanticTokensLegend()
-            {
-                TokenTypes = new Container<SemanticTokenType>(SemanticTokenType.Label, SemanticTokenType.Function),
-                TokenModifiers = new Container<SemanticTokenModifier>()
-            }
-        };
+        ArmSemanticTokenType.Instruction, ArmSemanticTokenType.Directive, ArmSemanticTokenType.Register,
+        ArmSemanticTokenType.ConditionCode, ArmSemanticTokenType.SetsFlagsFlag, ArmSemanticTokenType.VectorDataType,
+        SemanticTokenType.Label, SemanticTokenType.Method
+    };
+
+    private static readonly SemanticTokenModifier[] UsedTokenModifiers = new[]
+    {
+        ArmSemanticTokenModifier.Conditional, ArmSemanticTokenModifier.SetsFlags,
+        ArmSemanticTokenModifier.VectorInstruction
+    };
+
+    private readonly ConcurrentDictionary<DocumentUri, SemanticTokensDocument> _semanticTokensDocuments = new();
+
+    public SemanticTokensHandler(ITokenizer tokenizer)
+    {
+        _tokenizer = tokenizer;
     }
 
     protected override Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier,
         CancellationToken cancellationToken)
     {
-        builder.Push(0, 0, 5, SemanticTokenType.Label, Enumerable.Empty<SemanticTokenModifier>());
-        builder.Push(0, 7, 3, SemanticTokenType.Function, Enumerable.Empty<SemanticTokenModifier>());
+        builder.Push(0, 0, 4, ArmSemanticTokenType.Instruction, ArmSemanticTokenModifier.SetsFlags);
+        _tokenizer.Tokenize(identifier.TextDocument.Uri, builder);
         return Task.CompletedTask;
     }
 
     protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(ITextDocumentIdentifierParams @params,
         CancellationToken cancellationToken)
     {
-        return Task.FromResult(new SemanticTokensDocument(RegistrationOptions.Legend));
+        var document = _semanticTokensDocuments.GetOrAdd(@params.TextDocument.Uri,
+            _ => new SemanticTokensDocument(this.RegistrationOptions));
+
+        return Task.FromResult(document);
+    }
+
+    protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(SemanticTokensCapability capability,
+        ClientCapabilities clientCapabilities)
+    {
+        return new SemanticTokensRegistrationOptions()
+        {
+            Full = new SemanticTokensCapabilityRequestFull() { Delta = true },
+            Range = true,
+            DocumentSelector = Constants.ArmUalDocumentSelector,
+            Legend = new SemanticTokensLegend()
+            {
+                TokenTypes = new Container<SemanticTokenType>(UsedTokenTypes),
+                TokenModifiers = new Container<SemanticTokenModifier>(UsedTokenModifiers)
+            }
+        };
     }
 }

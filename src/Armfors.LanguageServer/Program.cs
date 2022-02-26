@@ -8,6 +8,8 @@ using Armfors.LanguageServer.Services;
 using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Moq;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Serilog;
@@ -46,7 +48,10 @@ var languageServer = await LanguageServer.From(options =>
             .SetMinimumLevel(LogLevel.Information))
         .WithServices(ConfigureServices)
         .WithHandler<TextDocumentSyncHandler>()
-        .WithHandler<SemanticTokensHandler>();
+        .WithHandler<SemanticTokensHandler>()
+        .WithHandler<CompletionHandler>()
+        .WithHandler<SignatureHelpHandler>();
+    
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);
@@ -59,6 +64,7 @@ tcpServer.Stop();
 static void ConfigureServices(IServiceCollection services)
 {
     services.AddLogging();
+    services.AddSingleton(Mock.Of<ITokenizer>());
     services.AddSingleton<IFileSystem, FileSystem>();
     services.AddSingleton<ISourceStore, FileSourceStore>();
 }
