@@ -1,6 +1,7 @@
 // TextDocumentSyncHandler.cs
 // Author: Ondřej Ondryáš
 
+using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using MediatR;
@@ -9,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.Handlers;
 
@@ -23,10 +25,12 @@ namespace Armfors.LanguageServer.Handlers;
 public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private readonly ISourceStore _sourceStore;
+    private readonly ISourceAnalyserStore _analyserStore;
 
-    public TextDocumentSyncHandler(ISourceStore sourceStore)
+    public TextDocumentSyncHandler(ISourceStore sourceStore, ISourceAnalyserStore analyserStore)
     {
         _sourceStore = sourceStore;
+        _analyserStore = analyserStore;
     }
 
     /// <summary>
@@ -41,6 +45,10 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         await _sourceStore.LoadDocument(request.TextDocument).ConfigureAwait(false);
+        var source = await _sourceStore.GetDocument(request.TextDocument.Uri).ConfigureAwait(false);
+        var analyser = _analyserStore.GetAnalyser(source);
+        await analyser.TriggerFullAnalysis();
+
         return Unit.Value;
     }
 
@@ -53,7 +61,8 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     /// <returns>Nothing (a <see cref="Unit"/>).</returns>
     public override async Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
-        Serilog.Log.Information("Before: {Content}", (await _sourceStore.GetDocument(request.TextDocument.Uri)).Text);
+        var source = await _sourceStore.GetDocument(request.TextDocument.Uri);
+        var analyser = _analyserStore.GetAnalyser(source);
 
         foreach (var change in request.ContentChanges)
         {
@@ -61,17 +70,33 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             {
                 await _sourceStore.ApplyFullChange(request.TextDocument.Uri, change.Text, request.TextDocument.Version)
                     .ConfigureAwait(false);
+                await analyser.TriggerFullAnalysis();
             }
             else
             {
+                var start = change.Range.Start;
+                var end = change.Range.End;
+
+                var isSingleLine = start.Line == end.Line || (end.Character == 0 && end.Line == start.Line + 1);
+                var originalLine = source[new Range(start.Line, 0, start.Line + 1, 0)].Trim();
+                var appendedToEnd = start.Character == originalLine.Length;
+
                 await _sourceStore.ApplyIncrementalChange(request.TextDocument.Uri, change.Range, change.Text,
                     request.TextDocument.Version).ConfigureAwait(false);
+
+                if (isSingleLine)
+                {
+                    await analyser.TriggerLineAnalysis(start.Line, appendedToEnd);
+                }
+                else
+                {
+                    for (var line = start.Line; line <= end.Line; line++)
+                    {
+                        await analyser.TriggerLineAnalysis(line, false);
+                    }
+                }
             }
         }
-
-        Serilog.Log.Information("After: {Content}", (await _sourceStore.GetDocument(request.TextDocument.Uri)).Text);
-
-        // TODO: trigger parsing?
 
         return Unit.Value;
     }

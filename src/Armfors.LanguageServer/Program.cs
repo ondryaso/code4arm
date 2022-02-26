@@ -3,6 +3,8 @@
 using System.IO.Abstractions;
 using System.Net;
 using System.Net.Sockets;
+using Armfors.LanguageServer.CodeAnalysis;
+using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.Handlers;
 using Armfors.LanguageServer.Services;
 using Armfors.LanguageServer.Services.Abstractions;
@@ -67,4 +69,5 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton(Mock.Of<ITokenizer>());
     services.AddSingleton<IFileSystem, FileSystem>();
     services.AddSingleton<ISourceStore, FileSourceStore>();
+    services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
 }
