@@ -2,7 +2,6 @@
 // Author: Ondřej Ondryáš
 
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
-using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;

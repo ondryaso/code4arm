@@ -1,6 +1,7 @@
 // ISource.cs
 // Author: Ondřej Ondryáš
 
+using System.Collections.Generic;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -48,6 +49,19 @@ public interface ISource
     string this[Range range] { get; }
 
     /// <summary>
+    /// Returns a substring of the document's text on the position given by a line index.
+    /// </summary>
+    /// <param name="line">The line index to get text on.</param>
+    string this[int line] { get; }
+    
+    /// <summary>
+    /// Iterates through lines in the document's text.
+    /// Lines include newline characters converted to \n.
+    /// </summary>
+    /// <returns>An <see cref="IEnumerable{T}"/> of lines.</returns>
+    IEnumerable<string> GetLines();
+
+    /// <summary>
     /// Asynchronously determines and returns the current contents of the document.
     /// </summary>
     Task<string> GetTextAsync();
@@ -58,4 +72,22 @@ public interface ISource
     /// </summary>
     /// <param name="range">The range to get text in.</param>
     Task<string> GetTextAsync(Range range);
+
+    /// <summary>
+    /// Asynchronously determines and returns a substring of the document's text on the position given by a line index.
+    /// </summary>
+    /// <param name="line">The line index to get text on.</param>
+    Task<string> GetTextAsync(int line);
+    
+    /// <summary>
+    /// Asynchronously iterates through lines in the document's text.
+    /// Lines include newline characters converted to \n.
+    /// </summary>
+    /// <returns>An <see cref="IAsyncEnumerable{T}"/> of lines.</returns>
+    IAsyncEnumerable<string> GetLinesAsyncEnumerable();
+
+    bool SupportsSyncOperations { get; }
+    bool SupportsAsyncOperations { get; }
+    bool SupportsSyncLineIterator { get; }
+    bool SupportsAsyncLineIterator { get; }
 }

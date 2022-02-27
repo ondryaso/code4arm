@@ -48,9 +48,19 @@ public class FileSource : ISource
         }
     }
 
-    public string this[Range range]
+    public string this[Range range] => throw new NotImplementedException();
+
+    public string this[int line] => throw new NotImplementedException();
+
+    public IEnumerable<string> GetLines()
     {
-        get { throw new NotImplementedException(); }
+        using var reader = _fileInfo.OpenText();
+        while (!reader.EndOfStream)
+        {
+            var read = reader.ReadLine();
+            if (read == null) yield break;
+            yield return read;
+        }
     }
 
     public async Task<string> GetTextAsync()
@@ -69,7 +79,7 @@ public class FileSource : ISource
         {
             return string.Empty;
         }
-        
+
         using var reader = _fileInfo.OpenText();
         var sb = new StringBuilder();
 
@@ -106,18 +116,19 @@ public class FileSource : ISource
             {
                 firstLineLength = lineText.Length;
             }
-            
+
             if (line == endLine)
             {
                 // Append without newline at the end
                 sb.Append(lineText);
                 break;
             }
-            
+
             sb.AppendLine(lineText);
         }
 
-        if (startLine > line || endLine > line || range.Start.Character > firstLineLength || range.End.Character > lastLineLength)
+        if (startLine > line || endLine > line || range.Start.Character > firstLineLength ||
+            range.End.Character > lastLineLength)
         {
             throw new ArgumentException("Invalid range.", nameof(range));
         }
@@ -131,7 +142,37 @@ public class FileSource : ISource
         {
             sb.Remove(sb.Length - lastLineLength + range.End.Character, lastLineLength - range.End.Character);
         }
-        
+
         return sb.ToString();
     }
+
+    public async Task<string> GetTextAsync(int line)
+    {
+        using var reader = _fileInfo.OpenText();
+        var currentLine = 0;
+        while (!reader.EndOfStream)
+        {
+            var read = await reader.ReadLineAsync();
+            if (currentLine++ != line) continue;
+            return read ?? throw new ArgumentException("Invalid line.", nameof(line));
+        }
+
+        throw new ArgumentException("Invalid line.", nameof(line));
+    }
+
+    public async IAsyncEnumerable<string> GetLinesAsyncEnumerable()
+    {
+        using var reader = _fileInfo.OpenText();
+        while (!reader.EndOfStream)
+        {
+            var read = await reader.ReadLineAsync();
+            if (read == null) yield break;
+            yield return read;
+        }
+    }
+
+    public bool SupportsSyncOperations => false;
+    public bool SupportsAsyncOperations => true;
+    public bool SupportsSyncLineIterator => true;
+    public bool SupportsAsyncLineIterator => true;
 }

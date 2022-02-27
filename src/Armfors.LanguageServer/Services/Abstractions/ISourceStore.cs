@@ -25,6 +25,12 @@ public interface ISourceStore
     Task<ISource> GetDocument(DocumentUri uri);
 
     /// <summary>
+    /// Returns the preprocessed version of the currently valid representation of a managed document.
+    /// </summary>
+    /// <param name="uri">URI of the document.</param>
+    Task<IPreprocessedSource> GetPreprocessedDocument(DocumentUri uri);
+
+    /// <summary>
     /// Signalises that a document's content is not managed by the client anymore and its underlying representation
     /// (e.g. contents saved in the filesystem), which is the one <paramref name="uri"/> points to, represents the
     /// document's actual state now.

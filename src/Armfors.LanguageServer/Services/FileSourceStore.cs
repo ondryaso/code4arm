@@ -27,7 +27,7 @@ public class FileSourceStore : ISourceStore
         _fileSystem = fileSystem;
     }
 
-    public Task LoadDocument(TextDocumentItem document)
+    public async Task LoadDocument(TextDocumentItem document)
     {
         // First check for existence so that we don't construct a BufferedSource pointlessly
         if (_managedDocs.ContainsKey(document.Uri))
@@ -35,7 +35,12 @@ public class FileSourceStore : ISourceStore
             throw new InvalidOperationException("The file has already been opened.");
         }
 
-        var source = new BufferedSource(document.Uri, document.Text, document.Version);
+        var source = new BufferedSource(document.Uri, document.Version)
+        {
+            Text = document.Text
+        };
+
+        await source.PreprocessedSource.Preprocess(null);
 
         // This does a second existence check 
         if (!_managedDocs.TryAdd(document.Uri, source))
@@ -49,8 +54,6 @@ public class FileSourceStore : ISourceStore
         {
             unmanagedSource.IsValidRepresentation = false;
         }
-
-        return Task.CompletedTask;
     }
 
     public Task<ISource> GetDocument(DocumentUri uri)
@@ -65,6 +68,16 @@ public class FileSourceStore : ISourceStore
         }
     }
 
+    public Task<IPreprocessedSource> GetPreprocessedDocument(DocumentUri uri)
+    {
+        if (_managedDocs.TryGetValue(uri, out var source))
+        {
+            return Task.FromResult(source.PreprocessedSource as IPreprocessedSource);
+        }
+
+        throw new InvalidOperationException("Preprocessing is currently only available on managed sources.");
+    }
+
     public Task CloseDocument(DocumentUri uri)
     {
         if (!_managedDocs.TryRemove(uri, out var source))
@@ -72,7 +85,7 @@ public class FileSourceStore : ISourceStore
             throw new InvalidOperationException("The file is not opened.");
         }
 
-        source.IsValidRepresentation = false;
+        source.IsValidRepresentationInternal = false;
 
         // If we also have a FileSource representing the filesystem version of the document,
         // mark it as valid
@@ -89,7 +102,7 @@ public class FileSourceStore : ISourceStore
         return Task.FromResult(_managedDocs.ContainsKey(uri));
     }
 
-    public Task ApplyFullChange(DocumentUri uri, string text, int? version)
+    public async Task ApplyFullChange(DocumentUri uri, string text, int? version)
     {
         var source = this.GetSourceOrThrow(uri);
 
@@ -104,12 +117,12 @@ public class FileSourceStore : ISourceStore
         }
 
         source.Text = text;
-        source.Version = version;
+        source.VersionInternal = version;
 
-        return Task.CompletedTask;
+        await source.PreprocessedSource.Preprocess(null);
     }
 
-    public Task ApplyIncrementalChange(DocumentUri uri, Range range, string text, int? version)
+    public async Task ApplyIncrementalChange(DocumentUri uri, Range range, string text, int? version)
     {
         var source = this.GetSourceOrThrow(uri);
 
@@ -124,9 +137,9 @@ public class FileSourceStore : ISourceStore
         }
 
         source[range] = text;
-        source.Version = version;
+        source.VersionInternal = version;
 
-        return Task.CompletedTask;
+        await source.PreprocessedSource.Preprocess(range);
     }
 
     /// <summary>
