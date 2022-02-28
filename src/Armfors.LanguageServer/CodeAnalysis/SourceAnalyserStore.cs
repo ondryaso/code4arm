@@ -11,14 +11,16 @@ namespace Armfors.LanguageServer.CodeAnalysis;
 
 public class SourceAnalyserStore : ISourceAnalyserStore
 {
+    private readonly IInstructionProvider _instructionProvider;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ConcurrentDictionary<DocumentUri, SourceAnalyser> _analysers = new();
 
-    public SourceAnalyserStore(ILoggerFactory loggerFactory)
+    public SourceAnalyserStore(IInstructionProvider instructionProvider, ILoggerFactory loggerFactory)
     {
+        _instructionProvider = instructionProvider;
         _loggerFactory = loggerFactory;
     }
-    
+
     public ISourceAnalyser GetAnalyser(ISource source)
     {
         if (_analysers.TryGetValue(source.Uri, out var existing))
@@ -29,7 +31,9 @@ public class SourceAnalyserStore : ISourceAnalyserStore
             }
 
             // The cached analyser is not using the current version of the source
-            var newAnalyser = new SourceAnalyser(source, _loggerFactory.CreateLogger<SourceAnalyser>());
+            var newAnalyser = new SourceAnalyser(source, _instructionProvider,
+                _loggerFactory.CreateLogger<SourceAnalyser>());
+
             if (!_analysers.TryUpdate(source.Uri, newAnalyser, existing))
             {
                 // The analyser in the dictionary has changed in the meantime
@@ -40,7 +44,8 @@ public class SourceAnalyserStore : ISourceAnalyserStore
         }
         else
         {
-            var newAnalyser = new SourceAnalyser(source, _loggerFactory.CreateLogger<SourceAnalyser>());
+            var newAnalyser = new SourceAnalyser(source, _instructionProvider,
+                _loggerFactory.CreateLogger<SourceAnalyser>());
             if (!_analysers.TryAdd(source.Uri, newAnalyser))
             {
                 // The analyser in the dictionary has changed in the meantime

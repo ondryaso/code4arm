@@ -1,53 +1,124 @@
-// AnalysedLine.cs
-// Author: Ondřej Ondryáš
-
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
-public enum LineAnalysisState
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+
+public class AnalysedSpecifier
 {
-    Empty, // line empty, initial state
-    InvalidMnemonic, // no instruction matching the current text of the line
-    HasMatches, // there are one or more candidate mnemonics for the current text of the line
-    HasFullMatch, // the current text of the line corresponds to a mnemonic (there may be other matches)
-    ValidLine, // the line is terminated with valid contents
-    SetFlagsFlagLoaded, // there's a full match and the -S variant is used
-    PossibleConditionCode, // there's a full match and the user is possibly typing a condition code
-    ConditionCodeLoaded, // there's a full match and a condition code has been typed 
-    LoadingQualifierOrVectorDataType, // a mnemonic (incl. S or CC) has been recognised and the user typed a dot indicating either .W/.N or a vector data type
-    QualifierLoaded, // a .W/.N qualifier has been loaded, now only a vector data type specifier or a space/newline may follow
-    InvalidQualifierOrVectorDataType, // the text after a dot is not W/N (nor is it a vector data type)
-    NotVectorInstruction, // the mnemonic doesn't allow specifying vector data types
-    LoadingVectorDataType, // a qualifier was used and the user has typed another dot
-    VectorDataTypeLoaded, // a vector data type has been loaded (a qualifier may not be used now)
-    InvalidVectorDataType, // the string is not a valid vector data type
-    MnemonicLoaded, // a whole, valid mnemonic (including flags) has been loaded
-    OperandAnalysis, // operands are being accepted
-    InvalidOperands // the user is typing operands on a line with an instruction with no operands or they have ended the line when there should have been operands
+    public bool IsInstructionSizeQualifier { get; }
+    public bool IsVectorDataType { get; }
+
+    public bool IsComplete { get; }
+    public int VectorDataTypeIndex { get; } = -1;
+
+    /// <summary>
+    /// Determines whether this specifier is allowed at its position.
+    /// </summary>
+    public bool AllowedHere { get; }
+
+    /// <summary>
+    /// Determines the position of this specifier in the source text.
+    /// </summary>
+    public Range Range { get; }
+
+    public VectorDataType VectorDataType { get; } = VectorDataType.Unknown;
+    public InstructionSize InstructionSize { get; } = (InstructionSize)(-1);
+
+    /// <summary>
+    /// The actual textual representation of this specifier.
+    /// </summary>
+    public string Text { get; }
+
+    public AnalysedSpecifier(string text, Range range, VectorDataType vectorDataType, int vectorDataTypeIndex,
+        bool allowedHere = true)
+    {
+        this.AllowedHere = allowedHere;
+        this.VectorDataTypeIndex = vectorDataTypeIndex;
+        this.IsVectorDataType = true;
+        this.VectorDataType = vectorDataType;
+        this.Text = text;
+        this.Range = range;
+    }
+
+    public AnalysedSpecifier(string text, Range range, InstructionSize instructionSize, bool allowedHere = true)
+    {
+        this.AllowedHere = allowedHere;
+        this.IsInstructionSizeQualifier = true;
+        this.InstructionSize = instructionSize;
+        this.Text = text;
+        this.Range = range;
+    }
+
+    public AnalysedSpecifier(string text, Range range)
+    {
+        this.Text = text;
+        this.Range = range;
+        this.AllowedHere = false;
+        this.IsComplete = false;
+    }
 }
 
 public class AnalysedLine
 {
-    public int Line { get; private set; }
+    public int StartLine
+    {
+        get => this.Range.Start.Line;
+        set => this.Range.Start.Line = value;
+    }
+
+    public int EndLine
+    {
+        get => this.Range.End.Line;
+        set => this.Range.End.Line = value;
+    }
+
+    public int StartCharacter
+    {
+        get => this.Range.Start.Character;
+        set => this.Range.Start.Character = value;
+    }
+
+    public int EndCharacter
+    {
+        get => this.Range.End.Character;
+        set => this.Range.End.Character = value;
+    }
+
+    public Range Range { get; }
+    public bool IsWhitespace { get; internal set; }
 
     /// <summary>
-    /// The instruction doesn't allow the used vector data type.
+    /// Initializes the line with a range.
     /// </summary>
-    public bool UnsupportedVectorDataType { get; private set; }
+    internal AnalysedLine(int line, int startCharacter, int endCharacter, LineAnalysisState state)
+    {
+        this.Range = new Range(line, startCharacter, line, endCharacter);
+        this.State = state;
+    }
+
+    internal AnalysedLine(int line)
+    {
+        this.Range = new Range(line, 0, line, 0);
+    }
 
     /// <summary>
-    /// No mnemonic matches the line's text.
+    /// The current analysis state of this line.
     /// </summary>
-    public bool NoMatchingMnemonic { get; private set; }
+    public LineAnalysisState State { get; internal set; }
 
     /// <summary>
     /// Mnemonics matching the current line's text.
     /// </summary>
-    public IEnumerable<string> MatchingMnemonics { get; }
+    public List<InstructionVariant> MatchingMnemonics { get; internal set; } = new();
+
+    /// <summary>
+    /// No mnemonic matches the line's text.
+    /// </summary>
+    public bool NoMatchingMnemonic => this.MatchingMnemonics.Count == 0;
 
     /// <summary>
     /// The recognised mnemonic.
     /// </summary>
-    public string? Mnemonic { get; private set; }
+    public InstructionVariant? Mnemonic { get; internal set; }
 
     /// <summary>
     /// A valid mnemonic has been recognised.
@@ -56,23 +127,19 @@ public class AnalysedLine
 
     /// <summary>
     /// The line contains a valid mnemonic (including flags).
+    /// TODO
     /// </summary>
-    public bool MnemonicFinished { get; private set; }
-
-    /// <summary>
-    /// The line contains a valid instruction (including operands).
-    /// </summary>
-    public bool Finished { get; private set; }
-
+    public bool MnemonicFinished { get; internal set; }
+    
     /// <summary>
     /// The mnemonic describes the -S variant of an instruction that sets flags.
     /// </summary>
-    public bool SetsFlags { get; private set; }
+    public bool SetsFlags { get; internal set; }
 
     /// <summary>
     /// The instruction's condition code.
     /// </summary>
-    public string? ConditionCode { get; private set; }
+    public ConditionCode? ConditionCode { get; internal set; }
 
     /// <summary>
     /// The mnemonic describes a conditionally executed instruction.
@@ -82,20 +149,28 @@ public class AnalysedLine
     /// <summary>
     /// A condition code has been provided but this instruction does not support it.
     /// </summary>
-    public bool CannotBeConditional { get; private set; }
+    public bool CannotBeConditional { get; internal set; }
 
     /// <summary>
     /// An S-suffixed variant of a mnemonic has been used but the instruction does not support settings flags.
     /// </summary>
-    public bool CannotSetFlags { get; private set; }
+    public bool CannotSetFlags { get; internal set; }
 
     /// <summary>
     /// Operands were used but the instruction does not support them.
     /// </summary>
-    public bool NoOperandsAllowed { get; private set; }
+    public bool NoOperandsAllowed { get; internal set; }
 
     /// <summary>
     /// Operands are required and they are missing.
     /// </summary>
-    public bool MissingOperands { get; private set; }
+    public bool MissingOperands { get; internal set; }
+
+    public Range? MnemonicRange { get; internal set; }
+    public Range? SetFlagsRange { get; internal set; }
+    public Range? ConditionCodeRange { get; internal set; }
+
+    public List<Range>? OperandRanges { get; internal set; }
+
+    public List<AnalysedSpecifier> Specifiers { get; internal set; }
 }
