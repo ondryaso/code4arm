@@ -21,7 +21,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 
     private readonly Regex _multiLineCommentsRegex = new(@"\/\*(?:.|\s)*?\*\/", RegexOptions.Compiled);
     private readonly Regex _multipleSpacesRegex = new(@"[ \t]{2,}", RegexOptions.Compiled);
-    private readonly Regex _emptyLinesRegex = new(@"$\n^[ \t]*$", RegexOptions.Compiled | RegexOptions.Multiline);
+    private readonly Regex _emptyLinesRegex = new(@"\n(?:\s*\n)+", RegexOptions.Compiled);
 
     internal Task Preprocess(Range? modifiedRange)
     {
@@ -36,7 +36,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
         // Replace multiple consecutive whitespaces with a single space
         _text = _multipleSpacesRegex.Replace(_text, " ");
         // Get rid of all empty lines, take note of lines that have been shifted as a result
-        _text = _emptyLinesRegex.Replace(_text, match => match.Result(string.Empty));
+        _text = _emptyLinesRegex.Replace(_text, match => match.Result("\n"));
         
         return Task.CompletedTask;
     }
@@ -65,6 +65,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 
     public Range GetPreprocessedRange(Range originalRange)
     {
+        
         throw new NotImplementedException();
     }
 }
