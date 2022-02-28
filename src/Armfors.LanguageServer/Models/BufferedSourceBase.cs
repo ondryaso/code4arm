@@ -1,6 +1,7 @@
 // BufferedSourceBase.cs
 // Author: Ondřej Ondryáš
 
+using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Models.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -23,8 +24,8 @@ public abstract class BufferedSourceBase : ISource
     {
         get
         {
-            var start = GetIndexForPosition(this.Text, range.Start);
-            var end = GetIndexForPosition(this.Text, range.End);
+            var start = this.Text.GetIndexForPosition(range.Start);
+            var end = this.Text.GetIndexForPosition(range.End);
 
             if (start == -1 || end == -1) throw new ArgumentException("Invalid range.", nameof(range));
 
@@ -33,8 +34,8 @@ public abstract class BufferedSourceBase : ISource
 
         internal set
         {
-            var start = GetIndexForPosition(this.Text, range.Start);
-            var end = GetIndexForPosition(this.Text, range.End);
+            var start = this.Text.GetIndexForPosition(range.Start);
+            var end = this.Text.GetIndexForPosition(range.End);
 
             if (start == -1 || end == -1) throw new ArgumentException("Invalid range.", nameof(range));
 
@@ -46,8 +47,8 @@ public abstract class BufferedSourceBase : ISource
     {
         get
         {
-            var start = GetIndexForPosition(this.Text, line, 0);
-            var end = GetIndexForPosition(this.Text, line + 1, 0);
+            var start = this.Text.GetIndexForPosition(line, 0);
+            var end = this.Text.GetIndexForPosition(line + 1, 0);
 
             if (start == -1 || end == -1) throw new ArgumentException("Invalid line.", nameof(line));
 
@@ -103,56 +104,4 @@ public abstract class BufferedSourceBase : ISource
     public bool SupportsAsyncOperations => true;
     public bool SupportsSyncLineIterator => true;
     public bool SupportsAsyncLineIterator => true;
-
-    /// <summary>
-    /// Returns an index in a text corresponding to a given position in this text.
-    /// </summary>
-    /// <param name="text">The text.</param>
-    /// <param name="line">Index of the line to get text index in.</param>
-    /// <param name="character">Index of the character relative to the given line.</param>
-    /// <returns>The index in <paramref name="text"/> or -1 if <paramref name="character"/> is higher
-    /// than the length of the corresponding line in the text.</returns>
-    protected static int GetIndexForPosition(string text, int line, int character)
-    {
-        var pos = 0;
-        for (var i = 0; i < line; i++)
-        {
-            if (pos > text.Length)
-            {
-                return -1;
-            }
-
-            pos = text.IndexOf('\n', pos) + 1;
-
-            if (pos == 0)
-            {
-                // End of file with no terminating \n reached
-                return character == 0 ? text.Length : -1;
-            }
-        }
-
-        var nextLineEndPosition = text.IndexOf('\n', pos);
-        if (nextLineEndPosition == -1)
-        {
-            // No \n at the end of the last line
-            nextLineEndPosition = text.Length;
-        }
-
-        if (pos + character > nextLineEndPosition)
-        {
-            return -1;
-        }
-
-        return pos + character;
-    }
-
-    /// <summary>
-    /// Returns an index in a text corresponding to a given <see cref="Position"/> in this text.
-    /// </summary>
-    /// <param name="text">The text.</param>
-    /// <param name="position">The position to get text index for.</param>
-    /// <returns>The index in <paramref name="text"/> or -1 if the position's <see cref="Position.Character"/> is higher
-    /// than the length of the corresponding line in the text.</returns>
-    protected static int GetIndexForPosition(string text, Position position)
-        => GetIndexForPosition(text, position.Line, position.Character);
 }
