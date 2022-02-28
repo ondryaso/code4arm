@@ -2,8 +2,10 @@
 // Author: Ondřej Ondryáš
 
 using System.Text.RegularExpressions;
+using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Models.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.Models;
@@ -16,6 +18,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
         _text = string.Empty;
     }
 
+    // The negative look-ahead at the beginning stops this regex from matching *//* 
     private readonly Regex _singleLineCommentsRegex =
         new(@"(?:(?!\*)\/\/(?!\*)|@).*$", RegexOptions.Compiled | RegexOptions.Multiline);
 
@@ -23,21 +26,140 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
     private readonly Regex _multipleSpacesRegex = new(@"[ \t]{2,}", RegexOptions.Compiled);
     private readonly Regex _emptyLinesRegex = new(@"\n(?:\s*\n)+", RegexOptions.Compiled);
 
+
+    private enum ReplacementType
+    {
+        OneLine,
+        BlockComment,
+        EmptyLines
+    }
+
+    private struct Replacement
+    {
+        public ReplacementType Type;
+        public Range? FirstLineReplacedRange;
+        public Range? LastLineReplacedRange;
+        public int FirstLineIndex;
+        public int LinesCut;
+
+        public Replacement(Range replacedRange)
+        {
+            FirstLineReplacedRange = replacedRange;
+            Type = ReplacementType.OneLine;
+            FirstLineIndex = replacedRange.Start.Line;
+
+            LastLineReplacedRange = null;
+            LinesCut = 0;
+        }
+
+        public Replacement(Range firstLineRange, Range lastLineRange)
+        {
+            Type = ReplacementType.BlockComment;
+            FirstLineReplacedRange = firstLineRange;
+            LastLineReplacedRange = lastLineRange;
+            FirstLineIndex = firstLineRange.Start.Line;
+            LinesCut = lastLineRange.Start.Line - FirstLineIndex;
+        }
+
+        public Replacement(int firstLineIndex, int linesCut)
+        {
+            Type = ReplacementType.EmptyLines;
+            FirstLineIndex = firstLineIndex;
+            LinesCut = linesCut;
+
+            FirstLineReplacedRange = LastLineReplacedRange = null;
+        }
+    }
+
+    private List<Replacement> _replacements = new();
+
+    private Range GetRangeForMatch(Match match, string? text = null)
+    {
+        text ??= _text;
+
+        var startPosition = text.GetPositionForIndex(match.Index);
+        var endPosition = text.GetPositionForIndex(match.Index + match.Length - 1);
+        return new Range(startPosition, endPosition);
+    }
+
     internal Task Preprocess(Range? modifiedRange)
     {
         // TODO: Use ranges
 
         // The order here is important
         _text = this.BaseSource.Text;
-        // Replace single-line comments with a single space
-        _text = _singleLineCommentsRegex.Replace(_text, " ");
-        // Replace multi-line comments with a single space, take note of lines that have been shifted as a result
-        _text = _multiLineCommentsRegex.Replace(_text, match => match.Result(" "));
+
+        // Replace single-line comments with a single space.
+        // There may only be one comment per line and the operation doesn't consume lines so determining all the ranges
+        // on the original text is ok (unlike in the next steps).
+        _text = _singleLineCommentsRegex.Replace(_text, match =>
+        {
+            _replacements.Add(new Replacement(this.GetRangeForMatch(match)));
+            return " ";
+        });
+
+        // Replace multi-line comments with a single space, take note of lines that have been shifted as a result.
+        // The replacements are evaluated one-by-one so it's necessary to calculate them on the versions of text
+        // resulting from their previous replacements.
+        Match? lastMatch = null;
+        while (true)
+        {
+            var newText = _multiLineCommentsRegex.Replace(_text, match =>
+            {
+                lastMatch = match;
+                return " ";
+            }, 1, (lastMatch?.Index - lastMatch?.Length) ?? 0);
+
+            if (lastMatch == null) break;
+            if (newText == _text) break;
+
+            var newLineIndex = lastMatch.Value.IndexOf('\n');
+            if (newLineIndex == -1)
+            {
+                var firstLineRange = this.GetRangeForMatch(lastMatch);
+                _replacements.Add(new Replacement(firstLineRange));
+            }
+            else
+            {
+                var firstLineRange = new Range(_text.GetPositionForIndex(lastMatch.Index),
+                    _text.GetPositionForIndex(lastMatch.Index + newLineIndex));
+
+                var endPosition = _text.GetPositionForIndex(lastMatch.Index + lastMatch.Length - 1);
+                var lastLineRange = new Range(endPosition.Line, 0, endPosition.Line, endPosition.Character);
+                _replacements.Add(new Replacement(firstLineRange, lastLineRange));
+            }
+
+            _text = newText;
+        }
+
         // Replace multiple consecutive whitespaces with a single space
-        _text = _multipleSpacesRegex.Replace(_text, " ");
+        _text = _multipleSpacesRegex.Replace(_text, match =>
+        {
+            _replacements.Add(new Replacement(this.GetRangeForMatch(match)));
+            return " ";
+        });
+
         // Get rid of all empty lines, take note of lines that have been shifted as a result
-        _text = _emptyLinesRegex.Replace(_text, match => match.Result("\n"));
-        
+        lastMatch = null;
+        while (true)
+        {
+            var newText = _emptyLinesRegex.Replace(_text, match =>
+            {
+                lastMatch = match;
+                return "\n";
+            }, 1, (lastMatch?.Index - lastMatch?.Length) ?? 0);
+
+            if (lastMatch == null) break;
+            if (newText == _text) break;
+
+            var position = _text.GetPositionForIndex(lastMatch.Index);
+
+            var replacement = new Replacement(position.Line, lastMatch.Value.Count(a => a == '\n') - 1);
+            _replacements.Add(replacement);
+
+            _text = newText;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -65,7 +187,60 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 
     public Range GetPreprocessedRange(Range originalRange)
     {
-        
-        throw new NotImplementedException();
+        var startPos = new Position(originalRange.Start.Line, originalRange.Start.Character);
+        var endPos = new Position(originalRange.End.Line, originalRange.End.Character);
+
+        foreach (var replacement in _replacements)
+        {
+            if (replacement.Type is ReplacementType.BlockComment or ReplacementType.OneLine)
+            {
+                if (replacement.FirstLineReplacedRange == null)
+                    throw new Exception(); // TODO
+
+                if (replacement.FirstLineReplacedRange.Contains(startPos))
+                {
+                    startPos = replacement.FirstLineReplacedRange.Start;
+                }
+
+                if (replacement.FirstLineReplacedRange.Contains(endPos))
+                {
+                    endPos = replacement.FirstLineReplacedRange.Start;
+                }
+            }
+
+            if (replacement.Type is ReplacementType.BlockComment or ReplacementType.EmptyLines)
+            {
+                // TODO: Nestačí to tady jen odečíst, nefunguje, pokud je zdrojová pozice uvnitř té smazané části
+                // řešení: ukládat celý smazaný range a nějak to spočítat? 
+                
+                if (startPos.Line > replacement.FirstLineIndex)
+                {
+                    startPos.Line -= replacement.LinesCut;
+                }
+
+                if (endPos.Line > replacement.FirstLineIndex)
+                {
+                    endPos.Line -= replacement.LinesCut;
+                }
+            }
+
+            if (replacement.Type == ReplacementType.BlockComment)
+            {
+                if (replacement.LastLineReplacedRange == null)
+                    throw new Exception(); // TODO
+
+                if (replacement.LastLineReplacedRange.Contains(startPos))
+                {
+                    startPos = replacement.LastLineReplacedRange.End;
+                }
+
+                if (replacement.LastLineReplacedRange.Contains(endPos))
+                {
+                    endPos = replacement.LastLineReplacedRange.End;
+                }
+            }
+        }
+
+        return new Range(startPos, endPos);
     }
 }
