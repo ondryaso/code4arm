@@ -71,7 +71,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
         }
     }
 
-    private List<Replacement> _replacements = new();
+    private readonly List<Replacement> _replacements = new();
 
     private Range GetRangeForMatch(Match match, string? text = null)
     {
@@ -108,7 +108,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
             {
                 lastMatch = match;
                 return " ";
-            }, 1, (lastMatch?.Index - lastMatch?.Length) ?? 0);
+            }, 1, (lastMatch?.Index + 1) ?? 0);
 
             if (lastMatch == null) break;
             if (newText == _text) break;
@@ -147,7 +147,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
             {
                 lastMatch = match;
                 return "\n";
-            }, 1, (lastMatch?.Index - lastMatch?.Length) ?? 0);
+            }, 1, (lastMatch?.Index + 1) ?? 0);
 
             if (lastMatch == null) break;
             if (newText == _text) break;
@@ -182,7 +182,75 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 
     public Range GetOriginalRange(Range preprocessedRange)
     {
-        throw new NotImplementedException();
+        var startPos = new Position(preprocessedRange.Start.Line, preprocessedRange.Start.Character);
+        var endPos = new Position(preprocessedRange.End.Line, preprocessedRange.End.Character);
+
+        foreach (var replacement in Enumerable.Reverse(_replacements))
+        {
+            if (replacement.Type == ReplacementType.OneLine)
+            {
+                if (replacement.FirstLineReplacedRange == null)
+                    throw new Exception();
+
+                // PrepRange starts on the line with replacement, after the replacement
+                // -> shift it to the right
+                if (replacement.FirstLineIndex == startPos.Line &&
+                    startPos.Character > replacement.FirstLineReplacedRange.Start.Character)
+                {
+                    var offset = replacement.FirstLineReplacedRange.End.Character -
+                                 replacement.FirstLineReplacedRange.Start.Character;
+
+
+                    startPos.Character += offset;
+                }
+
+                if (replacement.FirstLineIndex == endPos.Line &&
+                    endPos.Character > replacement.FirstLineReplacedRange.Start.Character)
+                {
+                    var offset = replacement.FirstLineReplacedRange.End.Character -
+                                 replacement.FirstLineReplacedRange.Start.Character;
+
+                    endPos.Character += offset;
+                }
+            }
+            
+            if (replacement.Type == ReplacementType.EmptyLines)
+            {
+                if (startPos.Line > replacement.FirstLineIndex)
+                {
+                    startPos.Line += replacement.LinesCut;
+                }
+
+                if (endPos.Line > replacement.FirstLineIndex)
+                {
+                    endPos.Line += replacement.LinesCut;
+                }
+            }
+            
+            if (replacement.Type == ReplacementType.BlockComment)
+            {
+                if (replacement.FirstLineReplacedRange == null || replacement.LastLineReplacedRange == null)
+                    throw new Exception();
+
+                if (replacement.FirstLineIndex == startPos.Line &&
+                    startPos.Character > replacement.FirstLineReplacedRange.Start.Character)
+                {
+                    var offset = startPos.Character - replacement.FirstLineReplacedRange.Start.Character;
+                    startPos.CopyFrom(replacement.LastLineReplacedRange.End);
+                    startPos.Character += offset;
+                }
+                
+                if (replacement.FirstLineIndex == endPos.Line &&
+                    endPos.Character >= replacement.FirstLineReplacedRange.Start.Character)
+                {
+                    var offset = endPos.Character - replacement.FirstLineReplacedRange.Start.Character;
+                    endPos.CopyFrom(replacement.LastLineReplacedRange.End);
+                    endPos.Character += offset;
+                }
+            }
+        }
+
+        return new Range(startPos, endPos);
     }
 
     public Range GetPreprocessedRange(Range originalRange)
@@ -195,16 +263,43 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
             if (replacement.Type is ReplacementType.BlockComment or ReplacementType.OneLine)
             {
                 if (replacement.FirstLineReplacedRange == null)
-                    throw new Exception(); // TODO
+                    throw new Exception();
 
                 if (replacement.FirstLineReplacedRange.Contains(startPos))
                 {
-                    startPos = replacement.FirstLineReplacedRange.Start;
+                    startPos.CopyFrom(replacement.FirstLineReplacedRange.Start);
                 }
 
                 if (replacement.FirstLineReplacedRange.Contains(endPos))
                 {
-                    endPos = replacement.FirstLineReplacedRange.Start;
+                    endPos.CopyFrom(replacement.FirstLineReplacedRange.Start);
+                }
+                else if (replacement.FirstLineIndex == endPos.Line &&
+                         endPos.Character > replacement.FirstLineReplacedRange.End.Character)
+                {
+                    endPos.Character -= replacement.FirstLineReplacedRange.End.Character -
+                                        replacement.FirstLineReplacedRange.Start.Character;
+                }
+            }
+
+            if (replacement.Type == ReplacementType.BlockComment)
+            {
+                if (replacement.LastLineReplacedRange == null || replacement.FirstLineReplacedRange == null)
+                    throw new Exception();
+
+                if (replacement.LastLineReplacedRange.Contains(startPos))
+                {
+                    startPos.CopyFrom(replacement.LastLineReplacedRange.End);
+                }
+
+                if (replacement.LastLineReplacedRange.Contains(endPos))
+                {
+                    endPos.CopyFrom(replacement.LastLineReplacedRange.End);
+                }
+                else if (replacement.LastLineReplacedRange.End.Line == endPos.Line)
+                {
+                    endPos.Character = replacement.FirstLineReplacedRange.Start.Character
+                                       + (endPos.Character - replacement.LastLineReplacedRange.End.Character);
                 }
             }
 
@@ -212,7 +307,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
             {
                 // TODO: Nestačí to tady jen odečíst, nefunguje, pokud je zdrojová pozice uvnitř té smazané části
                 // řešení: ukládat celý smazaný range a nějak to spočítat? 
-                
+
                 if (startPos.Line > replacement.FirstLineIndex)
                 {
                     startPos.Line -= replacement.LinesCut;
@@ -221,22 +316,6 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                 if (endPos.Line > replacement.FirstLineIndex)
                 {
                     endPos.Line -= replacement.LinesCut;
-                }
-            }
-
-            if (replacement.Type == ReplacementType.BlockComment)
-            {
-                if (replacement.LastLineReplacedRange == null)
-                    throw new Exception(); // TODO
-
-                if (replacement.LastLineReplacedRange.Contains(startPos))
-                {
-                    startPos = replacement.LastLineReplacedRange.End;
-                }
-
-                if (replacement.LastLineReplacedRange.Contains(endPos))
-                {
-                    endPos = replacement.LastLineReplacedRange.End;
                 }
             }
         }
