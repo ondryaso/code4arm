@@ -116,21 +116,21 @@ public class AnalysedLine
     public bool NoMatchingMnemonic => this.MatchingMnemonics.Count == 0;
 
     /// <summary>
-    /// The recognised mnemonic.
+    /// The recognised mnemonic (a full match).
     /// </summary>
     public InstructionVariant? Mnemonic { get; internal set; }
 
     /// <summary>
-    /// A valid mnemonic has been recognised.
+    /// A valid mnemonic has been recognised (<see cref="Mnemonic"/> is not null).
     /// </summary>
-    public bool MnemonicRecognised => this.Mnemonic != null;
+    public bool HasMnemonicMatch => this.Mnemonic != null;
 
     /// <summary>
-    /// The line contains a valid mnemonic (including flags).
-    /// TODO
+    /// The line contains a mnemonic terminated with a whitespace.
+    /// Flags have been read (or there isn't any).
     /// </summary>
     public bool MnemonicFinished { get; internal set; }
-    
+
     /// <summary>
     /// The mnemonic describes the -S variant of an instruction that sets flags.
     /// </summary>
@@ -141,10 +141,29 @@ public class AnalysedLine
     /// </summary>
     public ConditionCode? ConditionCode { get; internal set; }
 
+    public bool HasUnterminatedConditionCode { get; internal set; }
+    public bool HasInvalidConditionCode { get; internal set; }
+
     /// <summary>
-    /// The mnemonic describes a conditionally executed instruction.
+    /// The mnemonic describes a conditionally executed instruction (with valid loaded condition code).
     /// </summary>
+    /// <remarks>
+    /// This is equal to <see cref="ConditionCode"/> having a value.
+    /// </remarks>
     public bool IsConditional => this.ConditionCode != null;
+
+    /// <summary>
+    /// The mnemonic contains a condition code (either valid or invalid).
+    /// </summary>
+    /// <remarks>
+    /// This is equal to <see cref="ConditionCodeRange"/> having a value, or to one of <see cref="IsConditional"/>,
+    /// <see cref="HasInvalidConditionCode"/>, <see cref="HasUnterminatedConditionCode"/> or <see cref="CannotBeConditional"/> being true.
+    /// </remarks>
+    /// <example>
+    /// Suppose there's an unconditional instruction 'ABC' and a possibly conditional 'XYZ'.
+    /// This would be true for: XYZEQ, XYZE, XYZEX, ABCEQ, ABCEQ, ABCE, ABCEX.
+    /// </example>
+    public bool HasConditionCodePart => this.ConditionCodeRange != null;
 
     /// <summary>
     /// A condition code has been provided but this instruction does not support it.
@@ -172,5 +191,5 @@ public class AnalysedLine
 
     public List<Range>? OperandRanges { get; internal set; }
 
-    public List<AnalysedSpecifier> Specifiers { get; internal set; }
+    public List<AnalysedSpecifier> Specifiers { get; internal set; } = new();
 }

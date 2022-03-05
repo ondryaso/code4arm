@@ -61,7 +61,9 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
         var source = await _sourceStore.GetDocument(request.TextDocument.Uri);
-        var analyser = _analyserStore.GetAnalyser(source);
+        var preprocessedSource = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
+        
+        var analyser = _analyserStore.GetAnalyser(preprocessedSource);
 
         foreach (var change in request.ContentChanges)
         {

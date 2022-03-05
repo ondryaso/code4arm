@@ -27,6 +27,9 @@ public static class ArmSemanticTokenType
 
     /// A vector data type flag.
     public static readonly SemanticTokenType VectorDataType = new("vector_data_type");
+    
+    /// An instruction size qualifier (.W/.N).
+    public static readonly SemanticTokenType InstructionSizeQualifier = new("instruction_size_qualifier");
 }
 
 /// <summary>

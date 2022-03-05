@@ -23,7 +23,7 @@ Log.Logger = new LoggerConfiguration()
 #else
     .WriteTo.Debug()
 #endif
-    .MinimumLevel.Verbose()
+    .MinimumLevel.Warning()
     .CreateLogger();
 
 #if USE_SOCKETS
@@ -69,5 +69,7 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton(Mock.Of<ITokenizer>());
     services.AddSingleton<IFileSystem, FileSystem>();
     services.AddSingleton<ISourceStore, FileSourceStore>();
+    services.AddSingleton<IInstructionProvider, InstructionProvider>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
+    services.AddSingleton<ITokenizer, Tokenizer>();
 }

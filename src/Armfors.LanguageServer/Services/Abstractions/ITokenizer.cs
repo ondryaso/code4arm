@@ -8,5 +8,5 @@ namespace Armfors.LanguageServer.Services.Abstractions;
 
 public interface ITokenizer
 {
-    void Tokenize(DocumentUri document, SemanticTokensBuilder builder);
+    Task Tokenize(DocumentUri document, SemanticTokensBuilder builder);
 }

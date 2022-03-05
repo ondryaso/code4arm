@@ -15,7 +15,7 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
     {
         ArmSemanticTokenType.Instruction, ArmSemanticTokenType.Directive, ArmSemanticTokenType.Register,
         ArmSemanticTokenType.ConditionCode, ArmSemanticTokenType.SetsFlagsFlag, ArmSemanticTokenType.VectorDataType,
-        SemanticTokenType.Label, SemanticTokenType.Method
+        ArmSemanticTokenType.InstructionSizeQualifier, SemanticTokenType.Label, SemanticTokenType.Method
     };
 
     private static readonly SemanticTokenModifier[] UsedTokenModifiers = new[]
@@ -31,12 +31,10 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
         _tokenizer = tokenizer;
     }
 
-    protected override Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier,
+    protected override async Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier,
         CancellationToken cancellationToken)
     {
-        builder.Push(0, 0, 4, ArmSemanticTokenType.Instruction, ArmSemanticTokenModifier.SetsFlags);
-        _tokenizer.Tokenize(identifier.TextDocument.Uri, builder);
-        return Task.CompletedTask;
+        await _tokenizer.Tokenize(identifier.TextDocument.Uri, builder);
     }
 
     protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(ITextDocumentIdentifierParams @params,

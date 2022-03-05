@@ -20,9 +20,15 @@ public interface ISourceAnalyser
     Task TriggerFullAnalysis();
 
     /// <summary>
-    /// Requests current analysis for a specific line.
+    /// Returns the last analysis result for a specific line.
     /// </summary>
     /// <param name="line">Number of the line to analyse.</param>
     /// <returns>An analysis result.</returns>
-    Task<AnalysedLine> GetLineAnalysis(int line);
+    AnalysedLine GetLineAnalysis(int line);
+
+    /// <summary>
+    /// Returns the last analysis results for all lines.
+    /// </summary>
+    /// <returns>An enumerable of analysis results.</returns>
+    IEnumerable<AnalysedLine> GetLineAnalyses();
 }
