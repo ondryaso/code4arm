@@ -23,12 +23,25 @@ public interface ISourceAnalyser
     /// Returns the last analysis result for a specific line.
     /// </summary>
     /// <param name="line">Number of the line to analyse.</param>
-    /// <returns>An analysis result.</returns>
-    AnalysedLine GetLineAnalysis(int line);
+    /// <returns>An analysis result or null if such line does not exist..</returns>
+    AnalysedLine? GetLineAnalysis(int line);
 
     /// <summary>
     /// Returns the last analysis results for all lines.
     /// </summary>
     /// <returns>An enumerable of analysis results.</returns>
     IEnumerable<AnalysedLine> GetLineAnalyses();
+
+    /// <summary>
+    /// Returns an enumerable of labels found in the last analysis.
+    /// </summary>
+    /// <returns>An enumerable of <see cref="AnalysedLabel"/> objects with details of labels.</returns>
+    IEnumerable<AnalysedLabel> GetLabels();
+
+    /// <summary>
+    /// Returns an <see cref="AnalysedLabel"/> with details of a label.
+    /// </summary>
+    /// <param name="name">The label.</param>
+    /// <returns>An <see cref="AnalysedLabel"/> or null if such label does not exist.</returns>
+    AnalysedLabel? GetLabel(string name);
 }

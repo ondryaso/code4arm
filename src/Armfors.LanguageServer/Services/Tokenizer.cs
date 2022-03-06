@@ -36,9 +36,21 @@ public class Tokenizer : ITokenizer
         var analyser = _sourceAnalyserStore.GetAnalyser(prepSource);
         var modifiers = new List<SemanticTokenModifier>();
 
+        Log.Warning("Builder HC: {Hc}", builder.GetHashCode());
+
         await analyser.TriggerFullAnalysis();
         foreach (var analysis in analyser.GetLineAnalyses())
         {
+            foreach (var label in analysis.Labels)
+            {
+                if (label.Range.Start.Line != analysis.LineIndex)
+                    continue;
+
+                Log.Warning("P LAB {R}", prepSource.GetOriginalRange(label.Range));
+                builder.Push(prepSource.GetOriginalRange(label.Range), SemanticTokenType.Label,
+                    Enumerable.Empty<SemanticTokenModifier>());
+            }
+
             if (!analysis.HasMnemonicMatch)
             {
                 continue;
@@ -61,20 +73,24 @@ public class Tokenizer : ITokenizer
                 modifiers.Add(ArmSemanticTokenModifier.VectorInstruction);
             }
 
-            Log.Warning("P MN {R}", analysis.MnemonicRange);
-            builder.Push(analysis.MnemonicRange!, ArmSemanticTokenType.Instruction, modifiers);
+            Log.Warning("P MN [{L}] {O} -> {R}", analysis.LineIndex, analysis.MnemonicRange,
+                prepSource.GetOriginalRange(analysis.MnemonicRange!));
+
+            builder.Push(prepSource.GetOriginalRange(analysis.MnemonicRange!), ArmSemanticTokenType.Instruction,
+                modifiers);
 
             if (analysis.SetFlagsRange != null)
             {
-                Log.Warning("P SF {R}", analysis.SetFlagsRange);
-                builder.Push(analysis.SetFlagsRange, ArmSemanticTokenType.SetsFlagsFlag,
+                Log.Warning("P SF {R}", prepSource.GetOriginalRange(analysis.SetFlagsRange));
+                builder.Push(prepSource.GetOriginalRange(analysis.SetFlagsRange), ArmSemanticTokenType.SetsFlagsFlag,
                     Enumerable.Empty<SemanticTokenModifier>());
             }
 
             if (analysis.ConditionCodeRange != null)
             {
-                Log.Warning("P CC {R}", analysis.ConditionCodeRange);
-                builder.Push(analysis.ConditionCodeRange, ArmSemanticTokenType.ConditionCode,
+                Log.Warning("P CC {R}", prepSource.GetOriginalRange(analysis.ConditionCodeRange));
+                builder.Push(prepSource.GetOriginalRange(analysis.ConditionCodeRange),
+                    ArmSemanticTokenType.ConditionCode,
                     Enumerable.Empty<SemanticTokenModifier>());
             }
 
@@ -82,7 +98,7 @@ public class Tokenizer : ITokenizer
             {
                 if (specifier.IsComplete)
                 {
-                    builder.Push(specifier.Range,
+                    builder.Push(prepSource.GetOriginalRange(specifier.Range),
                         specifier.IsInstructionSizeQualifier
                             ? ArmSemanticTokenType.InstructionSizeQualifier
                             : ArmSemanticTokenType.VectorDataType,

@@ -4,6 +4,7 @@
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Models.Abstractions;
+using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.Logging;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -13,17 +14,24 @@ public class SourceAnalyser : ISourceAnalyser
 {
     private readonly ISource _source;
     private readonly IInstructionProvider _instructionProvider;
+    private readonly IDiagnosticsPublisher _diagnosticsPublisher;
     private readonly ILogger<SourceAnalyser> _logger;
-    private readonly Dictionary<int, AnalysedLine> _lineCache = new();
+
     private readonly SemaphoreSlim _analysisSemaphore = new(1);
+
+    private Dictionary<int, AnalysedLine>? _analysisResultLines;
+    private Dictionary<string, AnalysedLabel>? _analysisResultLabels;
+
     public ISource Source => _source;
 
     private int _analysedVersion = -1;
 
-    internal SourceAnalyser(ISource source, IInstructionProvider instructionProvider, ILogger<SourceAnalyser> logger)
+    internal SourceAnalyser(ISource source, IInstructionProvider instructionProvider,
+        IDiagnosticsPublisher diagnosticsPublisher, ILogger<SourceAnalyser> logger)
     {
         _source = source;
         _instructionProvider = instructionProvider;
+        _diagnosticsPublisher = diagnosticsPublisher;
         _logger = logger;
     }
 
@@ -48,61 +56,106 @@ public class SourceAnalyser : ISourceAnalyser
             // TODO: check and use async variants
             var enumerable = _source.GetLines();
 
-            _sourcePosition = 0;
-            _lineIndex = 0;
+            _lineIndex = -1;
+            _state = LineAnalysisState.Empty;
 
-            _lineCache.Clear();
+            var capacity = _analysisResultLines != null
+                ? _analysisResultLines.Count + (_analysisResultLines.Count >> 2)
+                : 16;
+
+            var newLineCache =
+                new Dictionary<int, AnalysedLine>(capacity);
+            var newLabels = new Dictionary<string, AnalysedLabel>(_analysisResultLabels?.Count ?? 4);
+            var labelsStart = -1;
+
             foreach (var line in enumerable)
             {
                 await this.AnalyseNextLine(line);
-                _lineCache.Add(_lineIndex - 1, _currentLine);
+                newLineCache.Add(_lineIndex, _currentLine!);
+
+                if (labelsStart == -1 && _currentLine!.State == LineAnalysisState.Blank && _labelsToAppend.Count > 0)
+                {
+                    labelsStart = _lineIndex;
+                }
+                else if (_currentLine!.State != LineAnalysisState.Blank && _labelsToAppend.Count > 0)
+                {
+                    foreach (var label in _labelsToAppend)
+                    {
+                        var isAlreadyDefined = newLabels.TryGetValue(label.Label, out var alreadyDefined);
+
+                        var populatedLabel = label with
+                        {
+                            PointsTo = _currentLine,
+                            RedefinedFrom = isAlreadyDefined ? alreadyDefined.Range.Start.Line : null
+                        };
+
+                        _currentLine.Labels.Add(populatedLabel);
+                        if (labelsStart != -1)
+                        {
+                            for (var i = labelsStart; i < _lineIndex; i++)
+                            {
+                                newLineCache[i].Labels.Add(populatedLabel);
+                            }
+                        }
+                    }
+
+                    _labelsToAppend.Clear();
+                    labelsStart = -1;
+                }
             }
 
             _analysedVersion = _source.Version ?? -1;
+            _analysisResultLines = newLineCache;
+            _analysisResultLabels = newLabels;
         }
         finally
         {
             _analysisSemaphore.Release();
         }
+
+        await _diagnosticsPublisher.PublishAnalysisResult(this, _source.Uri, _analysedVersion).ConfigureAwait(false);
     }
 
-    public async Task TriggerLineAnalysis(int line, bool added)
+    public Task TriggerLineAnalysis(int line, bool added)
     {
-        await this.TriggerFullAnalysis();
+        // TODO
+        throw new NotImplementedException();
     }
 
-    public AnalysedLine GetLineAnalysis(int line)
+    public AnalysedLine? GetLineAnalysis(int line)
     {
-        return _lineCache[line];
+        return _analysisResultLines?[line];
     }
 
     public IEnumerable<AnalysedLine> GetLineAnalyses()
     {
-        _analysisSemaphore.Wait();
+        return _analysisResultLines?.OrderBy(c => c.Key).Select(c => c.Value)
+               ?? Enumerable.Empty<AnalysedLine>();
+    }
 
-        try
-        {
-            return _lineCache.OrderBy(c => c.Key).Select(c => c.Value);
-        }
-        finally
-        {
-            _analysisSemaphore.Release();
-        }
+    public IEnumerable<AnalysedLabel> GetLabels()
+    {
+        return _analysisResultLabels?.Values ?? Enumerable.Empty<AnalysedLabel>();
+    }
+
+    public AnalysedLabel? GetLabel(string name)
+    {
+        return (_analysisResultLabels?.TryGetValue(name, out var val) ?? false) ? val : null;
     }
 
     private LineAnalysisState _state = LineAnalysisState.Empty;
 
-    private int _sourcePosition = 0;
-    private int _lineIndex = 0;
+    private int _lineIndex = -1;
     private AnalysedLine? _currentLine;
+    private List<AnalysedLabel> _labelsToAppend = new();
 
     private async Task AnalyseNextLine(string line)
     {
-        _currentLine = new AnalysedLine(_lineIndex);
-
-        var currentLineIndex = _lineIndex++;
+        var currentLineIndex = ++_lineIndex;
         var loadingSpecifierStart = -1;
         var textStart = 0;
+
+        _currentLine = new AnalysedLine(currentLineIndex);
 
         for (var linePos = 0; linePos < line.Length; linePos++)
         {
@@ -114,7 +167,7 @@ public class SourceAnalyser : ISourceAnalyser
                 case LineAnalysisState.Empty:
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine(LineAnalysisState.Blank);
+                        this.FinishCurrentLine(linePos, LineAnalysisState.Blank);
                         return;
                     }
                     else if (char.IsWhiteSpace(c))
@@ -122,11 +175,16 @@ public class SourceAnalyser : ISourceAnalyser
                         // Keeping the state Empty
                         break;
                     }
+                    else if (!IsValidSymbolChar(c, true))
+                    {
+                        _state = LineAnalysisState.SyntaxError;
+                    }
                     else
                     {
                         // First character loaded, begin mnemonic analysis
                         textStart = linePos;
                         consumedPart = new System.Range(textStart, linePos + 1);
+                        _currentLine.StartCharacter = linePos;
                         _state = await this.AnalyseMatchingMnemonics(line, consumedPart);
                     }
 
@@ -136,8 +194,16 @@ public class SourceAnalyser : ISourceAnalyser
                     {
                         // There's no full match -> the string is not a valid mnemonic -> there's no point
                         // in analysing the rest of the line
-                        this.FinishCurrentLine(LineAnalysisState.InvalidMnemonic);
+                        this.FinishCurrentLine(linePos, LineAnalysisState.InvalidMnemonic);
                         return;
+                    }
+                    else if (c == ':')
+                    {
+                        this.HandleLabel(line, linePos, ref textStart);
+                    }
+                    else if (!IsValidSymbolChar(c))
+                    {
+                        _state = LineAnalysisState.SyntaxError;
                     }
                     else
                     {
@@ -150,8 +216,12 @@ public class SourceAnalyser : ISourceAnalyser
                     // _currentLine.Mnemonic has been populated by the previous run of AnalyseMatchingMnemonics 
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine(this.DetermineMnemonicValidity(line));
+                        this.FinishCurrentLine(linePos, this.DetermineMnemonicValidity(line));
                         return;
+                    }
+                    else if (c == ':')
+                    {
+                        this.HandleLabel(line, linePos, ref textStart);
                     }
                     else if (c is 'S' or 's' && !_currentLine.HasConditionCodePart &&
                              _currentLine.Specifiers.Count == 0)
@@ -234,6 +304,10 @@ public class SourceAnalyser : ISourceAnalyser
                         _currentLine.MnemonicFinished = true;
                         _state = LineAnalysisState.MnemonicLoaded;
                     }
+                    else if (!IsValidSymbolChar(c))
+                    {
+                        _state = LineAnalysisState.SyntaxError;
+                    }
                     else
                     {
                         _state = await this.AnalyseMatchingMnemonics(line, consumedPart);
@@ -243,6 +317,12 @@ public class SourceAnalyser : ISourceAnalyser
                     break;
                 case LineAnalysisState.PossibleConditionCode:
                 {
+                    if (c == ':')
+                    {
+                        this.HandleLabel(line, linePos, ref textStart);
+                        break;
+                    }
+
                     var ccPart = line[(linePos - 1)..(linePos + 1)];
 
                     if (Enum.TryParse(ccPart, true, out ConditionCode cc))
@@ -278,7 +358,6 @@ public class SourceAnalyser : ISourceAnalyser
                             _currentLine.HasUnterminatedConditionCode = true;
 
                             // Move one char back to handle mnemonic termination properly in HasFullMatch in the next iteration
-                            _sourcePosition--;
                             linePos--;
                         }
                         else
@@ -299,6 +378,18 @@ public class SourceAnalyser : ISourceAnalyser
                     break;
                 case LineAnalysisState.LoadingSpecifier:
                 {
+                    if (c == ':')
+                    {
+                        this.HandleLabel(line, linePos, ref textStart);
+                        break;
+                    }
+
+                    if (!IsValidSymbolChar(c))
+                    {
+                        _state = LineAnalysisState.SyntaxError;
+                        break;
+                    }
+
                     var range = (loadingSpecifierStart + 1)..(linePos + 1);
                     _state = this.DetermineSpecifierValidity(line, range);
                 }
@@ -307,16 +398,23 @@ public class SourceAnalyser : ISourceAnalyser
                 case LineAnalysisState.SpecifierSyntaxError:
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine();
-                        return;
+                        this.FinishCurrentLine(linePos, _state);
+                    }
+                    else if (c == ':')
+                    {
+                        this.HandleLabel(line, linePos, ref textStart);
                     }
 
                     break;
                 case LineAnalysisState.InvalidMnemonic:
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine(LineAnalysisState.InvalidMnemonic);
+                        this.FinishCurrentLine(linePos, LineAnalysisState.InvalidMnemonic);
                         return;
+                    }
+                    else if (c == ':')
+                    {
+                        this.HandleLabel(line, linePos, ref textStart);
                     }
 
                     // At this state, there's no possibility of finding a new matching mnemonic by consuming more characters
@@ -327,7 +425,7 @@ public class SourceAnalyser : ISourceAnalyser
                 case LineAnalysisState.MnemonicLoaded:
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine(this.DetermineMnemonicValidity(line));
+                        this.FinishCurrentLine(linePos, this.DetermineMnemonicValidity(line));
                         return;
                     }
                     else if (c == ' ')
@@ -338,7 +436,6 @@ public class SourceAnalyser : ISourceAnalyser
                     else
                     {
                         linePos--;
-                        _sourcePosition--;
                         _state = LineAnalysisState.OperandAnalysis;
                     }
 
@@ -350,7 +447,7 @@ public class SourceAnalyser : ISourceAnalyser
                 case LineAnalysisState.SyntaxError:
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine();
+                        this.FinishCurrentLine(linePos, LineAnalysisState.SyntaxError);
                         return;
                     }
 
@@ -363,17 +460,36 @@ public class SourceAnalyser : ISourceAnalyser
                     throw new InvalidOperationException($"Invalid FSM state value: {_state}.");
             }
         }
+
+        if (_currentLine.State == LineAnalysisState.Empty && line.EndsWith('\n'))
+        {
+            this.FinishCurrentLine(line.Length - 1, _state);
+        }
     }
 
-    private void FinishCurrentLine(LineAnalysisState? endState = null)
+    private void HandleLabel(string line, int linePos, ref int textStart)
     {
-        _currentLine!.EndCharacter = _sourcePosition - 1;
-        _state = LineAnalysisState.Empty;
+        _currentLine!.Mnemonic = null;
+        _currentLine.MnemonicRange = null;
+        _currentLine.MatchingMnemonics = new List<InstructionVariant>();
 
-        if (endState.HasValue)
-        {
-            _currentLine.State = endState.Value;
-        }
+        this.ResetCurrentLineFlags();
+
+        var labelStub = new AnalysedLabel(line[textStart..linePos], new Range(_lineIndex,
+            textStart, _lineIndex, linePos), null);
+
+        _labelsToAppend.Add(labelStub);
+
+        // Label loaded, reset FSM to the start
+        textStart = linePos + 1;
+        _state = LineAnalysisState.Empty;
+    }
+
+    private void FinishCurrentLine(int linePos, LineAnalysisState endState)
+    {
+        _state = LineAnalysisState.Empty;
+        _currentLine!.State = endState;
+        _currentLine!.EndCharacter = linePos;
     }
 
     /// <summary>
@@ -407,7 +523,7 @@ public class SourceAnalyser : ISourceAnalyser
         {
             _currentLine.Mnemonic = fullMatch;
             _currentLine.MnemonicRange =
-                new Range(_lineIndex - 1, consumedRange.Start.Value, _lineIndex - 1, consumedRange.End.Value);
+                new Range(_lineIndex, consumedRange.Start.Value, _lineIndex, consumedRange.End.Value);
 
             return LineAnalysisState.HasFullMatch;
         }
@@ -438,7 +554,7 @@ public class SourceAnalyser : ISourceAnalyser
         var specifier = line[consumedRange];
         var m = _currentLine!.Mnemonic!;
         var specifierIndex = _currentLine.Specifiers.Count;
-        var lineRange = new Range(_lineIndex - 1, consumedRange.Start.Value - 1, _lineIndex - 1,
+        var lineRange = new Range(_lineIndex, consumedRange.Start.Value - 1, _lineIndex,
             consumedRange.End.Value);
 
         if (Enum.TryParse(specifier, true, out InstructionSize instructionSize))
@@ -478,7 +594,7 @@ public class SourceAnalyser : ISourceAnalyser
     private void AnalyseOperandsAndFinishLine(string operandsPart)
     {
         // TODO
-        this.FinishCurrentLine(LineAnalysisState.ValidLine);
+        this.FinishCurrentLine(0, LineAnalysisState.ValidLine);
     }
 
     private void ResetCurrentLineFlags()
@@ -500,4 +616,7 @@ public class SourceAnalyser : ISourceAnalyser
     };
 
     private static bool StartsConditionCode(char c) => ConditionCodeStarts.Contains(c);
+
+    private static bool IsValidSymbolChar(char c, bool firstChar = false) =>
+        (firstChar ? char.IsLetter(c) : char.IsLetterOrDigit(c)) || c is '_' or '.' or '$';
 }

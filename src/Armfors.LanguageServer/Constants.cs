@@ -15,4 +15,6 @@ public static class Constants
     /// Using this lets the client extension control what files are considered Arm source files.
     /// </summary>
     public static readonly DocumentSelector ArmUalDocumentSelector = DocumentSelector.ForLanguage(ArmUalLanguageId);
+
+    public const string ServiceSource = "code4arm";
 }

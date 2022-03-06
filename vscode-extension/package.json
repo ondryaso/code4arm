@@ -67,6 +67,11 @@
                 "id": "vector_data_type",
                 "superType": "decorator",
                 "description": "An ARM UAL vector data type flag."
+            },
+            {
+                "id": "instruction_size_qualifier",
+                "superType": "decorator",
+                "description": "An ARM UAL instruction encoding size qualifier."
             }
         ],
         "semanticTokenModifiers": [
@@ -83,7 +88,7 @@
                 "description": "Marks a SIMD/FP Arm UAL instruction."
             }
         ],
-        "semanticTokenScopes": [
+        "semanticTokenScopes_": [
             {
                 "language": "arm-ual",
                 "scopes": {
@@ -97,10 +102,13 @@
                         "storage.register.arm-ual"
                     ],
                     "condition_code": [
-                        "keyword.operator.arm-ual"
+                        "keyword.condition_code.arm-ual"
                     ],
                     "sets_flags_flag": [
-                        "keyword.operator.arm-ual"
+                        "keyword.set_flags.arm-ual"
+                    ],
+                    "instruction_size_qualifier": [
+                        "keyword.qualifier.arm-ual"
                     ],
                     "vector_data_type": [
                         "entity.name.type.arm-ual"
@@ -115,6 +123,11 @@
             "editor.semanticTokenColorCustomizations": {
                 "enabled": true,
                 "rules": {
+                    "condition_code": "#1886e0",
+                    "sets_flags_flag": "#0ac77ec2",
+                    "vector_data_type": "#5236f1",
+                    "instruction_size_qualifier": "#a5a5a5",
+                    "label": "#e2a129"
                 }
             }
         }

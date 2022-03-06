@@ -37,6 +37,7 @@ public class AnalysedSpecifier
         this.VectorDataType = vectorDataType;
         this.Text = text;
         this.Range = range;
+        this.IsComplete = true;
     }
 
     public AnalysedSpecifier(string text, Range range, InstructionSize instructionSize, bool allowedHere = true)
@@ -46,6 +47,7 @@ public class AnalysedSpecifier
         this.InstructionSize = instructionSize;
         this.Text = text;
         this.Range = range;
+        this.IsComplete = true;
     }
 
     public AnalysedSpecifier(string text, Range range)
@@ -59,45 +61,24 @@ public class AnalysedSpecifier
 
 public class AnalysedLine
 {
-    public int StartLine
-    {
-        get => this.Range.Start.Line;
-        set => this.Range.Start.Line = value;
-    }
-
-    public int EndLine
-    {
-        get => this.Range.End.Line;
-        set => this.Range.End.Line = value;
-    }
+    public Range AnalysedRange { get; }
+    public int LineIndex => this.AnalysedRange.Start.Line;
 
     public int StartCharacter
     {
-        get => this.Range.Start.Character;
-        set => this.Range.Start.Character = value;
+        get => this.AnalysedRange.Start.Character;
+        set => this.AnalysedRange.Start.Character = value;
     }
 
     public int EndCharacter
     {
-        get => this.Range.End.Character;
-        set => this.Range.End.Character = value;
-    }
-
-    public Range Range { get; }
-    public bool IsWhitespace { get; internal set; }
-
-    /// <summary>
-    /// Initializes the line with a range.
-    /// </summary>
-    internal AnalysedLine(int line, int startCharacter, int endCharacter, LineAnalysisState state)
-    {
-        this.Range = new Range(line, startCharacter, line, endCharacter);
-        this.State = state;
+        get => this.AnalysedRange.End.Character;
+        set => this.AnalysedRange.End.Character = value;
     }
 
     internal AnalysedLine(int line)
     {
-        this.Range = new Range(line, 0, line, 0);
+        this.AnalysedRange = new Range(line, 0, line, 0);
     }
 
     /// <summary>
@@ -190,6 +171,7 @@ public class AnalysedLine
     public Range? ConditionCodeRange { get; internal set; }
 
     public List<Range>? OperandRanges { get; internal set; }
+    public List<AnalysedSpecifier> Specifiers { get; } = new();
 
-    public List<AnalysedSpecifier> Specifiers { get; internal set; } = new();
+    public List<AnalysedLabel> Labels { get; } = new();
 }

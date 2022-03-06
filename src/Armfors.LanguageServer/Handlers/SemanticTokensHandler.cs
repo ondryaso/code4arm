@@ -40,10 +40,10 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
     protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(ITextDocumentIdentifierParams @params,
         CancellationToken cancellationToken)
     {
-        var document = _semanticTokensDocuments.GetOrAdd(@params.TextDocument.Uri,
+        /*var document = _semanticTokensDocuments.GetOrAdd(@params.TextDocument.Uri,
             _ => new SemanticTokensDocument(this.RegistrationOptions));
-
-        return Task.FromResult(document);
+*/
+        return Task.FromResult(new SemanticTokensDocument(this.RegistrationOptions));
     }
 
     protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(SemanticTokensCapability capability,

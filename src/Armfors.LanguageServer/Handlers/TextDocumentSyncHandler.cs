@@ -75,17 +75,18 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             }
             else
             {
+                /*
                 var start = change.Range.Start;
                 var end = change.Range.End;
-
+                
                 var isSingleLine = start.Line == end.Line || (end.Character == 0 && end.Line == start.Line + 1);
                 var originalLine = source[new Range(start.Line, 0, start.Line + 1, 0)].Trim();
-                var appendedToEnd = start.Character == originalLine.Length;
+                var appendedToEnd = start.Character == originalLine.Length;*/
 
                 await _sourceStore.ApplyIncrementalChange(request.TextDocument.Uri, change.Range, change.Text,
                     request.TextDocument.Version).ConfigureAwait(false);
 
-                if (isSingleLine)
+                /*if (isSingleLine)
                 {
                     await analyser.TriggerLineAnalysis(start.Line, appendedToEnd);
                 }
@@ -95,7 +96,9 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     {
                         await analyser.TriggerLineAnalysis(line, false);
                     }
-                }
+                }*/
+                
+                await analyser.TriggerFullAnalysis();
             }
         }
 

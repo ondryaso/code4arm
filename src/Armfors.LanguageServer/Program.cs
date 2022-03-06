@@ -70,6 +70,7 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton<IFileSystem, FileSystem>();
     services.AddSingleton<ISourceStore, FileSourceStore>();
     services.AddSingleton<IInstructionProvider, InstructionProvider>();
+    services.AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
     services.AddSingleton<ITokenizer, Tokenizer>();
 }

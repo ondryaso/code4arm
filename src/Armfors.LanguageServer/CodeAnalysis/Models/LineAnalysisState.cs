@@ -6,7 +6,7 @@ namespace Armfors.LanguageServer.CodeAnalysis.Models;
 public enum LineAnalysisState
 {
     Empty, // line empty, initial state
-    Blank, // blank line. This shouldn't happen (preprocessor gets rid of these) but it's kept here just in case
+    Blank, // blank line (happens when the line only contains labels)
     InvalidMnemonic, // no instruction matching the current text of the line
     HasMatches, // there are one or more candidate mnemonics for the current text of the line (but there's not a single valid mnemonic)
     HasFullMatch, // the current text of the line corresponds to a mnemonic (there may be other matches)
