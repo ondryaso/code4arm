@@ -13,4 +13,5 @@ public static class DiagnosticCodes
     public static readonly DiagnosticCode InvalidSpecifier = new(4);
     public static readonly DiagnosticCode SpecifierNotAllowed = new(5);
     public static readonly DiagnosticCode InvalidMnemonic = new(6);
+    public static readonly DiagnosticCode GenericSyntaxError = new(7);
 }

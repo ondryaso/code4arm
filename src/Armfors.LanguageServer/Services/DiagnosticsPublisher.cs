@@ -4,6 +4,7 @@
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Services.Abstractions;
+using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -14,18 +15,28 @@ namespace Armfors.LanguageServer.Services;
 public class DiagnosticsPublisher : IDiagnosticsPublisher
 {
     private readonly ILanguageServerFacade _lsFacade;
+    private readonly ISourceStore _sourceStore;
+    private readonly ILogger<DiagnosticsPublisher> _logger;
 
-    public DiagnosticsPublisher(ILanguageServerFacade lsFacade)
+    public DiagnosticsPublisher(ILanguageServerFacade lsFacade, ISourceStore sourceStore,
+        ILogger<DiagnosticsPublisher> logger)
     {
         _lsFacade = lsFacade;
+        _sourceStore = sourceStore;
+        _logger = logger;
     }
 
     public async Task PublishAnalysisResult(ISourceAnalyser analyser, DocumentUri documentUri, int? documentVersion)
     {
         if (!_lsFacade.ClientSettings.Capabilities?.TextDocument?.PublishDiagnostics.IsSupported ?? false)
         {
+            _logger.LogTrace("Diagnostics aren't published because the client doesn't support them.");
             return;
         }
+
+        _logger.LogDebug("Publishing diagnostics.");
+        var prepSource = await _sourceStore.GetPreprocessedDocument(documentUri);
+        // TODO: prepSource check?
 
         var diags = new List<Diagnostic>();
 
@@ -38,18 +49,22 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     {
                         Code = DiagnosticCodes.InvalidMnemonic,
                         Message = $"Invalid instruction mnemonic.",
-                        Range = analysis.AnalysedRange,
+                        Range = prepSource.GetOriginalRange(analysis.AnalysedRange),
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
                     break;
-                case LineAnalysisState.SpecifierSyntaxError:
-                    break;
-                case LineAnalysisState.InvalidSpecifier:
+                case LineAnalysisState.SyntaxError:
+                    diags.Add(new Diagnostic()
+                    {
+                        Code = DiagnosticCodes.GenericSyntaxError,
+                        Message = $"Syntax error.",
+                        Range = prepSource.GetOriginalRange(analysis.AnalysedRange),
+                        Severity = DiagnosticSeverity.Error,
+                        Source = Constants.ServiceSource
+                    });
                     break;
                 case LineAnalysisState.InvalidOperands:
-                    break;
-                case LineAnalysisState.SyntaxError:
                     break;
             }
 
@@ -60,7 +75,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 {
                     Code = DiagnosticCodes.CannotSetFlags,
                     Message = $"Instruction {analysis.Mnemonic!.Mnemonic} cannot set flags.",
-                    Range = analysis.AnalysedRange,
+                    Range = prepSource.GetOriginalRange(analysis.AnalysedRange),
                     Severity = DiagnosticSeverity.Error,
                     Source = Constants.ServiceSource
                 });
@@ -73,7 +88,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 {
                     Code = DiagnosticCodes.CannotBeConditional,
                     Message = $"Instruction {analysis.Mnemonic!.Mnemonic} cannot be conditional.",
-                    Range = analysis.ConditionCodeRange!,
+                    Range = prepSource.GetOriginalRange(analysis.ConditionCodeRange!),
                     Severity = DiagnosticSeverity.Error,
                     Source = Constants.ServiceSource
                 });
@@ -85,7 +100,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 {
                     Code = DiagnosticCodes.InvalidConditionCode,
                     Message = $"Invalid condition code.",
-                    Range = analysis.ConditionCodeRange!,
+                    Range = prepSource.GetOriginalRange(analysis.ConditionCodeRange!),
                     Severity = DiagnosticSeverity.Error,
                     Source = Constants.ServiceSource
                 });
@@ -100,7 +115,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     {
                         Code = DiagnosticCodes.InvalidSpecifier,
                         Message = "Invalid specifier.",
-                        Range = specifier.Range,
+                        Range = prepSource.GetOriginalRange(specifier.Range),
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
@@ -111,7 +126,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     {
                         Code = DiagnosticCodes.SpecifierNotAllowed,
                         Message = $"Specifier {specifier.Text} cannot be used here.",
-                        Range = specifier.Range,
+                        Range = prepSource.GetOriginalRange(specifier.Range),
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
