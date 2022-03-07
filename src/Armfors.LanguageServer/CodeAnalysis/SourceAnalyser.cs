@@ -457,11 +457,11 @@ public class SourceAnalyser : ISourceAnalyser
                     return;
                 case LineAnalysisState.InvalidOperands:
                 case LineAnalysisState.SyntaxError:
-                    if (c == '\n')
-                    {
-                        this.FinishCurrentLine(linePos, LineAnalysisState.SyntaxError);
-                        return;
-                    }
+                    //if (c == '\n')
+                {
+                    this.FinishCurrentLine(linePos, LineAnalysisState.SyntaxError);
+                    return;
+                }
 
                     break;
                 case LineAnalysisState.ValidLine:
