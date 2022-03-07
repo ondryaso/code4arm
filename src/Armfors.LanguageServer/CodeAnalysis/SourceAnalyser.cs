@@ -295,6 +295,8 @@ public class SourceAnalyser : ISourceAnalyser
                                 // This seems to be an attempt to add condition code to an unconditional instruction
                                 // Set a flag and pretend it's ok to jump into PossibleConditionCode
 
+                                _currentLine.ConditionCodeRange = new Range(currentLineIndex, linePos, currentLineIndex,
+                                    linePos + 1);
                                 _currentLine.CannotBeConditional = true;
                                 _state = LineAnalysisState.PossibleConditionCode;
 
