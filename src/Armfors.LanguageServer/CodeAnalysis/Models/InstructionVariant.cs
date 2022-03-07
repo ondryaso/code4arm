@@ -14,25 +14,30 @@ public class InstructionVariant
     public InstructionSize? ForcedSize { get; }
 
 
-    public InstructionVariant(string mnemonic, bool operands, bool cbc, bool hs)
+    public InstructionVariant(string mnemonic, bool operands, bool cbc, bool hs, bool v = false)
     {
         this.HasSetFlagsVariant = hs;
         this.CanBeConditional = cbc;
         this.Mnemonic = mnemonic;
         this.HasOperands = operands;
         this.ForcedSize = null;
-        this.IsVector = false;
+        this.IsVector = v;
     }
 
     public bool IsVectorDataTypeAllowed(int specifierIndex, VectorDataType type)
     {
         // TODO
-        return false;
+        return this.IsVector && specifierIndex is 0 or 1 && type.GetElementSize() == 16;
     }
 
     public IEnumerable<VectorDataType> GetPossibleVectorDataTypes(int specifierIndex)
     {
         // TODO
-        return Enumerable.Empty<VectorDataType>();
+        if (specifierIndex is not 0 or 1) return Enumerable.Empty<VectorDataType>();
+        return new[]
+        {
+            VectorDataType.Any16, VectorDataType.F16, VectorDataType.I16,
+            VectorDataType.U16, VectorDataType.S16, VectorDataType.P16
+        };
     }
 }

@@ -337,7 +337,7 @@ public class SourceAnalyser : ISourceAnalyser
 
                     var ccPart = line[(linePos - 1)..(linePos + 1)];
 
-                    if (Enum.TryParse(ccPart, true, out ConditionCode cc))
+                    if (Enum.TryParse(ccPart, true, out ConditionCode cc) && Enum.IsDefined(typeof(ConditionCode), cc))
                     {
                         if (!_currentLine.CannotBeConditional)
                         {
@@ -569,7 +569,8 @@ public class SourceAnalyser : ISourceAnalyser
         var lineRange = new Range(_lineIndex, consumedRange.Start.Value - 1, _lineIndex,
             consumedRange.End.Value);
 
-        if (Enum.TryParse(specifier, true, out InstructionSize instructionSize))
+        if (Enum.TryParse(specifier, true, out InstructionSize instructionSize) &&
+            Enum.IsDefined(typeof(InstructionSize), instructionSize))
         {
             var allowed = specifierIndex == 0 &&
                           (!m.ForcedSize.HasValue || m.ForcedSize.Value == instructionSize);
@@ -595,6 +596,25 @@ public class SourceAnalyser : ISourceAnalyser
         foreach (var possibleVectorType in possibleVectorTypes)
         {
             if (possibleVectorType.GetTextForm().StartsWith(specifier, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return LineAnalysisState.LoadingSpecifier;
+            }
+        }
+
+        var allVectorTypes = Enum.GetValues<VectorDataType>();
+        foreach (var vectorType in allVectorTypes)
+        {
+            var textForm = vectorType.GetTextForm();
+
+            if (textForm.Equals(specifier, StringComparison.InvariantCultureIgnoreCase))
+            {
+                var spec = new AnalysedSpecifier(specifier, lineRange, vector, specifierIndex, false);
+
+                _currentLine.Specifiers.Add(spec);
+                return LineAnalysisState.InvalidSpecifier;
+            }
+
+            if (textForm.StartsWith(specifier, StringComparison.InvariantCultureIgnoreCase))
             {
                 return LineAnalysisState.LoadingSpecifier;
             }

@@ -53,12 +53,12 @@ public static class VectorDataTypeExtensions
 {
     public static uint GetElementSize(this VectorDataType dataType)
     {
-        return ((uint) dataType) & ~7u;
+        return ((uint)dataType) & ~7u;
     }
 
     public static VectorDataTypeCategory GetCategory(this VectorDataType dataType)
     {
-        return (VectorDataTypeCategory) ((uint) dataType & 7u);
+        return (VectorDataTypeCategory)((uint)dataType & 7u);
     }
 
     public static string GetTextForm(this VectorDataType dataType)
@@ -81,7 +81,9 @@ public static class VectorDataTypeExtensions
             "16" => VectorDataType.Any16,
             "32" => VectorDataType.Any32,
             "64" => VectorDataType.Any64,
-            _ => Enum.TryParse(dataType, true, out VectorDataType result)
+            _ => (Enum.TryParse(dataType, true, out VectorDataType result) &&
+                  (Enum.GetName(typeof(VectorDataType), result)?.Equals(dataType,
+                      StringComparison.InvariantCultureIgnoreCase) ?? false))
                 ? result
                 : VectorDataType.Unknown
         };

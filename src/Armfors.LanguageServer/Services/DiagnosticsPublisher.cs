@@ -122,12 +122,47 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 }
                 else if (!specifier.AllowedHere)
                 {
+                    if (specifier.IsVectorDataType && !analysis.Mnemonic!.IsVector)
+                    {
+                        diags.Add(new Diagnostic()
+                        {
+                            Code = DiagnosticCodes.SpecifierNotAllowed,
+                            Message = $"{analysis.Mnemonic.Mnemonic} is not a SIMD/FP instruction, data type specifier {specifier.Text} cannot be used here.",
+                            Range = prepSource.GetOriginalRange(specifier.Range),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = Constants.ServiceSource
+                        });
+                    }
+                    else if (specifier.IsVectorDataType)
+                    {
+                        diags.Add(new Diagnostic()
+                        {
+                            Code = DiagnosticCodes.SpecifierNotAllowed,
+                            Message = $"Data type specifier {specifier.Text} cannot be used here.",
+                            Range = prepSource.GetOriginalRange(specifier.Range),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = Constants.ServiceSource
+                        });
+                    }
+                    else
+                    {
+                        diags.Add(new Diagnostic()
+                        {
+                            Code = DiagnosticCodes.SpecifierNotAllowed,
+                            Message = "An instruction encoding size specifier must come right after the instruction mnemonic.",
+                            Range = prepSource.GetOriginalRange(specifier.Range),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = Constants.ServiceSource
+                        });
+                    }
+                } else if (specifier.IsInstructionSizeQualifier)
+                {
                     diags.Add(new Diagnostic()
                     {
-                        Code = DiagnosticCodes.SpecifierNotAllowed,
-                        Message = $"Specifier {specifier.Text} cannot be used here.",
+                        Code = DiagnosticCodes.InstructionSizeNotSupported,
+                        Message = "An instruction encoding size specifier (.W/.N) is not supported in A32 mode and will lead to errors when assembling.",
                         Range = prepSource.GetOriginalRange(specifier.Range),
-                        Severity = DiagnosticSeverity.Error,
+                        Severity = DiagnosticSeverity.Warning,
                         Source = Constants.ServiceSource
                     });
                 }

@@ -2,6 +2,6 @@
 
 public enum InstructionSize
 {
-    W,
+    W = int.MaxValue - 1,
     N
 }
