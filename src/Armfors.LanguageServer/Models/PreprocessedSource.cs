@@ -86,6 +86,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
     internal Task Preprocess(Range? modifiedRange)
     {
         // TODO: Use ranges
+        _replacements.Clear();
 
         // The order here is important
         _text = this.BaseSource.Text;
