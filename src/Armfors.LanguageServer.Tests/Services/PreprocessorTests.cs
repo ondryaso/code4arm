@@ -147,10 +147,10 @@ public static List<(Range Source, Range Preprocessed)> InverseEmptyLinesMultiple
     [SetUp]
     protected void SetUp()
     {
-        var logger = new NullLogger<FileSourceStore>();
+        var loggerFactory = new NullLoggerFactory();
         var mockFs = new MockFileSystem(_textNames.ToDictionary(n => n, n => new MockFileData(SourceTexts[n])));
 
-        _store = new FileSourceStore(logger, mockFs);
+        _store = new FileSourceStore(loggerFactory, mockFs);
     }
 
     [TestCaseSource(nameof(_textNames))]

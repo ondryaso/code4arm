@@ -37,6 +37,10 @@ public class SourceAnalyser : ISourceAnalyser
 
     public async Task TriggerFullAnalysis()
     {
+        _logger.LogTrace(
+            "Full analysis request. Currently analysed version: {AnalysedVersion}. Source version: {SourceVersion}.",
+            _analysedVersion, _source.Version);
+
         if (_analysedVersion >= _source.Version)
         {
             return;
@@ -49,7 +53,7 @@ public class SourceAnalyser : ISourceAnalyser
             return;
         }
 
-        _logger.LogWarning("Performing full analysis");
+        _logger.LogDebug("Performing full analysis.");
 
         try
         {
@@ -75,10 +79,12 @@ public class SourceAnalyser : ISourceAnalyser
 
                 if (labelsStart == -1 && _currentLine!.State == LineAnalysisState.Blank && _labelsToAppend.Count > 0)
                 {
+                    _logger.LogTrace("Series of labels starting at [{Index}].", _lineIndex);
                     labelsStart = _lineIndex;
                 }
                 else if (_currentLine!.State != LineAnalysisState.Blank && _labelsToAppend.Count > 0)
                 {
+                    _logger.LogTrace("Series of labels terminating at [{Index}].", _lineIndex);
                     foreach (var label in _labelsToAppend)
                     {
                         var isAlreadyDefined = newLabels.TryGetValue(label.Label, out var alreadyDefined);
@@ -107,10 +113,14 @@ public class SourceAnalyser : ISourceAnalyser
             _analysedVersion = _source.Version ?? -1;
             _analysisResultLines = newLineCache;
             _analysisResultLabels = newLabels;
+
+            _logger.LogDebug("Analysis done. {Lines} lines, {Labels} labels. Analysed version: {AnalysedVersion}.",
+                newLineCache.Count, newLabels.Count, _analysedVersion);
         }
         finally
         {
             _analysisSemaphore.Release();
+            _logger.LogTrace("Lock released.");
         }
 
         await _diagnosticsPublisher.PublishAnalysisResult(this, _source.Uri, _analysedVersion).ConfigureAwait(false);
@@ -147,7 +157,7 @@ public class SourceAnalyser : ISourceAnalyser
 
     private int _lineIndex = -1;
     private AnalysedLine? _currentLine;
-    private List<AnalysedLabel> _labelsToAppend = new();
+    private readonly List<AnalysedLabel> _labelsToAppend = new();
 
     private async Task AnalyseNextLine(string line)
     {
@@ -156,6 +166,8 @@ public class SourceAnalyser : ISourceAnalyser
         var textStart = 0;
 
         _currentLine = new AnalysedLine(currentLineIndex);
+
+        _logger.LogTrace("Analysing line [{Index}]: {Line}.", currentLineIndex, line);
 
         for (var linePos = 0; linePos < line.Length; linePos++)
         {
@@ -588,6 +600,7 @@ public class SourceAnalyser : ISourceAnalyser
             }
         }
 
+        _currentLine.Specifiers.Add(new AnalysedSpecifier(specifier, lineRange));
         return LineAnalysisState.SpecifierSyntaxError;
     }
 

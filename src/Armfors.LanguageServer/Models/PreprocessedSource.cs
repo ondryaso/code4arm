@@ -4,6 +4,7 @@
 using System.Text.RegularExpressions;
 using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Models.Abstractions;
+using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -12,7 +13,7 @@ namespace Armfors.LanguageServer.Models;
 
 public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 {
-    internal PreprocessedSource(ISource baseSource)
+    internal PreprocessedSource(ISource baseSource, ILogger<PreprocessedSource> logger)
     {
         this.BaseSource = baseSource;
         _text = string.Empty;

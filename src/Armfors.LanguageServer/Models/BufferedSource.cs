@@ -1,18 +1,19 @@
 // BufferedSource.cs
 // Author: Ondřej Ondryáš
 
+using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Armfors.LanguageServer.Models;
 
 public class BufferedSource : BufferedSourceBase
 {
-    internal BufferedSource(DocumentUri uri, int? version)
+    internal BufferedSource(DocumentUri uri, int? version, ILoggerFactory loggerFactory)
     {
         this.Uri = uri;
         VersionInternal = version;
         IsValidRepresentationInternal = true;
-        this.PreprocessedSource = new PreprocessedSource(this);
+        this.PreprocessedSource = new PreprocessedSource(this, loggerFactory.CreateLogger<PreprocessedSource>());
     }
 
     internal PreprocessedSource PreprocessedSource { get; }

@@ -16,26 +16,30 @@ namespace Armfors.LanguageServer.Services;
 public class FileSourceStore : ISourceStore
 {
     private readonly ILogger<FileSourceStore> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly IFileSystem _fileSystem;
 
     private readonly ConcurrentDictionary<DocumentUri, BufferedSource> _managedDocs = new();
     private readonly ConcurrentDictionary<DocumentUri, FileSource> _unmanagedDocs = new();
 
-    public FileSourceStore(ILogger<FileSourceStore> logger, IFileSystem fileSystem)
+    public FileSourceStore(ILoggerFactory loggerFactory, IFileSystem fileSystem)
     {
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<FileSourceStore>();
+        _loggerFactory = loggerFactory;
         _fileSystem = fileSystem;
     }
 
     public async Task LoadDocument(TextDocumentItem document)
     {
+        _logger.LogTrace("Loading document {Uri} (announced version: {Version}).", document.Uri, document.Version);
+
         // First check for existence so that we don't construct a BufferedSource pointlessly
         if (_managedDocs.ContainsKey(document.Uri))
         {
             throw new InvalidOperationException("The file has already been opened.");
         }
 
-        var source = new BufferedSource(document.Uri, document.Version)
+        var source = new BufferedSource(document.Uri, document.Version, _loggerFactory)
         {
             Text = document.Text
         };
@@ -58,6 +62,8 @@ public class FileSourceStore : ISourceStore
 
     public Task<ISource> GetDocument(DocumentUri uri)
     {
+        _logger.LogTrace("Document request for {Uri}.", uri);
+
         if (_managedDocs.TryGetValue(uri, out var source))
         {
             return Task.FromResult(source as ISource);
@@ -70,6 +76,8 @@ public class FileSourceStore : ISourceStore
 
     public Task<IPreprocessedSource> GetPreprocessedDocument(DocumentUri uri)
     {
+        _logger.LogTrace("Preprocessed document request for {Uri}.", uri);
+
         if (_managedDocs.TryGetValue(uri, out var source))
         {
             return Task.FromResult(source.PreprocessedSource as IPreprocessedSource);
@@ -106,7 +114,7 @@ public class FileSourceStore : ISourceStore
     {
         var source = this.GetSourceOrThrow(uri);
 
-        _logger.LogDebug("Applying a full change to document {Uri} (from {CurrentVersion} to {GotVersion}).",
+        _logger.LogTrace("Applying a full change to document {Uri} (from {CurrentVersion} to {GotVersion}).",
             uri.ToString(), source.Version, version);
 
         if (source.Version > version)
@@ -126,7 +134,7 @@ public class FileSourceStore : ISourceStore
     {
         var source = this.GetSourceOrThrow(uri);
 
-        _logger.LogDebug("Applying an incremental change to document {Uri} (from {CurrentVersion} to {GotVersion}).",
+        _logger.LogTrace("Applying an incremental change to document {Uri} (from {CurrentVersion} to {GotVersion}).",
             uri.ToString(), source.Version, version);
 
         if (source.Version > version)
@@ -163,6 +171,7 @@ public class FileSourceStore : ISourceStore
             return source;
         }
 
+        _logger.LogTrace("Creating unmanaged source for {Uri}.", uri);
         source = new FileSource(uri, _fileSystem);
         return _unmanagedDocs.GetOrAdd(uri, source);
     }

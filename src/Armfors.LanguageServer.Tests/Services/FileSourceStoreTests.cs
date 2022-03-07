@@ -62,13 +62,13 @@ public class FileSourceStoreTests
     [SetUp]
     protected void SetUp()
     {
-        var logger = new NullLogger<FileSourceStore>();
+        var loggerFactory = new NullLoggerFactory();
         var mockFs = new MockFileSystem(new Dictionary<string, MockFileData>()
         {
             { MockFileName, new MockFileData(MockFileText) }
         });
 
-        _store = new FileSourceStore(logger, mockFs);
+        _store = new FileSourceStore(loggerFactory, mockFs);
         _mockFileUri = new DocumentUri("file", null, MockFileName, null, null);
     }
 
