@@ -15,4 +15,8 @@ public static class DiagnosticCodes
     public static readonly DiagnosticCode InvalidMnemonic = new(5);
     public static readonly DiagnosticCode GenericSyntaxError = new(6);
     public static readonly DiagnosticCode InstructionSizeNotSupported = new(7);
+    public static readonly DiagnosticCode NoOperandsAllowed = new(8);
+    public static readonly DiagnosticCode OperandExpected = new(9);
+    public static readonly DiagnosticCode OperandSyntaxError = new(10);
+    public static readonly DiagnosticCode OperandUnexpected = new(11);
 }

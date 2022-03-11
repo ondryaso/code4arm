@@ -9,6 +9,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.Services;
 
@@ -48,7 +49,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     diags.Add(new Diagnostic()
                     {
                         Code = DiagnosticCodes.InvalidMnemonic,
-                        Message = $"Invalid instruction mnemonic.",
+                        Message = "Invalid instruction mnemonic.",
                         Range = prepSource.GetOriginalRange(analysis.AnalysedRange),
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
@@ -58,13 +59,59 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     diags.Add(new Diagnostic()
                     {
                         Code = DiagnosticCodes.GenericSyntaxError,
-                        Message = $"Syntax error.",
+                        Message = "Syntax error.",
                         Range = prepSource.GetOriginalRange(analysis.AnalysedRange),
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
                     break;
                 case LineAnalysisState.InvalidOperands:
+                {
+                    if (analysis.NoOperandsAllowed)
+                    {
+                        var range = new Range(analysis.LineIndex, analysis.MnemonicRange!.End.Character + 1,
+                            analysis.LineIndex, analysis.LineLength);
+                        diags.Add(new Diagnostic()
+                        {
+                            Code = DiagnosticCodes.NoOperandsAllowed,
+                            Message = "Instruction doesn't have any operands.",
+                            Range = prepSource.GetOriginalRange(range),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = Constants.ServiceSource
+                        });
+                        break;
+                    }
+
+                    if (analysis.MissingOperands)
+                    {
+                        var range = analysis.ErroneousOperandIndex == 0
+                            ? analysis.MnemonicRange!
+                            : new Range(analysis.LineIndex, analysis.Operands!.Last().Range.End.Character + 1,
+                                analysis.LineIndex, analysis.LineLength);
+
+                        diags.Add(new Diagnostic()
+                        {
+                            Code = DiagnosticCodes.OperandExpected,
+                            Message = "Operand expected.",
+                            Range = prepSource.GetOriginalRange(range),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = Constants.ServiceSource
+                        });
+                        break;
+                    }
+
+                    var erroneous = analysis.Operands![analysis.ErroneousOperandIndex];
+                    var (code, message) = GetOperandDiagnostic(erroneous);
+
+                    diags.Add(new Diagnostic()
+                    {
+                        Code = code,
+                        Message = message,
+                        Range = prepSource.GetOriginalRange(erroneous.ErrorRange!),
+                        Severity = DiagnosticSeverity.Error,
+                        Source = Constants.ServiceSource
+                    });
+                }
                     break;
             }
 
@@ -127,7 +174,8 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         diags.Add(new Diagnostic()
                         {
                             Code = DiagnosticCodes.SpecifierNotAllowed,
-                            Message = $"{analysis.Mnemonic.Mnemonic} is not a SIMD/FP instruction, data type specifier {specifier.Text} cannot be used here.",
+                            Message =
+                                $"{analysis.Mnemonic.Mnemonic} is not a SIMD/FP instruction, data type specifier {specifier.Text} cannot be used here.",
                             Range = prepSource.GetOriginalRange(specifier.Range),
                             Severity = DiagnosticSeverity.Error,
                             Source = Constants.ServiceSource
@@ -149,18 +197,21 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         diags.Add(new Diagnostic()
                         {
                             Code = DiagnosticCodes.SpecifierNotAllowed,
-                            Message = "An instruction encoding size specifier must come right after the instruction mnemonic.",
+                            Message =
+                                "An instruction encoding size specifier must come right after the instruction mnemonic.",
                             Range = prepSource.GetOriginalRange(specifier.Range),
                             Severity = DiagnosticSeverity.Error,
                             Source = Constants.ServiceSource
                         });
                     }
-                } else if (specifier.IsInstructionSizeQualifier)
+                }
+                else if (specifier.IsInstructionSizeQualifier)
                 {
                     diags.Add(new Diagnostic()
                     {
                         Code = DiagnosticCodes.InstructionSizeNotSupported,
-                        Message = "An instruction encoding size specifier (.W/.N) is not supported in A32 mode and will lead to errors when assembling.",
+                        Message =
+                            "An instruction encoding size specifier (.W/.N) is not supported in A32 mode and will lead to errors when assembling.",
                         Range = prepSource.GetOriginalRange(specifier.Range),
                         Severity = DiagnosticSeverity.Warning,
                         Source = Constants.ServiceSource
@@ -177,5 +228,26 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         };
 
         _lsFacade.TextDocument.PublishDiagnostics(par);
+    }
+
+    private static (DiagnosticCode DiagnosticCode, string Message) GetOperandDiagnostic(AnalysedOperand analysedOperand)
+    {
+        return analysedOperand.Result switch
+        {
+            OperandResult.InvalidRegister => (-1, "Invalid register."), // TODO: say why
+            OperandResult.InvalidImmediateValue => (-1, "Invalid immediate value."), // TODO: say why
+            OperandResult.InvalidShiftType => (-1, "Invalid shift type."), // TODO: list possible shift types
+            OperandResult.InvalidRegisterList => (-1, "Invalid register list."), // TODO: say why
+            OperandResult.RegisterListMustContainPc => (-1,
+                "The register list must contain the program counter (PC/R15)."),
+            OperandResult.RegisterListCannotContainPc => (-1,
+                "The register list cannot contain the program counter (PC/R15)."),
+            OperandResult.InvalidAlignment => (-1, "Invalid alignment value."), // TODO: list possible alignment values
+            OperandResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            OperandResult.UnexpectedOperand => (DiagnosticCodes.OperandUnexpected, "No operand can be used here."),
+            OperandResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            OperandResult.Valid => (-1, string.Empty), // Doesn't happen
+            _ => (-1, string.Empty)
+        };
     }
 }

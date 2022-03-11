@@ -76,9 +76,12 @@ public class AnalysedLine
         set => this.AnalysedRange.End.Character = value;
     }
 
-    internal AnalysedLine(int line)
+    public int LineLength { get; init; }
+    
+    internal AnalysedLine(int line, int lineLength)
     {
         this.AnalysedRange = new Range(line, 0, line, 0);
+        this.LineLength = lineLength;
     }
 
     /// <summary>
@@ -165,13 +168,18 @@ public class AnalysedLine
     /// Operands are required and they are missing.
     /// </summary>
     public bool MissingOperands { get; internal set; }
+    
+    /// <summary>
+    /// Index to <see cref="Operands"/> determining the first invalid operand.
+    /// </summary>
+    public int ErroneousOperandIndex { get; internal set; }
 
     public Range? MnemonicRange { get; internal set; }
     public Range? SetFlagsRange { get; internal set; }
     public Range? ConditionCodeRange { get; internal set; }
 
-    public List<Range>? OperandRanges { get; internal set; }
     public List<AnalysedSpecifier> Specifiers { get; } = new();
 
     public List<AnalysedLabel> Labels { get; } = new();
+    public List<AnalysedOperand>? Operands { get; internal set; }
 }

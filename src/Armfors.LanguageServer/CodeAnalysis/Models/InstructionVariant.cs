@@ -1,6 +1,8 @@
 // InstructionVariant.cs
 // Author: Ondřej Ondryáš
 
+using System.Collections.Immutable;
+
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
 public class InstructionVariant
@@ -10,18 +12,24 @@ public class InstructionVariant
 
     public bool IsVector { get; }
     public string Mnemonic { get; }
-    public bool HasOperands { get; } // TODO
+    public bool HasOperands => !this.Operands.IsEmpty;
     public InstructionSize? ForcedSize { get; }
 
+    public ImmutableList<OperandDescriptor> Operands { get; }
 
-    public InstructionVariant(string mnemonic, bool operands, bool cbc, bool hs, bool v = false)
+    public InstructionVariant(string mnemonic, bool cbc, bool hs, bool v = false,
+        params OperandDescriptor[] descriptors)
     {
         this.HasSetFlagsVariant = hs;
         this.CanBeConditional = cbc;
         this.Mnemonic = mnemonic;
-        this.HasOperands = operands;
         this.ForcedSize = null;
         this.IsVector = v;
+        this.Operands = descriptors.ToImmutableList();
+        foreach (var descriptor in descriptors)
+        {
+            descriptor.Mnemonic = this;
+        }
     }
 
     public bool IsVectorDataTypeAllowed(int specifierIndex, VectorDataType type)

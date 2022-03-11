@@ -15,6 +15,9 @@ public static class ArmSemanticTokenType
 
     /// An assembler directive.
     public static readonly SemanticTokenType Directive = new("directive");
+    
+    /// An Arm UAL shift type (LSL/LSR/ASR/ROR/RRX).
+    public static readonly SemanticTokenType ShiftType = new("shift_type");
 
     /// A register.
     public static readonly SemanticTokenType Register = new("register");
@@ -37,14 +40,17 @@ public static class ArmSemanticTokenType
 /// </summary>
 public static class ArmSemanticTokenModifier
 {
-    // Marks an instruction that is executed conditionally.
+    /// Marks an instruction that is executed conditionally.
     public static readonly SemanticTokenModifier Conditional = new("conditional");
 
-    // Marks an instruction that controls if the instruction sets processor flags.
+    /// Marks an instruction that controls if the instruction sets processor flags.
     public static readonly SemanticTokenModifier SetsFlags = new("sets_flags");
 
-    // Marks a SIMD/FP instruction.
+    /// Marks a SIMD/FP instruction.
     public static readonly SemanticTokenModifier VectorInstruction = new("vector_instruction");
+
+    /// Marks a SIMD/FP register.
+    public static readonly SemanticTokenModifier VectorRegister = new("vector_register");
 
     public static IEnumerable<SemanticTokenModifier> All => new[]
     {

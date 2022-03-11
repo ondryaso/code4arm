@@ -105,6 +105,52 @@ public class Tokenizer : ITokenizer
                         Enumerable.Empty<SemanticTokenModifier>());
                 }
             }
+
+            if (analysis.Operands == null)
+                continue;
+            
+            foreach (var operand in analysis.Operands)
+            {
+                if (operand.Result != OperandResult.Valid)
+                    continue;
+                    
+                if (operand.Descriptor.SingleTokenType.HasValue)
+                {
+                    var tt = GetOperandSemanticTokenType(operand.Descriptor.SingleTokenType.Value);
+                    if (tt == null)
+                        continue;
+
+                    builder.Push(prepSource.GetOriginalRange(operand.Range),
+                        tt.Value.Type, tt.Value.Modifiers);
+                }
+                else if (operand.Tokens != null)
+                {
+                    foreach (var (operandTokenType, range) in operand.Tokens)
+                    {
+                        var tt = GetOperandSemanticTokenType(operandTokenType);
+                        if (tt == null)
+                            continue;
+
+                        builder.Push(prepSource.GetOriginalRange(range),
+                            tt.Value.Type, tt.Value.Modifiers);
+                    }
+                }
+            }
         }
+    }
+
+    private static (SemanticTokenType Type, IEnumerable<SemanticTokenModifier> Modifiers)? GetOperandSemanticTokenType(
+        OperandTokenType tokenType)
+    {
+        return tokenType switch
+        {
+            OperandTokenType.Immediate => null,
+            OperandTokenType.Register => (ArmSemanticTokenType.Register, Enumerable.Empty<SemanticTokenModifier>()),
+            OperandTokenType.SimdRegister => (ArmSemanticTokenType.Register,
+                new[] { ArmSemanticTokenModifier.VectorRegister }),
+            OperandTokenType.Label => (SemanticTokenType.Label, Enumerable.Empty<SemanticTokenModifier>()),
+            OperandTokenType.ShiftType => (ArmSemanticTokenType.ShiftType, Enumerable.Empty<SemanticTokenModifier>()),
+            _ => throw new ArgumentOutOfRangeException(nameof(tokenType), tokenType, null)
+        };
     }
 }

@@ -1,11 +1,13 @@
 // SourceAnalyser.cs
 // Author: Ondřej Ondryáš
 
+using System.Text.RegularExpressions;
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.Logging;
+using NUnit.Framework.Internal.Execution;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.CodeAnalysis;
@@ -165,7 +167,7 @@ public class SourceAnalyser : ISourceAnalyser
         var loadingSpecifierStart = -1;
         var textStart = 0;
 
-        _currentLine = new AnalysedLine(currentLineIndex);
+        _currentLine = new AnalysedLine(currentLineIndex, line.Length);
 
         _logger.LogTrace("Analysing line [{Index}]: {Line}.", currentLineIndex, line);
 
@@ -449,14 +451,9 @@ public class SourceAnalyser : ISourceAnalyser
                     }
                     else
                     {
-                        linePos--;
-                        _state = LineAnalysisState.OperandAnalysis;
+                        this.AnalyseOperandsAndFinishLine(line, linePos);
+                        return;
                     }
-
-                    break;
-                case LineAnalysisState.OperandAnalysis:
-                    this.AnalyseOperandsAndFinishLine(line[linePos..]);
-                    return;
                 case LineAnalysisState.InvalidOperands:
                 case LineAnalysisState.SyntaxError:
                     //if (c == '\n')
@@ -467,9 +464,9 @@ public class SourceAnalyser : ISourceAnalyser
 
                     break;
                 case LineAnalysisState.ValidLine:
-                    throw new InvalidOperationException($"FSM state cannot be {nameof(LineAnalysisState.ValidLine)}");
+                case LineAnalysisState.OperandAnalysis:
                 case LineAnalysisState.Blank:
-                    throw new InvalidOperationException($"FSM state cannot be {nameof(LineAnalysisState.Blank)}.");
+                    throw new InvalidOperationException($"FSM state cannot be {_state.ToString()}");
                 default:
                     throw new InvalidOperationException($"Invalid FSM state value: {_state}.");
             }
@@ -556,7 +553,15 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         // TODO: this has to check if the syntax is valid
-        return _currentLine.Mnemonic.HasOperands ? LineAnalysisState.InvalidOperands : LineAnalysisState.ValidLine;
+        if (_currentLine.Mnemonic.HasOperands && _currentLine.Mnemonic.Operands.Any(o => !o.Optional))
+        {
+            _currentLine.MissingOperands = true;
+            _currentLine.ErroneousOperandIndex = 0;
+
+            return LineAnalysisState.InvalidOperands;
+        }
+
+        return LineAnalysisState.ValidLine;
     }
 
     /// <summary>
@@ -626,10 +631,145 @@ public class SourceAnalyser : ISourceAnalyser
         return LineAnalysisState.SpecifierSyntaxError;
     }
 
-    private void AnalyseOperandsAndFinishLine(string operandsPart)
+    private readonly Regex _commaRegex = new("\\G ?, ?", RegexOptions.Compiled);
+    private readonly Regex _endLineRegex = new("\\G ?$", RegexOptions.Compiled | RegexOptions.Multiline);
+
+    private void AnalyseOperandsAndFinishLine(string line, int linePos)
+    {
+        var opPart = line[linePos..];
+        var mnemonic = _currentLine!.Mnemonic!;
+        var opDescriptors = mnemonic.Operands;
+
+        if (opDescriptors.IsEmpty)
+        {
+            if (opPart.Trim().Length != 0)
+            {
+                _currentLine.NoOperandsAllowed = true;
+                this.FinishCurrentLine(linePos, LineAnalysisState.InvalidOperands);
+            }
+            else
+            {
+                this.FinishCurrentLine(linePos, LineAnalysisState.ValidLine);
+            }
+
+            return;
+        }
+
+        if (opDescriptors.Any(o => !o.Optional) && opPart.Trim().Length == 0)
+        {
+            _currentLine.MissingOperands = true;
+            _currentLine.ErroneousOperandIndex = 0;
+
+            this.FinishCurrentLine(linePos, LineAnalysisState.InvalidOperands);
+            return;
+        }
+
+        _currentLine.Operands = new List<AnalysedOperand>();
+
+        var opPartPos = 0;
+        var resultOpIndexShift = 0;
+
+        for (var opIndex = 0; opIndex < opDescriptors.Count; opIndex++)
+        {
+            var descriptor = opDescriptors[opIndex];
+            var match = descriptor.Regex.Match(opPart, opPartPos);
+            var resultOpIndex = opIndex - resultOpIndexShift;
+
+            if (match.Success && match.Index == opPartPos)
+            {
+                var range = new Range(_lineIndex, linePos + opPartPos, _lineIndex,
+                    linePos + opPartPos + match.Length);
+                var analysed = this.CheckOperand(resultOpIndex, descriptor, match, range);
+
+                _currentLine.Operands.Add(analysed);
+
+                if (analysed.Result != OperandResult.Valid)
+                {
+                    // Invalid operand -> terminate analysis altogether
+                    _currentLine.ErroneousOperandIndex = resultOpIndex;
+                    this.FinishCurrentLine(linePos, LineAnalysisState.InvalidOperands);
+                    return;
+                }
+
+                opPartPos += match.Length;
+            }
+            else if (descriptor.Optional)
+            {
+                resultOpIndexShift++;
+                
+                if (CheckLineEnd(opIndex, resultOpIndex))
+                    return;
+                
+                continue;
+            }
+            else
+            {
+                var range = new Range(_lineIndex, linePos + opPartPos, _lineIndex,
+                    line.Length);
+                var analysed = new AnalysedOperand(resultOpIndex, descriptor, range, OperandResult.SyntaxError, range);
+
+                _currentLine.Operands.Add(analysed);
+                _currentLine.ErroneousOperandIndex = resultOpIndex;
+
+                this.FinishCurrentLine(linePos, LineAnalysisState.InvalidOperands);
+                return;
+            }
+
+            match = _commaRegex.Match(opPart, opPartPos);
+            if (match.Success)
+            {
+                if (opIndex == opDescriptors.Count - 1)
+                {
+                    // Comma after the last operand
+                    var range = new Range(_lineIndex, linePos + opPartPos, _lineIndex,
+                        line.Length);
+                    var analysed = new AnalysedOperand(resultOpIndex + 1, descriptor, range, OperandResult.SyntaxError,
+                        range);
+                    _currentLine.Operands.Add(analysed);
+                    _currentLine.ErroneousOperandIndex = resultOpIndex + 1;
+
+                    this.FinishCurrentLine(linePos, LineAnalysisState.InvalidOperands);
+                    return;
+                }
+                else
+                {
+                    // Consume a comma between operands
+                    opPartPos += match.Length;
+                }
+            }
+
+            if (CheckLineEnd(opIndex, resultOpIndex))
+                return;
+        }
+
+        bool CheckLineEnd(int opIndex, int resultOpIndex)
+        {
+            if (_endLineRegex.IsMatch(opPart, opPartPos))
+            {
+                if (opIndex == opDescriptors.Count - 1)
+                {
+                    // End of line after the last operand
+                    this.FinishCurrentLine(linePos, LineAnalysisState.ValidLine);
+                    return true;
+                }
+                else if (opDescriptors.Skip(opIndex + 1).Any(o => !o.Optional))
+                {
+                    // End of line after an operand in the middle
+                    _currentLine.MissingOperands = true;
+                    _currentLine.ErroneousOperandIndex = resultOpIndex + 1;
+                    this.FinishCurrentLine(linePos, LineAnalysisState.InvalidOperands);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private AnalysedOperand CheckOperand(int opIndex, OperandDescriptor descriptor, Match match, Range range)
     {
         // TODO
-        this.FinishCurrentLine(0, LineAnalysisState.ValidLine);
+        return new AnalysedOperand(opIndex, descriptor, range, OperandResult.Valid);
     }
 
     private void ResetCurrentLineFlags()

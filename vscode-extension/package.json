@@ -49,6 +49,11 @@
                 "description": "An assembler directive."
             },
             {
+                "id": "shift_type",
+                "superType": "keyword",
+                "description": "An Arm UAL shift type (LSL/LSR/ASR/ROR/RRX)."
+            },
+            {
                 "id": "register",
                 "superType": "variable",
                 "description": "An Arm register."
@@ -86,6 +91,10 @@
             {
                 "id": "vector_instruction",
                 "description": "Marks a SIMD/FP Arm UAL instruction."
+            },
+            {
+                "id": "vector_register",
+                "description": "Marks a SIMD/FP register."
             }
         ],
         "semanticTokenScopes_": [

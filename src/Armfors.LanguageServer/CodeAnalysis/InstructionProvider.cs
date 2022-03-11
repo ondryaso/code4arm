@@ -13,14 +13,18 @@ public class InstructionProvider : IInstructionProvider
 {
     private List<InstructionVariant> instructions = new()
     {
-        new InstructionVariant("ADD", true, true, true),
-        new InstructionVariant("MOV", true, true, true),
-        new InstructionVariant("LDR", true, true, false),
-        new InstructionVariant("NOP", false, true, false),
-        new InstructionVariant("SB", false, false, false),
-        new InstructionVariant("VADD", true, true, false, true)
+        new InstructionVariant("ADD", true, true, false,
+            new OperandDescriptor("abc", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("efg", OperandType.Label, OperandTokenType.Label, true),
+            new OperandDescriptor("hij", OperandType.ShiftType, OperandTokenType.ShiftType)),
+
+        new InstructionVariant("MOV", true, true),
+        new InstructionVariant("LDR", true, false),
+        new InstructionVariant("NOP", false, false),
+        new InstructionVariant("SB", false, false),
+        new InstructionVariant("VADD", true, false, true)
     };
-    
+
     public Task<List<InstructionVariant>> GetAllInstructions()
     {
         return Task.FromResult(instructions);
