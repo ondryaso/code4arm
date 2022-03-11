@@ -111,7 +111,7 @@ public class Tokenizer : ITokenizer
             
             foreach (var operand in analysis.Operands)
             {
-                if (operand.Result != OperandResult.Valid)
+                if (operand.Result != OperandResult.Valid || operand.Descriptor == null)
                     continue;
                     
                 if (operand.Descriptor.SingleTokenType.HasValue)

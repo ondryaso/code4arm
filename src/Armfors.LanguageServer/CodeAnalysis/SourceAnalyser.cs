@@ -7,7 +7,6 @@ using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework.Internal.Execution;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.CodeAnalysis;
@@ -187,6 +186,7 @@ public class SourceAnalyser : ISourceAnalyser
                     else if (char.IsWhiteSpace(c))
                     {
                         // Keeping the state Empty
+                        // ReSharper disable once RedundantJumpStatement
                         break;
                     }
                     else if (!IsValidSymbolChar(c, true))
@@ -632,13 +632,13 @@ public class SourceAnalyser : ISourceAnalyser
     private readonly Regex _commaRegex = new("\\G ?, ?", RegexOptions.Compiled);
     private readonly Regex _endLineRegex = new("\\G ?$", RegexOptions.Compiled | RegexOptions.Multiline);
 
-    private class OperandAnalysisChain
+    private struct OperandAnalysisChain
     {
         public int ErroneousOperandIndex { get; set; } = -1;
         public int EndLinePosition { get; set; } = -1;
         public LineAnalysisState EndLineState { get; set; } = LineAnalysisState.InvalidOperands;
-        public bool MissingOperands { get; set; } = false;
-        public List<AnalysedOperand> Operands { get; set; } = new();
+        public bool MissingOperands { get; set; }
+        public List<AnalysedOperand> Operands { get; } = new();
 
         public OperandAnalysisChain Clone()
         {
@@ -649,12 +649,17 @@ public class SourceAnalyser : ISourceAnalyser
                 EndLineState = this.EndLineState,
                 MissingOperands = this.MissingOperands
             };
-
+            
             ret.Operands.AddRange(this.Operands);
             return ret;
         }
     }
 
+    /// <summary>
+    /// Performs operand analysis of a given line using regular expression matching and recursive descend.
+    /// </summary>
+    /// <param name="line">The whole line being analysed.</param>
+    /// <param name="linePos">Index of the first character of the first operand on the line.</param>
     private void AnalyseOperandsAndFinishLine(string line, int linePos)
     {
         var opPart = line[linePos..];
@@ -696,14 +701,17 @@ public class SourceAnalyser : ISourceAnalyser
 
             if (!analysisResult && descriptor.Optional)
             {
-                // The chain did not get a good result
+                // Analysis was unsuccessful when starting on an optional operand
+                // Throw that analysis chain away and try to begin the analysis on the following operand
                 chain = new OperandAnalysisChain();
                 continue;
             }
 
+            // Whatever the result is, the first operand wasn't optional so we must follow that result
             break;
         }
 
+        // Apply the operand analysis to the current LineAnalysis and finish the line  
         _currentLine.ErroneousOperandIndex = chain.ErroneousOperandIndex;
         _currentLine.MissingOperands = chain.MissingOperands;
         _currentLine.Operands = chain.Operands;
@@ -711,6 +719,20 @@ public class SourceAnalyser : ISourceAnalyser
         this.FinishCurrentLine(chain.EndLinePosition, chain.EndLineState);
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="opPart">A string with only the operand part of the current line.</param>
+    /// <param name="opPartLinePos">Index of the first character of the first operand on the line (relative to the original line).</param>
+    /// <param name="currentPos">Position to start consuming the operand on (relative to the operand part of the line).
+    /// This is the index of a character following the end character of the previous consumed operand.</param>
+    /// <param name="descriptorIndex">Index of the <see cref="OperandDescriptor"/> object that the line is being matched against,
+    /// in the <see cref="InstructionVariant.Operands"/> list of the current line's <see cref="InstructionVariant"/>.</param>
+    /// <param name="descriptor">Reference to the <see cref="OperandDescriptor"/> object that the line is being matched against.</param>
+    /// <param name="actualOperandIndex">Position of the currently analysed operand as used in the source text
+    /// (taking skipped optional operands into consideration).</param>
+    /// <param name="chain">A temporary storage for the results of this analysis chain.</param>
+    /// <returns></returns>
     private bool ConsumeOperand(string opPart, int opPartLinePos, int currentPos, int descriptorIndex,
         OperandDescriptor descriptor, int actualOperandIndex, ref OperandAnalysisChain chain)
     {
@@ -793,7 +815,7 @@ public class SourceAnalyser : ISourceAnalyser
             if (match.Success)
             {
                 // Neither comma nor EOL -> unexpected characters -> SyntaxError instead of the matched operand
-                var lastOp = chain.Operands![^1];
+                var lastOp = chain.Operands[^1];
                 chain.Operands.RemoveAt(chain.Operands.Count - 1);
                 var newOp = lastOp with
                 {
@@ -832,7 +854,7 @@ public class SourceAnalyser : ISourceAnalyser
                  nextDescriptorIndex < opDescriptors.Count;
                  nextDescriptorIndex++)
             {
-                var chainContinuation = chain.Clone();
+                var chainContinuation = chain.Clone(); // TODO: this is very ineffective
 
                 var nextDescriptor = opDescriptors[nextDescriptorIndex];
                 var analysisResult = this.ConsumeOperand(opPart, opPartLinePos, currentPos, nextDescriptorIndex,
@@ -858,7 +880,7 @@ public class SourceAnalyser : ISourceAnalyser
 
         return false;
     }
-    
+
     private AnalysedOperand CheckOperand(int opIndex, OperandDescriptor descriptor, Match match, Range range)
     {
         // TODO
