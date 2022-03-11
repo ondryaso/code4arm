@@ -22,5 +22,5 @@ public enum OperandResult
 
 public record struct AnalysedOperandToken(OperandTokenType Type, Range Range);
 
-public record AnalysedOperand(int Index, OperandDescriptor Descriptor, Range Range, OperandResult Result,
+public record AnalysedOperand(int Index, OperandDescriptor? Descriptor, Range Range, OperandResult Result,
     Range? ErrorRange = null, List<AnalysedOperandToken>? Tokens = null);

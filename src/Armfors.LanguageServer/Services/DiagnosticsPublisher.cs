@@ -92,7 +92,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         diags.Add(new Diagnostic()
                         {
                             Code = DiagnosticCodes.OperandExpected,
-                            Message = "Operand expected.",
+                            Message = analysis.ErroneousOperandIndex == 0 ? "Operand expected." : "Another operand expected.",
                             Range = prepSource.GetOriginalRange(range),
                             Severity = DiagnosticSeverity.Error,
                             Source = Constants.ServiceSource

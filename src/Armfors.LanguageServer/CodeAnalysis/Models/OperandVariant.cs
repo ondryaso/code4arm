@@ -1,6 +1,7 @@
 // OperandVariant.cs
 // Author: Ondřej Ondryáš
 
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
@@ -61,30 +62,45 @@ public class OperandDescriptor
     public bool ShiftAllowed { get; }
 
     public bool Optional { get; }
-    
+
     public OperandType Type { get; }
-    
+
     public OperandTokenType? SingleTokenType { get; }
-    
+
+    public ImmutableDictionary<int, OperandTokenType>? MatchGroupsTokenTypesMappings { get; }
+
     public InstructionVariant Mnemonic { get; set; }
 
     private Regex? _regex = null;
     public Regex Regex => _regex ?? this.MakeRegex();
 
-    public OperandDescriptor(string match, OperandType type, OperandTokenType tokenType, bool optional = false)
+    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false)
     {
         this.Mnemonic = null;
 
         this.AllowedShiftTypes = null;
         this.ImmediateSize = 0;
         this.ShiftAllowed = false;
-        
+
         this.Optional = optional;
         this.Type = type;
-        this.SingleTokenType = tokenType;
+
+        if (tokenType.HasValue)
+        {
+            this.SingleTokenType = tokenType.Value;
+        }
+        else
+        {
+            this.MatchGroupsTokenTypesMappings = ImmutableDictionary<int, OperandTokenType>.Empty.AddRange(new[]
+            {
+                new KeyValuePair<int, OperandTokenType>(1, OperandTokenType.Register),
+                new KeyValuePair<int, OperandTokenType>(3, OperandTokenType.Immediate)
+            });
+        }
+
         _regex = new Regex(match, RegexOptions.Compiled);
     }
-    
+
     private Regex MakeRegex()
     {
         _regex = new Regex(".*", RegexOptions.Compiled);

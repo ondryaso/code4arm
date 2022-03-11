@@ -14,12 +14,15 @@ public class InstructionProvider : IInstructionProvider
     private List<InstructionVariant> instructions = new()
     {
         new InstructionVariant("ADD", true, true, false,
-            new OperandDescriptor("abc", OperandType.Register, OperandTokenType.Register),
-            new OperandDescriptor("efg", OperandType.Label, OperandTokenType.Label, true),
-            new OperandDescriptor("hij", OperandType.ShiftType, OperandTokenType.ShiftType)),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register)),
 
         new InstructionVariant("MOV", true, true),
-        new InstructionVariant("LDR", true, false),
+        new InstructionVariant("LDR", true, false, false,
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("\\[ ?(R0|R1|R2|R3|R4) ?(, ?#?([+-]?[0-9]+))? ?\\]", OperandType.RegisterAddressing, null),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true)),
         new InstructionVariant("NOP", false, false),
         new InstructionVariant("SB", false, false),
         new InstructionVariant("VADD", true, false, true)
