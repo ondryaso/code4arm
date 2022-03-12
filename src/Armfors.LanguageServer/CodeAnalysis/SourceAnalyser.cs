@@ -930,6 +930,31 @@ public class SourceAnalyser : ISourceAnalyser
     private AnalysedOperandToken CheckToken(OperandDescriptor descriptor, Match operandMatch,
         OperandToken token, Range tokenRange, Group tokenMatch)
     {
+        if (token.Type == OperandTokenType.ImmediateConstant)
+        {
+            var number = int.Parse(tokenMatch.Value);
+            var negative = number < 0;
+            if (negative)
+            {
+                number = -number;
+            }
+
+            var valid = CheckModifiedImmediateConstant((uint)number);
+            if (!valid)
+            {
+                return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidImmediateConstantValue,
+                    tokenRange,
+                    tokenMatch.Value);
+            }
+            
+            if (negative)
+            {
+                return new AnalysedOperandToken(token.Type, OperandTokenResult.ImmediateConstantNegative, tokenRange,
+                    tokenMatch.Value, true);
+            }
+        }
+
+
         return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value);
     }
 

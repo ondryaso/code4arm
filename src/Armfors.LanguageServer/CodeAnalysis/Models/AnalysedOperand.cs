@@ -10,6 +10,8 @@ public enum OperandTokenResult
     Valid,
     InvalidRegister,
     InvalidImmediateValue,
+    InvalidImmediateConstantValue,
+    ImmediateConstantNegative,
     InvalidShiftType,
     InvalidRegisterList,
     RegisterListMustContainPc,

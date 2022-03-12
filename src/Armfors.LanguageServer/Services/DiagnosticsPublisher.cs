@@ -103,23 +103,6 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     }
 
                     var erroneous = analysis.Operands![analysis.ErroneousOperandIndex];
-                    if (erroneous.Tokens is { Count: > 0 })
-                    {
-                        foreach (var token in erroneous.Tokens)
-                        {
-                            var (code, message) = GetOperandTokenDiagnostic(token);
-
-                            diags.Add(new Diagnostic()
-                            {
-                                Code = code,
-                                Message = message,
-                                Range = prepSource.GetOriginalRange(token.Range),
-                                Severity = token.WarningOnly ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
-                                Source = Constants.ServiceSource
-                            });
-                        }
-                    }
-
                     if (erroneous.Result != OperandResult.InvalidTokens)
                     {
                         var (code, message) = GetOperandDiagnostic(erroneous);
@@ -135,6 +118,26 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     }
                 }
                     break;
+            }
+
+            if (analysis.Operands is { Count: > 0 })
+            {
+                foreach (var token in analysis.Operands
+                             .Where(operand => operand.Tokens != null)
+                             .SelectMany(operand => operand.Tokens!
+                                 .Where(t => t.Result != OperandTokenResult.Valid)))
+                {
+                    var (code, message) = GetOperandTokenDiagnostic(token);
+
+                    diags.Add(new Diagnostic()
+                    {
+                        Code = code,
+                        Message = message,
+                        Range = prepSource.GetOriginalRange(token.Range),
+                        Severity = token.WarningOnly ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
+                        Source = Constants.ServiceSource
+                    });
+                }
             }
 
             // Set Flags
@@ -269,7 +272,11 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         {
             OperandTokenResult.InvalidRegister => (-1, "Invalid register."), // TODO: say why
             OperandTokenResult.InvalidImmediateValue => (-1,
+                "Immediate value (integer constant) is out of bounds for this operand."),
+            OperandTokenResult.InvalidImmediateConstantValue => (-1,
                 "This immediate value cannot be encoded. Only number that can be expressed as a 8-bit number rotated by even rotation number can be used."), // TODO: say why
+            OperandTokenResult.ImmediateConstantNegative => (-1,
+                "A negative immediate constant will be encoded as the reverse instruction (ADD for SUB and vice-versa). This may not be what you intended."),
             OperandTokenResult.InvalidShiftType => (-1, "Invalid shift type."), // TODO: list possible shift types
             OperandTokenResult.InvalidRegisterList => (-1, "Invalid register list."), // TODO: say why
             OperandTokenResult.RegisterListMustContainPc => (-1,
