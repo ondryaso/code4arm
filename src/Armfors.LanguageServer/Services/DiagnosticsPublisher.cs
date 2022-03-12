@@ -261,6 +261,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         {
             OperandResult.UnexpectedOperand => (DiagnosticCodes.OperandUnexpected, "No operand can be used here."),
             OperandResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            OperandResult.MissingOperand => (DiagnosticCodes.OperandExpected, "Another operand expected."),
             _ => (-1, string.Empty)
         };
     }

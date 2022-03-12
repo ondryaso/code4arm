@@ -7,6 +7,7 @@ using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.CodeAnalysis;
@@ -640,6 +641,8 @@ public class SourceAnalyser : ISourceAnalyser
         public bool MissingOperands { get; set; }
         public List<AnalysedOperand> Operands { get; } = new();
 
+        public OperandConsumingState ConsumingState { get; set; }
+
         public OperandAnalysisChain Clone()
         {
             var ret = new OperandAnalysisChain()
@@ -647,7 +650,8 @@ public class SourceAnalyser : ISourceAnalyser
                 ErroneousOperandIndex = this.ErroneousOperandIndex,
                 EndLinePosition = this.EndLinePosition,
                 EndLineState = this.EndLineState,
-                MissingOperands = this.MissingOperands
+                MissingOperands = this.MissingOperands,
+                ConsumingState = this.ConsumingState
             };
 
             ret.Operands.AddRange(this.Operands);
@@ -683,6 +687,7 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         // Check case: Instruction with some required operands, no text in the operands part
+        // This is probably not necessary because the FSM consumes the space
         if (opDescriptors.Any(o => !o.Optional) && opPart.Trim().Length == 0)
         {
             _currentLine.MissingOperands = true;
@@ -698,7 +703,7 @@ public class SourceAnalyser : ISourceAnalyser
         for (var descriptorIndex = 0; descriptorIndex < opDescriptors.Count; descriptorIndex++)
         {
             var descriptor = opDescriptors[descriptorIndex];
-            var analysisResult = this.ConsumeOperand(opPart, linePos, 0, descriptorIndex, descriptor, 0, ref chain);
+            var analysisResult = this.ConsumeOperand(opPart, linePos, 0, descriptorIndex, 0, ref chain);
 
             if (!analysisResult && descriptor.Optional)
             {
@@ -709,7 +714,7 @@ public class SourceAnalyser : ISourceAnalyser
                     longestMatchedChain = chain;
                 }
 
-                chain = new OperandAnalysisChain();
+                chain = new OperandAnalysisChain() { ConsumingState = OperandConsumingState.ConsumingOperand };
                 continue;
             }
 
@@ -730,6 +735,13 @@ public class SourceAnalyser : ISourceAnalyser
         this.FinishCurrentLine(chain.EndLinePosition, chain.EndLineState);
     }
 
+    private enum OperandConsumingState
+    {
+        ConsumingOperand,
+        ConsumedOperand,
+        ConsumedLastOperand
+    }
+
     /// <summary>
     /// Attempts to match a certain type of operand, described by <see cref="OperandDescriptor"/>, on a given position
     /// in a line. If successful, calls itself to match the next operand. This way, an <see cref="OperandAnalysisChain"/>
@@ -742,163 +754,198 @@ public class SourceAnalyser : ISourceAnalyser
     /// This is the index of a character following the end character of the previous consumed operand.</param>
     /// <param name="descriptorIndex">Index of the <see cref="OperandDescriptor"/> object that the line is being matched against,
     /// in the <see cref="InstructionVariant.Operands"/> list of the current line's <see cref="InstructionVariant"/>.</param>
-    /// <param name="descriptor">Reference to the <see cref="OperandDescriptor"/> object that the line is being matched against.</param>
     /// <param name="actualOperandIndex">Position of the currently analysed operand as used in the source text
     /// (taking skipped optional operands into consideration).</param>
     /// <param name="chain">A temporary storage for the results of this analysis chain.</param>
     /// <returns>True if this operand and all the following ones in the chain were matched successfully.</returns>
     private bool ConsumeOperand(string opPart, int opPartLinePos, int currentPos, int descriptorIndex,
-        OperandDescriptor descriptor, int actualOperandIndex, ref OperandAnalysisChain chain)
+        int actualOperandIndex,
+        ref OperandAnalysisChain chain)
     {
         var mnemonic = _currentLine!.Mnemonic!;
         var opDescriptors = mnemonic.Operands;
         var maxDescriptorIndex = opDescriptors.Count - 1;
         var canHaveMoreOperands = descriptorIndex < maxDescriptorIndex;
 
-        var match = descriptor.Regex.Match(opPart, currentPos);
-
-        if (match.Success && match.Index == currentPos)
+        switch (chain.ConsumingState)
         {
-            var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
-                opPartLinePos + currentPos + match.Length);
-
-            var analysed = this.CheckOperand(actualOperandIndex, opPartLinePos, descriptor, match, range);
-
-            chain.Operands.Add(analysed);
-
-            if (analysed.Result != OperandResult.Valid)
+            case OperandConsumingState.ConsumingOperand:
             {
-                // Invalid operand -> terminate analysis altogether
-                chain.ErroneousOperandIndex = actualOperandIndex;
-                chain.EndLinePosition = range.End.Character;
-                chain.EndLineState = LineAnalysisState.InvalidOperands;
-
-                return false;
-            }
-
-            currentPos += match.Length;
-        }
-
-        var commaMatch = _commaRegex.Match(opPart, currentPos);
-        if (commaMatch.Success)
-        {
-            currentPos += commaMatch.Length;
-        }
-
-        if (_endLineRegex.IsMatch(opPart, currentPos))
-        {
-            if (commaMatch.Success)
-            {
-                // End of line after a comma
-                // Is the last possible operand -> UnexpectedOperand
-                // Otherwise -> SyntaxError
-
-                var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
-                    _currentLine.LineLength);
-
-                // If there was a match, report the error on a fake 'next' operand
-                var offset = actualOperandIndex + (match.Success ? 1 : 0);
+                var descriptor = opDescriptors[descriptorIndex];
+                var match = descriptor.Regex.Match(opPart, currentPos);
                 
-                var analysed = new AnalysedOperand(actualOperandIndex + offset, null, range,
-                    canHaveMoreOperands ? OperandResult.SyntaxError : OperandResult.UnexpectedOperand,
-                    range);
+                if (!match.Success || match.Index != currentPos)
+                {
+                    var invalidRange = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
+                        _currentLine.LineLength);
+                    var invalidAnalysed = new AnalysedOperand(actualOperandIndex, descriptor, invalidRange,
+                        OperandResult.SyntaxError, invalidRange);
 
+                    chain.Operands.Add(invalidAnalysed);
+                    chain.ErroneousOperandIndex = invalidAnalysed.Index;
+                    chain.EndLinePosition = _currentLine.LineLength;
+                    chain.EndLineState = LineAnalysisState.InvalidOperands;
+
+                    return false;
+                }
+                
+                var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
+                    opPartLinePos + currentPos + match.Length);
+                var analysed = this.CheckOperand(actualOperandIndex, opPartLinePos, descriptor, match, range);
                 chain.Operands.Add(analysed);
-                chain.ErroneousOperandIndex = analysed.Index;
-                chain.EndLinePosition = opPartLinePos + currentPos;
-                chain.EndLineState = LineAnalysisState.InvalidOperands;
 
-                return false;
+                if (analysed.Result != OperandResult.Valid)
+                {
+                    // Invalid operand -> terminate analysis altogether
+                    chain.ErroneousOperandIndex = actualOperandIndex;
+                    chain.EndLinePosition = range.End.Character;
+                    chain.EndLineState = LineAnalysisState.InvalidOperands;
+
+                    return false;
+                }
+
+                currentPos += match.Length;
+                chain.ConsumingState = canHaveMoreOperands
+                    ? OperandConsumingState.ConsumedOperand
+                    : OperandConsumingState.ConsumedLastOperand;
+
+                break;
             }
-
-            if (canHaveMoreOperands && opDescriptors.Skip(descriptorIndex + 1).Any(o => !o.Optional))
+            case OperandConsumingState.ConsumedOperand:
             {
-                // End of line after an operand in the middle (there should be more required operands)
-                chain.MissingOperands = true;
-                chain.ErroneousOperandIndex = actualOperandIndex + 1;
-                chain.EndLinePosition = opPartLinePos + currentPos;
-                chain.EndLineState = LineAnalysisState.InvalidOperands;
+                var commaMatch = _commaRegex.Match(opPart, currentPos);
+                if (commaMatch.Success)
+                {
+                    currentPos += commaMatch.Length;
+                    chain.ConsumingState = OperandConsumingState.ConsumingOperand;
+                    var longestMatchedChain = chain;
 
-                return false;
-            }
+                    for (var nextDescriptorIndex = descriptorIndex;
+                         nextDescriptorIndex < opDescriptors.Count;
+                         nextDescriptorIndex++)
+                    {
+                        var chainContinuation = chain.Clone(); // TODO: this is very ineffective
 
-            chain.EndLinePosition = _currentLine.LineLength;
-            chain.EndLineState = LineAnalysisState.ValidLine;
-            return true;
-        }
-        
-        if (!commaMatch.Success)
-        {
-            if (match.Success)
-            {
-                // Neither comma nor EOL -> unexpected characters -> SyntaxError instead of the matched operand
-                var lastOp = chain.Operands[^1];
-                chain.Operands.RemoveAt(chain.Operands.Count - 1);
-                var newOp = lastOp with
+                        var nextDescriptor = opDescriptors[nextDescriptorIndex];
+                        var analysisResult = this.ConsumeOperand(opPart, opPartLinePos, currentPos, nextDescriptorIndex,
+                            actualOperandIndex, ref chainContinuation);
+
+                        if (!analysisResult && nextDescriptor.Optional) // The chain did not get a good result
+                        {
+                            if (chainContinuation.Operands.Count >= longestMatchedChain.Operands.Count)
+                            {
+                                longestMatchedChain = chainContinuation;
+                            }
+
+                            continue;
+                        }
+
+                        chain = chainContinuation;
+                        return analysisResult;
+                    }
+
+                    if (chain.EndLineState != LineAnalysisState.ValidLine &&
+                        longestMatchedChain.ErroneousOperandIndex != -1)
+                    {
+                        chain = longestMatchedChain;
+                    }
+
+                    return false;
+                }
+
+                var isEndLine = _endLineRegex.IsMatch(opPart, currentPos);
+
+                if (isEndLine)
+                {
+                    var nextOperand = opDescriptors.Skip(descriptorIndex).FirstOrDefault(o => !o.Optional);
+                    if (nextOperand == null)
+                    {
+                        // No required operands follow
+                        chain.EndLinePosition = currentPos;
+                        chain.EndLineState = LineAnalysisState.ValidLine;
+                        return true; 
+                    }
+
+                    // Missing operand
+                    var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
+                        _currentLine.LineLength);
+                    var analysed = new AnalysedOperand(actualOperandIndex, nextOperand, range,
+                        OperandResult.MissingOperand, range);
+
+                    chain.Operands.Add(analysed);
+                    chain.MissingOperands = true;
+                    chain.ErroneousOperandIndex = analysed.Index;
+                    chain.EndLinePosition = _currentLine.LineLength;
+                    chain.EndLineState = LineAnalysisState.InvalidOperands;
+
+                    return false;
+                }
+
+                var lastAnalysed = chain.Operands[^1];
+                var newAnalysis = lastAnalysed with
                 {
                     Result = OperandResult.SyntaxError,
-                    ErrorRange = new Range(_lineIndex, lastOp.Range.End.Character, _lineIndex, _currentLine.LineLength)
+                    ErrorRange = new Range(_lineIndex, lastAnalysed.Range.End.Character, _lineIndex,
+                        _currentLine.LineLength)
                 };
 
-                chain.Operands.Add(newOp);
-                chain.ErroneousOperandIndex = lastOp.Index;
-                chain.EndLinePosition = opPartLinePos + currentPos;
+                chain.Operands.RemoveAt(chain.Operands.Count - 1);
+                chain.Operands.Add(newAnalysis);
+                chain.ErroneousOperandIndex = newAnalysis.Index;
+                chain.EndLinePosition = _currentLine.LineLength;
                 chain.EndLineState = LineAnalysisState.InvalidOperands;
 
                 return false;
             }
-            else
+            case OperandConsumingState.ConsumedLastOperand:
             {
-                var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
-                    _currentLine.LineLength);
+                var isEndLine = _endLineRegex.IsMatch(opPart, currentPos);
+                if (isEndLine)
+                {
+                    chain.EndLinePosition = currentPos;
+                    chain.EndLineState = LineAnalysisState.ValidLine;
+                    return true;
+                }
 
-                var analysed = new AnalysedOperand(actualOperandIndex, descriptor, range, OperandResult.SyntaxError,
-                    range);
+                var commaMatch = _commaRegex.Match(opPart, currentPos);
+                if (commaMatch.Success)
+                {
+                    // Unexpected operand
+                    var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
+                        _currentLine.LineLength);
+                    var analysed = new AnalysedOperand(actualOperandIndex, null, range,
+                        OperandResult.UnexpectedOperand, range);
 
-                chain.Operands.Add(analysed);
-                chain.ErroneousOperandIndex = actualOperandIndex;
-                chain.EndLinePosition = range.End.Character;
+                    chain.Operands.Add(analysed);
+                    chain.ErroneousOperandIndex = analysed.Index;
+                    chain.EndLinePosition = _currentLine.LineLength;
+                    chain.EndLineState = LineAnalysisState.InvalidOperands;
+
+                    return false;
+                }
+
+                // Syntax error
+                var lastAnalysed = chain.Operands[^1];
+                var newAnalysis = lastAnalysed with
+                {
+                    Result = OperandResult.SyntaxError,
+                    ErrorRange = new Range(_lineIndex, lastAnalysed.Range.End.Character, _lineIndex,
+                        _currentLine.LineLength)
+                };
+
+                chain.Operands.RemoveAt(chain.Operands.Count - 1);
+                chain.Operands.Add(newAnalysis);
+                chain.ErroneousOperandIndex = newAnalysis.Index;
+                chain.EndLinePosition = _currentLine.LineLength;
                 chain.EndLineState = LineAnalysisState.InvalidOperands;
-
                 return false;
             }
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
-        // Consumed comma and the line doesn't end after the loaded operand
-        if (canHaveMoreOperands && match.Success)
-        {
-            for (var nextDescriptorIndex = descriptorIndex + 1;
-                 nextDescriptorIndex < opDescriptors.Count;
-                 nextDescriptorIndex++)
-            {
-                var chainContinuation = chain.Clone(); // TODO: this is very ineffective
-
-                var nextDescriptor = opDescriptors[nextDescriptorIndex];
-                var analysisResult = this.ConsumeOperand(opPart, opPartLinePos, currentPos, nextDescriptorIndex,
-                    nextDescriptor, actualOperandIndex + 1, ref chainContinuation);
-
-                if (!analysisResult && nextDescriptor.Optional) // The chain did not get a good result
-                    continue;
-
-                chain = chainContinuation;
-                return analysisResult;
-            }
-        }
-
-        var oi = actualOperandIndex + ((match.Success || commaMatch.Success) ? 0 : 1);
-        var sc = opPartLinePos + currentPos - (commaMatch.Success ? commaMatch.Length : 0);
-        
-        var failureRange = new Range(_lineIndex, sc, _lineIndex,
-            _currentLine.LineLength);
-        var lastOperand = new AnalysedOperand(oi, null, failureRange, OperandResult.SyntaxError,
-            failureRange);
-
-        chain.Operands.Add(lastOperand);
-        chain.ErroneousOperandIndex = oi;
-        chain.EndLinePosition = failureRange.End.Character;
-        chain.EndLineState = LineAnalysisState.InvalidOperands;
-
-        return false;
+        return this.ConsumeOperand(opPart, opPartLinePos, currentPos, descriptorIndex + 1, actualOperandIndex + 1,
+            ref chain);
     }
 
     private AnalysedOperand CheckOperand(int opIndex, int opPartLinePos, OperandDescriptor descriptor, Match match,
@@ -968,6 +1015,26 @@ public class SourceAnalyser : ISourceAnalyser
             {
                 return new AnalysedOperandToken(token.Type, OperandTokenResult.ImmediateConstantNegative, tokenRange,
                     tokenMatch.Value, true);
+            }
+        }
+        else if (token.Type == OperandTokenType.Immediate)
+        {
+            var numberParsed = int.Parse(tokenMatch.Value);
+            var number = (uint)(numberParsed > 0 ? numberParsed : -numberParsed);
+            var maxValue = (1u << token.ImmediateSize) - 1;
+
+            if (token.IsImmediateDiv4)
+            {
+                maxValue *= 4;
+            }
+
+            if (number > maxValue || (token.IsImmediateDiv4 && number % 4 != 0))
+            {
+                return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidImmediateValue,
+                    tokenRange, tokenMatch.Value);
+            }
+            else if (token.Type == OperandTokenType.ImmediateShift)
+            {
             }
         }
 

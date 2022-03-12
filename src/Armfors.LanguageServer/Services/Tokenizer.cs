@@ -144,7 +144,7 @@ public class Tokenizer : ITokenizer
     {
         return tokenType switch
         {
-            OperandTokenType.Immediate or OperandTokenType.ImmediateConstant => null,
+            OperandTokenType.Immediate or OperandTokenType.ImmediateConstant or OperandTokenType.ImmediateShift => null,
             OperandTokenType.Register => (ArmSemanticTokenType.Register, Enumerable.Empty<SemanticTokenModifier>()),
             OperandTokenType.SimdRegister => (ArmSemanticTokenType.Register,
                 new[] { ArmSemanticTokenModifier.VectorRegister }),

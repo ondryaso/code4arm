@@ -16,7 +16,7 @@ public class InstructionProvider : IInstructionProvider
         new InstructionVariant("ADD", true, true, false,
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true),
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
-            new OperandDescriptor("#?([+-]?[0-9]+)", OperandType.ImmediateConstant, OperandTokenType.ImmediateConstant)),
+            new OperandDescriptor("#?([+-]?[0-9]+)", OperandType.ImmediateConstant, OperandTokenType.ImmediateConstant, false, 1)),
 
         new InstructionVariant("MOV", true, true),
         new InstructionVariant("LDR", true, false, false,

@@ -1,4 +1,6 @@
-﻿namespace Armfors.LanguageServer.CodeAnalysis.Models;
+﻿using Armfors.LanguageServer.Extensions;
+
+namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
 public enum VectorDataType
 {
@@ -81,9 +83,7 @@ public static class VectorDataTypeExtensions
             "16" => VectorDataType.Any16,
             "32" => VectorDataType.Any32,
             "64" => VectorDataType.Any64,
-            _ => (Enum.TryParse(dataType, true, out VectorDataType result) &&
-                  (Enum.GetName(typeof(VectorDataType), result)?.Equals(dataType,
-                      StringComparison.InvariantCultureIgnoreCase) ?? false))
+            _ => EnumExtensions.TryParseName(dataType, out VectorDataType result)
                 ? result
                 : VectorDataType.Unknown
         };

@@ -44,6 +44,7 @@ public enum OperandTokenType
 {
     Immediate,
     ImmediateConstant,
+    ImmediateShift,
     Register,
     SimdRegister,
     Label,
@@ -122,7 +123,7 @@ public class OperandDescriptor
     private Regex? _regex = null;
     public Regex Regex => _regex ?? this.MakeRegex();
 
-    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false)
+    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false, int stmg = 0)
     {
         this.Mnemonic = null;
 
@@ -132,7 +133,7 @@ public class OperandDescriptor
         if (tokenType.HasValue)
         {
             this.SingleToken = new OperandToken(tokenType.Value);
-            this.SingleTokenMatchGroup = 0;
+            this.SingleTokenMatchGroup = stmg;
         }
         else
         {

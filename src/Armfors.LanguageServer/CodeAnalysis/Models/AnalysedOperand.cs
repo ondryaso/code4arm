@@ -25,6 +25,7 @@ public enum OperandResult
     Valid,
     InvalidTokens,
     UnexpectedOperand,
+    MissingOperand,
     SyntaxError
 }
 
