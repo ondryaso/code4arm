@@ -649,7 +649,7 @@ public class SourceAnalyser : ISourceAnalyser
                 EndLineState = this.EndLineState,
                 MissingOperands = this.MissingOperands
             };
-            
+
             ret.Operands.AddRange(this.Operands);
             return ret;
         }
@@ -720,7 +720,10 @@ public class SourceAnalyser : ISourceAnalyser
     }
 
     /// <summary>
-    /// 
+    /// Attempts to match a certain type of operand, described by <see cref="OperandDescriptor"/>, on a given position
+    /// in a line. If successful, calls itself to match the next operand. This way, an <see cref="OperandAnalysisChain"/>
+    /// is created that holds information about the whole analysis process, up to its termination by a valid line, or by
+    /// an error.
     /// </summary>
     /// <param name="opPart">A string with only the operand part of the current line.</param>
     /// <param name="opPartLinePos">Index of the first character of the first operand on the line (relative to the original line).</param>
@@ -732,7 +735,7 @@ public class SourceAnalyser : ISourceAnalyser
     /// <param name="actualOperandIndex">Position of the currently analysed operand as used in the source text
     /// (taking skipped optional operands into consideration).</param>
     /// <param name="chain">A temporary storage for the results of this analysis chain.</param>
-    /// <returns></returns>
+    /// <returns>True if this operand and all the following ones in the chain were matched successfully.</returns>
     private bool ConsumeOperand(string opPart, int opPartLinePos, int currentPos, int descriptorIndex,
         OperandDescriptor descriptor, int actualOperandIndex, ref OperandAnalysisChain chain)
     {
@@ -748,7 +751,7 @@ public class SourceAnalyser : ISourceAnalyser
             var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
                 opPartLinePos + currentPos + match.Length);
 
-            var analysed = this.CheckOperand(actualOperandIndex, descriptor, match, range);
+            var analysed = this.CheckOperand(actualOperandIndex, opPartLinePos, descriptor, match, range);
 
             chain.Operands.Add(analysed);
 
@@ -881,10 +884,73 @@ public class SourceAnalyser : ISourceAnalyser
         return false;
     }
 
-    private AnalysedOperand CheckOperand(int opIndex, OperandDescriptor descriptor, Match match, Range range)
+    private AnalysedOperand CheckOperand(int opIndex, int opPartLinePos, OperandDescriptor descriptor, Match match,
+        Range range)
     {
-        // TODO
-        return new AnalysedOperand(opIndex, descriptor, range, OperandResult.Valid);
+        /*
+         TODO:
+         - imm checking (standalone, constants, in addressing...)
+         - reg name and type checking
+         - shift type checking
+         - literal checking? guess not, this is covered by the regex itself? or should it be?
+         - register list checking
+         - alignment checking
+        */
+
+        var resultTokens = new List<AnalysedOperandToken>();
+        var input = descriptor.IsSingleToken
+            ? Enumerable.Repeat(
+                new KeyValuePair<int, OperandToken>(descriptor.SingleTokenMatchGroup, descriptor.SingleToken!), 1)
+            : descriptor.MatchGroupsTokenMappings ?? Enumerable.Empty<KeyValuePair<int, OperandToken>>();
+
+        var hasErrors = false;
+        foreach (var (groupIndex, token) in input)
+        {
+            if (match.Groups.Count <= groupIndex)
+                continue;
+
+            var matchGroup = match.Groups[groupIndex];
+            var tokenRange = new Range(range.Start.Line,
+                opPartLinePos + matchGroup.Index, range.Start.Line,
+                opPartLinePos + matchGroup.Index + matchGroup.Length);
+
+            var aot = this.CheckToken(descriptor, match, token, tokenRange, matchGroup);
+            if (aot.Result != OperandTokenResult.Valid && !aot.WarningOnly)
+            {
+                hasErrors = true;
+            }
+
+            resultTokens.Add(aot);
+        }
+
+        return new AnalysedOperand(opIndex, descriptor, range,
+            hasErrors ? OperandResult.InvalidTokens : OperandResult.Valid, null, resultTokens);
+    }
+
+    private AnalysedOperandToken CheckToken(OperandDescriptor descriptor, Match operandMatch,
+        OperandToken token, Range tokenRange, Group tokenMatch)
+    {
+        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value);
+    }
+
+    /// <summary>
+    /// Checks whether the specified number is a valid modified immediate constant.
+    /// </summary>
+    /// <remarks>See the Architecture Reference Manual, chapter F1.7.7.</remarks>
+    /// <returns></returns>
+    private static bool CheckModifiedImmediateConstant(uint number)
+    {
+        if (number <= 0xFFu) return true;
+        for (var i = 2; i < 32; i += 2)
+        {
+            // Rotate number (left) and check if it's under 255
+            if (((number << i) | (number >> (32 - i))) <= 0xFFu)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ResetCurrentLineFlags()

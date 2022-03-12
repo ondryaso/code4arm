@@ -43,31 +43,79 @@ public enum OperandType
 public enum OperandTokenType
 {
     Immediate,
+    ImmediateConstant,
     Register,
     SimdRegister,
     Label,
     ShiftType
 }
 
+/// <summary>
+/// Represents a token of certain <see cref="OperandTokenType"/> in an operand descriptor.
+/// A token is an atomic part of an operand syntax, such as a register name or shift type.
+/// </summary>
+/// <param name="Type">The <see cref="OperandTokenType"/> type of this token.</param>
+public record OperandToken(OperandTokenType Type)
+{
+    /// <summary>
+    /// Allowed general-purpose registers for tokens of type <see cref="OperandTokenType.Register"/>. 
+    /// </summary>
+    public Register RegisterMask { get; init; } = RegisterExtensions.All;
+
+    /// <summary>
+    /// Determines the size in bits of an immediate constant when this token is of type <see cref="OperandTokenType.Immediate"/>.
+    /// </summary>
+    public int ImmediateSize { get; init; } = -1;
+
+    /// <summary>
+    /// Determines whether a token of type <see cref="OperandTokenType.Immediate"/> only allows values that are
+    /// multiples of four.
+    /// </summary>
+    public bool IsImmediateDiv4 { get; init; } = false;
+
+    /// <summary>
+    /// Allowed shift types for tokens of type <see cref="OperandTokenType.ShiftType"/>.
+    /// If null, all shift types are allowed.
+    /// </summary>
+    public ShiftType[]? AllowedShiftTypes { get; init; } = null;
+
+    /// <summary>
+    /// The <see cref="OperandTokenType"/> type of this token.
+    /// </summary>
+    public OperandTokenType Type { get; } = Type;
+}
+
+/// <summary>
+/// Describes a possible operand of a certain <see cref="InstructionVariant"/>.
+/// </summary>
+/// <remarks>
+/// An operand descriptor defines a regular expression that can be used to match the operand in a source text.
+/// The descriptor may describe an atomic expression, such as a label, or a composed expression that must appear
+/// whole in the text to be a valid operand, such as a post-index addressing expression. Operand descriptors thus
+/// define a collection of <see cref="OperandToken"/> descriptors that further specify these atomic parts of an
+/// operand. It is stored in the <see cref="MatchGroupsTokenMappings"/> dictionary where keys are indexes to the
+/// descriptor's regex match groups. If a descriptor describes a sole atomic expression, its <see cref="SingleToken"/>
+/// is populated instead of the dictionary. 
+/// </remarks>
 public class OperandDescriptor
 {
-    public Register RegisterMask { get; } = RegisterExtensions.All;
-
-    // If null, all shift types are allowed
-    public ShiftType[]? AllowedShiftTypes { get; }
-
-    public int ImmediateSize { get; }
-
-    // Used with Register*Addressing (LDR can shift the offset register, LDRD cannot)
-    public bool ShiftAllowed { get; }
-
     public bool Optional { get; }
 
     public OperandType Type { get; }
 
-    public OperandTokenType? SingleTokenType { get; }
+    public OperandToken? SingleToken { get; }
+    
+    public int SingleTokenMatchGroup { get; }
 
-    public ImmutableDictionary<int, OperandTokenType>? MatchGroupsTokenTypesMappings { get; }
+    /// <summary>
+    /// Determines whether shifting is allowed.
+    /// Used with register addressing (LDR can shift the offset register, LDRD cannot).
+    /// </summary>
+    public bool ShiftAllowed { get; } = false;
+
+    public bool IsSingleToken => this.SingleToken != null;
+
+    public ImmutableDictionary<int, OperandToken>? MatchGroupsTokenMappings { get; }
 
     public InstructionVariant Mnemonic { get; set; }
 
@@ -78,23 +126,21 @@ public class OperandDescriptor
     {
         this.Mnemonic = null;
 
-        this.AllowedShiftTypes = null;
-        this.ImmediateSize = 0;
-        this.ShiftAllowed = false;
-
         this.Optional = optional;
         this.Type = type;
 
         if (tokenType.HasValue)
         {
-            this.SingleTokenType = tokenType.Value;
+            this.SingleToken = new OperandToken(tokenType.Value);
+            this.SingleTokenMatchGroup = 0;
         }
         else
         {
-            this.MatchGroupsTokenTypesMappings = ImmutableDictionary<int, OperandTokenType>.Empty.AddRange(new[]
+            this.MatchGroupsTokenMappings = ImmutableDictionary<int, OperandToken>.Empty.AddRange(new[]
             {
-                new KeyValuePair<int, OperandTokenType>(1, OperandTokenType.Register),
-                new KeyValuePair<int, OperandTokenType>(3, OperandTokenType.Immediate)
+                new KeyValuePair<int, OperandToken>(1, new OperandToken(OperandTokenType.Register)),
+                new KeyValuePair<int, OperandToken>(3,
+                    new OperandToken(OperandTokenType.Immediate) { ImmediateSize = 4 })
             });
         }
 

@@ -92,7 +92,9 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         diags.Add(new Diagnostic()
                         {
                             Code = DiagnosticCodes.OperandExpected,
-                            Message = analysis.ErroneousOperandIndex == 0 ? "Operand expected." : "Another operand expected.",
+                            Message = analysis.ErroneousOperandIndex == 0
+                                ? "Operand expected."
+                                : "Another operand expected.",
                             Range = prepSource.GetOriginalRange(range),
                             Severity = DiagnosticSeverity.Error,
                             Source = Constants.ServiceSource
@@ -101,16 +103,36 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     }
 
                     var erroneous = analysis.Operands![analysis.ErroneousOperandIndex];
-                    var (code, message) = GetOperandDiagnostic(erroneous);
-
-                    diags.Add(new Diagnostic()
+                    if (erroneous.Tokens is { Count: > 0 })
                     {
-                        Code = code,
-                        Message = message,
-                        Range = prepSource.GetOriginalRange(erroneous.ErrorRange!),
-                        Severity = DiagnosticSeverity.Error,
-                        Source = Constants.ServiceSource
-                    });
+                        foreach (var token in erroneous.Tokens)
+                        {
+                            var (code, message) = GetOperandTokenDiagnostic(token);
+
+                            diags.Add(new Diagnostic()
+                            {
+                                Code = code,
+                                Message = message,
+                                Range = prepSource.GetOriginalRange(token.Range),
+                                Severity = token.WarningOnly ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
+                                Source = Constants.ServiceSource
+                            });
+                        }
+                    }
+
+                    if (erroneous.Result != OperandResult.InvalidTokens)
+                    {
+                        var (code, message) = GetOperandDiagnostic(erroneous);
+
+                        diags.Add(new Diagnostic()
+                        {
+                            Code = code,
+                            Message = message,
+                            Range = prepSource.GetOriginalRange(erroneous.ErrorRange!),
+                            Severity = DiagnosticSeverity.Error,
+                            Source = Constants.ServiceSource
+                        });
+                    }
                 }
                     break;
             }
@@ -234,19 +256,29 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
     {
         return analysedOperand.Result switch
         {
-            OperandResult.InvalidRegister => (-1, "Invalid register."), // TODO: say why
-            OperandResult.InvalidImmediateValue => (-1, "Invalid immediate value."), // TODO: say why
-            OperandResult.InvalidShiftType => (-1, "Invalid shift type."), // TODO: list possible shift types
-            OperandResult.InvalidRegisterList => (-1, "Invalid register list."), // TODO: say why
-            OperandResult.RegisterListMustContainPc => (-1,
-                "The register list must contain the program counter (PC/R15)."),
-            OperandResult.RegisterListCannotContainPc => (-1,
-                "The register list cannot contain the program counter (PC/R15)."),
-            OperandResult.InvalidAlignment => (-1, "Invalid alignment value."), // TODO: list possible alignment values
-            OperandResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
             OperandResult.UnexpectedOperand => (DiagnosticCodes.OperandUnexpected, "No operand can be used here."),
             OperandResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
-            OperandResult.Valid => (-1, string.Empty), // Doesn't happen
+            _ => (-1, string.Empty)
+        };
+    }
+
+    private static (DiagnosticCode DiagnosticCode, string Message) GetOperandTokenDiagnostic(
+        AnalysedOperandToken analysedOperandToken)
+    {
+        return analysedOperandToken.Result switch
+        {
+            OperandTokenResult.InvalidRegister => (-1, "Invalid register."), // TODO: say why
+            OperandTokenResult.InvalidImmediateValue => (-1,
+                "This immediate value cannot be encoded. Only number that can be expressed as a 8-bit number rotated by even rotation number can be used."), // TODO: say why
+            OperandTokenResult.InvalidShiftType => (-1, "Invalid shift type."), // TODO: list possible shift types
+            OperandTokenResult.InvalidRegisterList => (-1, "Invalid register list."), // TODO: say why
+            OperandTokenResult.RegisterListMustContainPc => (-1,
+                "The register list must contain the program counter (PC/R15)."),
+            OperandTokenResult.RegisterListCannotContainPc => (-1,
+                "The register list cannot contain the program counter (PC/R15)."),
+            OperandTokenResult.InvalidAlignment => (-1,
+                "Invalid alignment value."), // TODO: list possible alignment values
+            OperandTokenResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
             _ => (-1, string.Empty)
         };
     }

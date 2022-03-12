@@ -108,30 +108,30 @@ public class Tokenizer : ITokenizer
 
             if (analysis.Operands == null)
                 continue;
-            
+
             foreach (var operand in analysis.Operands)
             {
                 if (operand.Result != OperandResult.Valid || operand.Descriptor == null)
                     continue;
-                    
-                if (operand.Descriptor.SingleTokenType.HasValue)
+
+                if (operand.Descriptor.IsSingleToken)
                 {
-                    var tt = GetOperandSemanticTokenType(operand.Descriptor.SingleTokenType.Value);
+                    var tt = GetOperandSemanticTokenType(operand.Descriptor.SingleToken!.Type);
                     if (tt == null)
                         continue;
 
                     builder.Push(prepSource.GetOriginalRange(operand.Range),
                         tt.Value.Type, tt.Value.Modifiers);
                 }
-                else if (operand.Tokens != null)
+                else if (operand.Tokens is { Count: > 0 })
                 {
-                    foreach (var (operandTokenType, range) in operand.Tokens)
+                    foreach (var token in operand.Tokens)
                     {
-                        var tt = GetOperandSemanticTokenType(operandTokenType);
+                        var tt = GetOperandSemanticTokenType(token.Type);
                         if (tt == null)
                             continue;
 
-                        builder.Push(prepSource.GetOriginalRange(range),
+                        builder.Push(prepSource.GetOriginalRange(token.Range),
                             tt.Value.Type, tt.Value.Modifiers);
                     }
                 }
