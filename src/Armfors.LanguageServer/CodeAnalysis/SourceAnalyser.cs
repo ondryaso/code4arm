@@ -693,6 +693,7 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         var chain = new OperandAnalysisChain();
+        var longestMatchedChain = chain;
 
         for (var descriptorIndex = 0; descriptorIndex < opDescriptors.Count; descriptorIndex++)
         {
@@ -703,12 +704,22 @@ public class SourceAnalyser : ISourceAnalyser
             {
                 // Analysis was unsuccessful when starting on an optional operand
                 // Throw that analysis chain away and try to begin the analysis on the following operand
+                if (chain.Operands.Count >= longestMatchedChain.Operands.Count)
+                {
+                    longestMatchedChain = chain;
+                }
+
                 chain = new OperandAnalysisChain();
                 continue;
             }
 
             // Whatever the result is, the first operand wasn't optional so we must follow that result
             break;
+        }
+
+        if (chain.EndLineState != LineAnalysisState.ValidLine && longestMatchedChain.ErroneousOperandIndex != -1)
+        {
+            chain = longestMatchedChain;
         }
 
         // Apply the operand analysis to the current LineAnalysis and finish the line  
@@ -785,12 +796,15 @@ public class SourceAnalyser : ISourceAnalyser
                 var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
                     _currentLine.LineLength);
 
-                var analysed = new AnalysedOperand(actualOperandIndex + 1, null, range,
+                // If there was a match, report the error on a fake 'next' operand
+                var offset = actualOperandIndex + (match.Success ? 1 : 0);
+                
+                var analysed = new AnalysedOperand(actualOperandIndex + offset, null, range,
                     canHaveMoreOperands ? OperandResult.SyntaxError : OperandResult.UnexpectedOperand,
                     range);
 
                 chain.Operands.Add(analysed);
-                chain.ErroneousOperandIndex = actualOperandIndex + 1;
+                chain.ErroneousOperandIndex = analysed.Index;
                 chain.EndLinePosition = opPartLinePos + currentPos;
                 chain.EndLineState = LineAnalysisState.InvalidOperands;
 
@@ -812,7 +826,7 @@ public class SourceAnalyser : ISourceAnalyser
             chain.EndLineState = LineAnalysisState.ValidLine;
             return true;
         }
-
+        
         if (!commaMatch.Success)
         {
             if (match.Success)
@@ -851,7 +865,7 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         // Consumed comma and the line doesn't end after the loaded operand
-        if (canHaveMoreOperands)
+        if (canHaveMoreOperands && match.Success)
         {
             for (var nextDescriptorIndex = descriptorIndex + 1;
                  nextDescriptorIndex < opDescriptors.Count;
@@ -871,13 +885,16 @@ public class SourceAnalyser : ISourceAnalyser
             }
         }
 
-        var failureRange = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
+        var oi = actualOperandIndex + ((match.Success || commaMatch.Success) ? 0 : 1);
+        var sc = opPartLinePos + currentPos - (commaMatch.Success ? commaMatch.Length : 0);
+        
+        var failureRange = new Range(_lineIndex, sc, _lineIndex,
             _currentLine.LineLength);
-        var lastOperand = new AnalysedOperand(actualOperandIndex + 1, null, failureRange, OperandResult.SyntaxError,
+        var lastOperand = new AnalysedOperand(oi, null, failureRange, OperandResult.SyntaxError,
             failureRange);
 
         chain.Operands.Add(lastOperand);
-        chain.ErroneousOperandIndex = actualOperandIndex + 1;
+        chain.ErroneousOperandIndex = oi;
         chain.EndLinePosition = failureRange.End.Character;
         chain.EndLineState = LineAnalysisState.InvalidOperands;
 
@@ -946,7 +963,7 @@ public class SourceAnalyser : ISourceAnalyser
                     tokenRange,
                     tokenMatch.Value);
             }
-            
+
             if (negative)
             {
                 return new AnalysedOperandToken(token.Type, OperandTokenResult.ImmediateConstantNegative, tokenRange,
