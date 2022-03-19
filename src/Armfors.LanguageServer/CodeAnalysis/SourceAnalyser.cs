@@ -82,7 +82,33 @@ public class SourceAnalyser : ISourceAnalyser
 
             foreach (var line in enumerable)
             {
+                _lineIndex++;
+                _currentLineText = line;
+                
+                _unsuccessfulVariants.Clear();
+
+                _secondRun = false;
                 await this.AnalyseNextLine(line);
+                var firstAttempt = _currentLine;
+
+                while (_currentLine!.State != LineAnalysisState.ValidLine
+                       && _currentLine.FullMatches.Count > 1
+                       && _currentLine.FullMatches.Count > _unsuccessfulVariants.Count)
+                {
+                    if (_currentLine.Mnemonic != null)
+                    {
+                        _unsuccessfulVariants.Add(_currentLine.Mnemonic);
+                    }
+
+                    _secondRun = true;
+                    await this.AnalyseNextLine(line);
+                }
+
+                if (_currentLine.State != LineAnalysisState.ValidLine)
+                {
+                    _currentLine = firstAttempt;
+                }
+
                 newLineCache.Add(_lineIndex, _currentLine!);
 
                 if (labelsStart == -1 && _currentLine!.State == LineAnalysisState.Blank && _labelsToAppend.Count > 0)
@@ -167,19 +193,20 @@ public class SourceAnalyser : ISourceAnalyser
 
     private AnalysedLine? _currentLine;
     private string _currentLineText = string.Empty;
+    private bool _secondRun = false;
+
+    private List<InstructionVariant> _unsuccessfulVariants = new();
 
     private readonly List<AnalysedLabel> _labelsToAppend = new();
 
     private async Task AnalyseNextLine(string line)
     {
-        var currentLineIndex = ++_lineIndex;
-        _currentLineText = line;
         var loadingSpecifierStart = -1;
         var textStart = 0;
 
-        _currentLine = new AnalysedLine(currentLineIndex, line.Length);
+        _currentLine = new AnalysedLine(_lineIndex, line.Length);
 
-        _logger.LogTrace("Analysing line [{Index}]: {Line}.", currentLineIndex, line);
+        _logger.LogTrace("Analysing line [{Index}]: {Line}.", _lineIndex, line);
 
         for (var linePos = 0; linePos < line.Length; linePos++)
         {
@@ -267,7 +294,7 @@ public class SourceAnalyser : ISourceAnalyser
                             }
 
                             _currentLine.SetsFlags = true;
-                            _currentLine.SetFlagsRange = new Range(currentLineIndex, linePos, currentLineIndex,
+                            _currentLine.SetFlagsRange = new Range(_lineIndex, linePos, _lineIndex,
                                 linePos + 1);
                             _currentLine.CannotSetFlags = false;
                         }
@@ -281,7 +308,7 @@ public class SourceAnalyser : ISourceAnalyser
                                 // This seems to be an attempt to -S a non-S-able instruction
                                 // Set the position of the S to signalise to the user
                                 _currentLine.SetsFlags = false;
-                                _currentLine.SetFlagsRange = new Range(currentLineIndex, linePos, currentLineIndex,
+                                _currentLine.SetFlagsRange = new Range(_lineIndex, linePos, _lineIndex,
                                     linePos + 1);
                                 _currentLine.CannotSetFlags = true;
                             }
@@ -308,7 +335,7 @@ public class SourceAnalyser : ISourceAnalyser
                                 // This seems to be an attempt to add condition code to an unconditional instruction
                                 // Set a flag and pretend it's ok to jump into PossibleConditionCode
 
-                                _currentLine.ConditionCodeRange = new Range(currentLineIndex, linePos, currentLineIndex,
+                                _currentLine.ConditionCodeRange = new Range(_lineIndex, linePos, _lineIndex,
                                     linePos + 1);
                                 _currentLine.CannotBeConditional = true;
                                 _state = LineAnalysisState.PossibleConditionCode;
@@ -360,7 +387,7 @@ public class SourceAnalyser : ISourceAnalyser
                         }
 
                         _currentLine.ConditionCodeRange =
-                            new Range(currentLineIndex, linePos - 1, currentLineIndex, linePos + 1);
+                            new Range(_lineIndex, linePos - 1, _lineIndex, linePos + 1);
 
                         _currentLine.HasInvalidConditionCode = false;
                         _currentLine.HasUnterminatedConditionCode = false;
@@ -378,7 +405,7 @@ public class SourceAnalyser : ISourceAnalyser
                     if (possibleNextState == LineAnalysisState.InvalidMnemonic)
                     {
                         _currentLine.ConditionCodeRange =
-                            new Range(currentLineIndex, linePos - 1, currentLineIndex, linePos + 1);
+                            new Range(_lineIndex, linePos - 1, _lineIndex, linePos + 1);
 
                         if (c is '\n' or ' ')
                         {
@@ -491,14 +518,18 @@ public class SourceAnalyser : ISourceAnalyser
     {
         _currentLine!.Mnemonic = null;
         _currentLine.MnemonicRange = null;
-        _currentLine.MatchingMnemonics = new List<InstructionVariant>();
+        _currentLine.MatchingMnemonics.Clear();
+        _currentLine.FullMatches.Clear();
 
         this.ResetCurrentLineFlags();
 
-        var labelStub = new AnalysedLabel(_currentLineText[textStart..linePos], new Range(_lineIndex,
-            textStart, _lineIndex, linePos), null);
+        if (!_secondRun)
+        {
+            var labelStub = new AnalysedLabel(_currentLineText[textStart..linePos], new Range(_lineIndex,
+                textStart, _lineIndex, linePos), null);
 
-        _labelsToAppend.Add(labelStub);
+            _labelsToAppend.Add(labelStub);
+        }
 
         // Label loaded, reset FSM to the start
         textStart = linePos + 1;
@@ -542,12 +573,18 @@ public class SourceAnalyser : ISourceAnalyser
             return LineAnalysisState.InvalidMnemonic;
         }
 
-        var fullMatch = mnemonics.FirstOrDefault(m =>
-            m.Mnemonic.Equals(linePart.Trim(), StringComparison.InvariantCultureIgnoreCase));
+        var fullMatches = mnemonics.Where(m =>
+            m.Mnemonic.Equals(linePart.Trim(), StringComparison.InvariantCultureIgnoreCase)).ToList();
 
-        if (fullMatch != null)
+        if (fullMatches.Count > 0)
         {
-            _currentLine.Mnemonic = fullMatch;
+            _currentLine.FullMatches = fullMatches;
+            _currentLine.Mnemonic = fullMatches.FirstOrDefault(f => !_unsuccessfulVariants.Contains(f));
+            if (_currentLine.Mnemonic == null)
+            {
+                return LineAnalysisState.InvalidMnemonic;
+            }
+
             _currentLine.MnemonicRange =
                 new Range(_lineIndex, consumedRange.Start.Value, _lineIndex, consumedRange.End.Value);
 
@@ -758,7 +795,7 @@ public class SourceAnalyser : ISourceAnalyser
                 chain.EndLineState = validator.ValidateInstruction(_currentLineText, _currentLine, true);
             }
         }
-        
+
         this.FinishCurrentLine(chain.EndLinePosition, chain.EndLineState);
     }
 

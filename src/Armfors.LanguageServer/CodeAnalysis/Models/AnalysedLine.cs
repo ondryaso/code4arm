@@ -94,6 +94,8 @@ public class AnalysedLine
     /// </summary>
     public List<InstructionVariant> MatchingMnemonics { get; internal set; } = new();
 
+    public List<InstructionVariant> FullMatches { get; internal set; } = new();
+
     /// <summary>
     /// No mnemonic matches the line's text.
     /// </summary>
