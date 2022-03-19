@@ -46,6 +46,12 @@ public class BasicOperandAnalyser : IOperandAnalyser
 
             resultTokens.Add(aot);
         }
+        
+        /*
+         TODO:
+         - register list checking
+         - alignment checking
+        */
 
         return new AnalysedOperand(operandIndex, _descriptor, operandLineRange,
             hasErrors ? OperandResult.InvalidTokens : OperandResult.Valid, null, resultTokens);

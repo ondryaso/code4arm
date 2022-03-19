@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Diagnostics.CodeAnalysis;
+using Armfors.LanguageServer.Extensions;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
@@ -31,6 +32,7 @@ public static class RegisterExtensions
 {
     public const Register All = (Register)((1 << 16) - 1);
     public const Register General = (Register)((1 << 13) - 1);
+
     // ReSharper disable once InconsistentNaming
     public const Register WithoutPC = (Register)((1 << 14) - 1);
 
@@ -62,5 +64,32 @@ public static class RegisterExtensions
     public static int GetIndex(this Register register)
     {
         return (int)Math.Log2((double)register);
+    }
+
+    public static bool TryParseRegister(string name, out Register register)
+    {
+        var isBasicName = EnumExtensions.TryParseName(name, out register);
+        if (isBasicName)
+            return true;
+        
+        if (name.Equals("R13", StringComparison.InvariantCultureIgnoreCase))
+        {
+            register = Register.SP;
+            return true;
+        }
+        
+        if (name.Equals("R14", StringComparison.InvariantCultureIgnoreCase))
+        {
+            register = Register.LR;
+            return true;
+        }
+        
+        if (name.Equals("R15", StringComparison.InvariantCultureIgnoreCase))
+        {
+            register = Register.PC;
+            return true;
+        }
+
+        return false;
     }
 }

@@ -13,16 +13,6 @@ public static class TokenAnalyser
     public static AnalysedOperandToken CheckToken(OperandDescriptor descriptor, Match operandMatch,
         List<AnalysedOperandToken> previousTokens, OperandToken token, Range tokenRange, Group tokenMatch)
     {
-        /*
-         TODO:
-         - imm checking (standalone, constants, in addressing...)
-         - reg name and type checking
-         - shift type checking
-         - literal checking? guess not, this is covered by the regex itself? or should it be?
-         - register list checking
-         - alignment checking
-        */
-
         if (token.Type == OperandTokenType.ImmediateConstant)
         {
             return CheckImmediateConstant(token, tokenRange, tokenMatch);
@@ -39,13 +29,26 @@ public static class TokenAnalyser
             {
                 if (previousToken.Type == OperandTokenType.ShiftType)
                 {
-                    var shiftType =
-                        Enum.Parse<ShiftType>(previousToken.Text); // Safe, the token has been checked before
-                    return CheckImmediateShift(token, tokenRange, tokenMatch, shiftType);
+                    return CheckImmediateShift(token, tokenRange, tokenMatch, previousToken.Data.ShiftType);
                 }
             }
 
             throw new Exception("Unexpected immediate shift token defined.");
+        }
+
+        if (token.Type == OperandTokenType.Register)
+        {
+            return CheckRegister(descriptor, token, tokenRange, tokenMatch);
+        }
+
+        if (token.Type == OperandTokenType.SimdRegister)
+        {
+            // TODO: SIMD registers checking
+        }
+
+        if (token.Type == OperandTokenType.ShiftType)
+        {
+            return CheckShiftType(token, tokenRange, tokenMatch);
         }
 
         return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value);
@@ -53,27 +56,25 @@ public static class TokenAnalyser
 
     public static AnalysedOperandToken CheckImmediateConstant(OperandToken token, Range tokenRange, Group tokenMatch)
     {
-        var number = int.Parse(tokenMatch.Value);
-        var negative = number < 0;
-        if (negative)
-        {
-            number = -number;
-        }
+        var numberParsed = int.Parse(tokenMatch.Value);
+        var negative = numberParsed < 0;
+        var number = negative ? -numberParsed : numberParsed;
 
         var valid = CheckModifiedImmediateConstant((uint)number);
         if (!valid)
         {
             return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidImmediateConstantValue,
-                tokenRange, tokenMatch.Value);
+                tokenRange, tokenMatch.Value, false, numberParsed);
         }
 
         if (negative)
         {
             return new AnalysedOperandToken(token.Type, OperandTokenResult.ImmediateConstantNegative, tokenRange,
-                tokenMatch.Value, true);
+                tokenMatch.Value, true, numberParsed);
         }
 
-        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value);
+        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value,
+            false, numberParsed);
     }
 
     public static AnalysedOperandToken CheckBasicImmediate(OperandToken token, Range tokenRange, Group tokenMatch)
@@ -90,30 +91,79 @@ public static class TokenAnalyser
         if (number > maxValue || (token.IsImmediateDiv4 && number % 4 != 0))
         {
             return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidImmediateValue,
-                tokenRange, tokenMatch.Value);
+                tokenRange, tokenMatch.Value, false, numberParsed);
         }
 
-        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value);
+        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, false,
+            numberParsed);
     }
 
     public static AnalysedOperandToken CheckImmediateShift(OperandToken token, Range tokenRange, Group tokenMatch,
         ShiftType shiftType)
     {
-        var number = uint.Parse(tokenMatch.Value);
-        var valid = false;
+        var number = int.Parse(tokenMatch.Value);
 
-        if (shiftType is ShiftType.LSL or ShiftType.ROR)
+        var valid = shiftType switch
         {
-            valid = number >= 1 && number <= 31;
-        }
-        else if (shiftType is ShiftType.LSR or ShiftType.ASR)
-        {
-            valid = number >= 1 && number <= 32;
-        }
+            ShiftType.LSL or ShiftType.ROR => number is >= 1 and <= 31,
+            ShiftType.LSR or ShiftType.ASR => number is >= 1 and <= 32,
+            _ => false
+        };
 
         return new AnalysedOperandToken(token.Type,
             valid ? OperandTokenResult.Valid : OperandTokenResult.InvalidImmediateValue,
-            tokenRange, tokenMatch.Value);
+            tokenRange, tokenMatch.Value, false, number);
+    }
+
+    public static AnalysedOperandToken CheckRegister(OperandDescriptor descriptor,
+        OperandToken token, Range tokenRange, Group tokenMatch)
+    {
+        if (!RegisterExtensions.TryParseRegister(tokenMatch.Value, out var register))
+        {
+            throw new Exception("Unexpected register name.");
+        }
+
+        if (!token.RegisterMask.HasFlag(register))
+        {
+            if (descriptor.Type == OperandType.Register)
+            {
+                return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidRegister, tokenRange,
+                    tokenMatch.Value, false, register);
+            }
+
+            if (descriptor.Type == OperandType.RegisterList)
+            {
+                return new AnalysedOperandToken(token.Type,
+                    register == Register.PC
+                        ? OperandTokenResult.RegisterListCannotContainPc
+                        : OperandTokenResult.InvalidRegisterListEntry, tokenRange, tokenMatch.Value,
+                    false, register);
+            }
+        }
+
+        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, false,
+            register);
+    }
+
+    public static AnalysedOperandToken CheckShiftType(OperandToken token, Range tokenRange, Group tokenMatch)
+    {
+        if (!EnumExtensions.TryParseName(tokenMatch.Value, out ShiftType shiftType))
+        {
+            return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidShiftType, tokenRange,
+                tokenMatch.Value);
+        }
+
+        if (token.AllowedShiftTypes != null)
+        {
+            if (!token.AllowedShiftTypes.Contains(shiftType))
+            {
+                return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidShiftType, tokenRange,
+                    tokenMatch.Value, false, shiftType);
+            }
+        }
+
+        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange,
+            tokenMatch.Value, false, shiftType);
     }
 
     /// <summary>

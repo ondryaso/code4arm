@@ -279,7 +279,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
             OperandTokenResult.ImmediateConstantNegative => (-1,
                 "A negative immediate constant will be encoded as the reverse instruction (ADD for SUB and vice-versa). This may not be what you intended."),
             OperandTokenResult.InvalidShiftType => (-1, "Invalid shift type."), // TODO: list possible shift types
-            OperandTokenResult.InvalidRegisterList => (-1, "Invalid register list."), // TODO: say why
+            OperandTokenResult.InvalidRegisterListEntry => (-1, "This register cannot be used in this register list."), // TODO: say why
             OperandTokenResult.RegisterListMustContainPc => (-1,
                 "The register list must contain the program counter (PC/R15)."),
             OperandTokenResult.RegisterListCannotContainPc => (-1,
@@ -287,6 +287,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
             OperandTokenResult.InvalidAlignment => (-1,
                 "Invalid alignment value."), // TODO: list possible alignment values
             OperandTokenResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            OperandTokenResult.UndefinedLabel => (-1, "Undefined label."),
             _ => (-1, string.Empty)
         };
     }

@@ -14,7 +14,7 @@ public enum OperandType
     Immediate, // <immX> where X is the bit width of the immediate
     ImmediateDiv4, // <immX> which is a multiple of 4 (so if X=5b, the range is 0 to 2^5*4)
     ImmediateConstant, // #<const>, see "Modified immediate constants" in F1.7.7 (p4363) and J1.2 (p8170)
-    ShiftType, // LSL/LSR/ASR/ROR
+    Shift, // LSL/LSR/ASR/ROR #<amount>
     Literal, // Anything to match literally (e.g. CSYNC)
     ImmediateAddressing, // any of ImmediateOffset, ImmediatePostIndexed or ImmediatePreIndexed
     ImmediateOffset, // [<Rn> {, #{+/-}<imm>}]
@@ -115,7 +115,7 @@ public class OperandDescriptor
     public bool ShiftAllowed { get; } = false;
 
     public bool IsSingleToken => this.SingleToken != null;
-
+    
     public ImmutableDictionary<int, OperandToken>? MatchGroupsTokenMappings { get; }
 
     public InstructionVariant Mnemonic { get; set; }
@@ -123,7 +123,8 @@ public class OperandDescriptor
     private Regex? _regex = null;
     public Regex Regex => _regex ?? this.MakeRegex();
 
-    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false, int stmg = 0)
+    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false, int stmg = 0,
+        params KeyValuePair<int, OperandToken>[] tokens)
     {
         this.Mnemonic = null;
 
@@ -137,12 +138,7 @@ public class OperandDescriptor
         }
         else
         {
-            this.MatchGroupsTokenMappings = ImmutableDictionary<int, OperandToken>.Empty.AddRange(new[]
-            {
-                new KeyValuePair<int, OperandToken>(1, new OperandToken(OperandTokenType.Register)),
-                new KeyValuePair<int, OperandToken>(3,
-                    new OperandToken(OperandTokenType.Immediate) { ImmediateSize = 4 })
-            });
+            this.MatchGroupsTokenMappings = ImmutableDictionary<int, OperandToken>.Empty.AddRange(tokens);
         }
 
         _regex = new Regex(match, RegexOptions.Compiled);

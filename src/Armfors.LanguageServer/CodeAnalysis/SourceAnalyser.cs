@@ -84,12 +84,12 @@ public class SourceAnalyser : ISourceAnalyser
             {
                 _lineIndex++;
                 _currentLineText = line;
-                
+
                 _unsuccessfulVariants.Clear();
 
                 _secondRun = false;
                 await this.AnalyseNextLine(line);
-                var firstAttempt = _currentLine;
+                var bestAttempt = _currentLine;
 
                 while (_currentLine!.State != LineAnalysisState.ValidLine
                        && _currentLine.FullMatches.Count > 1
@@ -100,13 +100,18 @@ public class SourceAnalyser : ISourceAnalyser
                         _unsuccessfulVariants.Add(_currentLine.Mnemonic);
                     }
 
+                    if (bestAttempt?.Operands?.Count <= _currentLine?.Operands?.Count)
+                    {
+                        bestAttempt = _currentLine;
+                    }
+
                     _secondRun = true;
                     await this.AnalyseNextLine(line);
                 }
 
                 if (_currentLine.State != LineAnalysisState.ValidLine)
                 {
-                    _currentLine = firstAttempt;
+                    _currentLine = bestAttempt;
                 }
 
                 newLineCache.Add(_lineIndex, _currentLine!);
@@ -130,6 +135,12 @@ public class SourceAnalyser : ISourceAnalyser
                         };
 
                         _currentLine.Labels.Add(populatedLabel);
+
+                        if (!isAlreadyDefined)
+                        {
+                            newLabels.Add(label.Label, label);
+                        }
+
                         if (labelsStart != -1)
                         {
                             for (var i = labelsStart; i < _lineIndex; i++)
@@ -141,6 +152,21 @@ public class SourceAnalyser : ISourceAnalyser
 
                     _labelsToAppend.Clear();
                     labelsStart = -1;
+                }
+            }
+
+            var allLabels = newLineCache.Values
+                .Where(o => o.State == LineAnalysisState.ValidLine && o.Operands is { Count: > 0 })
+                .SelectMany(o => o.Operands!)
+                .Where(op => op.Result == OperandResult.Valid && op.Tokens is { Count: > 0 })
+                .SelectMany(o => o.Tokens!)
+                .Where(t => t.Type == OperandTokenType.Label);
+
+            foreach (var labelToken in allLabels)
+            {
+                if (!newLabels.ContainsKey(labelToken.Text))
+                {
+                    labelToken.Result = OperandTokenResult.UndefinedLabel;
                 }
             }
 

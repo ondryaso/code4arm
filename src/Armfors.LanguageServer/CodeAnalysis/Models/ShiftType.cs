@@ -1,4 +1,4 @@
-// ShiftType.cs
+// Shift.cs
 // Author: Ondřej Ondryáš
 
 using System.Diagnostics.CodeAnalysis;
