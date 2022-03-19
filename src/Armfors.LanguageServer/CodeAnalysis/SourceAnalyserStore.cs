@@ -13,14 +13,21 @@ namespace Armfors.LanguageServer.CodeAnalysis;
 public class SourceAnalyserStore : ISourceAnalyserStore
 {
     private readonly IInstructionProvider _instructionProvider;
+    private readonly IOperandAnalyserProvider _operandAnalyserProvider;
+    private readonly IInstructionValidatorProvider _instructionValidatorProvider;
     private readonly IDiagnosticsPublisher _diagnosticsPublisher;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ConcurrentDictionary<DocumentUri, SourceAnalyser> _analysers = new();
 
-    public SourceAnalyserStore(IInstructionProvider instructionProvider, IDiagnosticsPublisher diagnosticsPublisher,
+    public SourceAnalyserStore(IInstructionProvider instructionProvider,
+        IOperandAnalyserProvider operandAnalyserProvider,
+        IInstructionValidatorProvider instructionValidatorProvider,
+        IDiagnosticsPublisher diagnosticsPublisher,
         ILoggerFactory loggerFactory)
     {
         _instructionProvider = instructionProvider;
+        _operandAnalyserProvider = operandAnalyserProvider;
+        _instructionValidatorProvider = instructionValidatorProvider;
         _diagnosticsPublisher = diagnosticsPublisher;
         _loggerFactory = loggerFactory;
     }
@@ -35,8 +42,8 @@ public class SourceAnalyserStore : ISourceAnalyserStore
             }
 
             // The cached analyser is not using the current version of the source
-            var newAnalyser = new SourceAnalyser(source, _instructionProvider, _diagnosticsPublisher,
-                _loggerFactory.CreateLogger<SourceAnalyser>());
+            var newAnalyser = new SourceAnalyser(source, _instructionProvider, _operandAnalyserProvider,
+                _instructionValidatorProvider, _diagnosticsPublisher, _loggerFactory.CreateLogger<SourceAnalyser>());
 
             if (!_analysers.TryUpdate(source.Uri, newAnalyser, existing))
             {
@@ -48,8 +55,9 @@ public class SourceAnalyserStore : ISourceAnalyserStore
         }
         else
         {
-            var newAnalyser = new SourceAnalyser(source, _instructionProvider, _diagnosticsPublisher,
-                _loggerFactory.CreateLogger<SourceAnalyser>());
+            var newAnalyser = new SourceAnalyser(source, _instructionProvider, _operandAnalyserProvider,
+                _instructionValidatorProvider, _diagnosticsPublisher, _loggerFactory.CreateLogger<SourceAnalyser>());
+            
             if (!_analysers.TryAdd(source.Uri, newAnalyser))
             {
                 // The analyser in the dictionary has changed in the meantime

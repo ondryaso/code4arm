@@ -9,19 +9,21 @@ namespace Armfors.LanguageServer.CodeAnalysis;
 /// <summary>
 /// Dummy implementation
 /// </summary>
-public class InstructionProvider : IInstructionProvider
+public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvider, IInstructionValidatorProvider
 {
     private List<InstructionVariant> instructions = new()
     {
         new InstructionVariant("ADD", true, true, false,
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true),
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
-            new OperandDescriptor("#?([+-]?[0-9]+)", OperandType.ImmediateConstant, OperandTokenType.ImmediateConstant, false, 1)),
+            new OperandDescriptor("#?([+-]?[0-9]+)", OperandType.ImmediateConstant, OperandTokenType.ImmediateConstant,
+                false, 1)),
 
         new InstructionVariant("MOV", true, true),
         new InstructionVariant("LDR", true, false, false,
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
-            new OperandDescriptor("\\[ ?(R0|R1|R2|R3|R4) ?(, ?#?([+-]?[0-9]+))? ?\\]", OperandType.RegisterAddressing, null),
+            new OperandDescriptor("\\[ ?(R0|R1|R2|R3|R4) ?(, ?#?([+-]?[0-9]+))? ?\\]", OperandType.RegisterAddressing,
+                null),
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true)),
         new InstructionVariant("NOP", false, false),
         new InstructionVariant("SB", false, false),
@@ -37,5 +39,15 @@ public class InstructionProvider : IInstructionProvider
     {
         return Task.FromResult(instructions
             .Where(m => m.Mnemonic.StartsWith(line, StringComparison.InvariantCultureIgnoreCase)).ToList());
+    }
+
+    public IOperandAnalyser For(OperandDescriptor descriptor)
+    {
+        return new BasicOperandAnalyser(descriptor);
+    }
+
+    public IInstructionValidator? For(InstructionVariant instructionVariant)
+    {
+        return null;
     }
 }

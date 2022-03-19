@@ -53,7 +53,6 @@ var languageServer = await LanguageServer.From(options =>
         .WithHandler<SemanticTokensHandler>()
         .WithHandler<CompletionHandler>()
         .WithHandler<SignatureHelpHandler>();
-    
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);
@@ -69,7 +68,10 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton(Mock.Of<ITokenizer>());
     services.AddSingleton<IFileSystem, FileSystem>();
     services.AddSingleton<ISourceStore, FileSourceStore>();
-    services.AddSingleton<IInstructionProvider, InstructionProvider>();
+    services.AddSingleton<InstructionProvider>();
+    services.AddSingleton<IInstructionProvider>(i => i.GetService<InstructionProvider>());
+    services.AddSingleton<IOperandAnalyserProvider>(i => i.GetService<InstructionProvider>());
+    services.AddSingleton<IInstructionValidatorProvider>(i => i.GetService<InstructionProvider>());
     services.AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
     services.AddSingleton<ITokenizer, Tokenizer>();

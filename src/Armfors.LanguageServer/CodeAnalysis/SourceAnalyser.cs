@@ -4,6 +4,7 @@
 using System.Text.RegularExpressions;
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,8 @@ public class SourceAnalyser : ISourceAnalyser
 {
     private readonly ISource _source;
     private readonly IInstructionProvider _instructionProvider;
+    private readonly IOperandAnalyserProvider _operandAnalyserProvider;
+    private readonly IInstructionValidatorProvider _instructionValidatorProvider;
     private readonly IDiagnosticsPublisher _diagnosticsPublisher;
     private readonly ILogger<SourceAnalyser> _logger;
 
@@ -29,10 +32,13 @@ public class SourceAnalyser : ISourceAnalyser
     private int _analysedVersion = -1;
 
     internal SourceAnalyser(ISource source, IInstructionProvider instructionProvider,
+        IOperandAnalyserProvider operandAnalyserProvider, IInstructionValidatorProvider instructionValidatorProvider,
         IDiagnosticsPublisher diagnosticsPublisher, ILogger<SourceAnalyser> logger)
     {
         _source = source;
         _instructionProvider = instructionProvider;
+        _operandAnalyserProvider = operandAnalyserProvider;
+        _instructionValidatorProvider = instructionValidatorProvider;
         _diagnosticsPublisher = diagnosticsPublisher;
         _logger = logger;
     }
@@ -158,12 +164,16 @@ public class SourceAnalyser : ISourceAnalyser
     private LineAnalysisState _state = LineAnalysisState.Empty;
 
     private int _lineIndex = -1;
+
     private AnalysedLine? _currentLine;
+    private string _currentLineText = string.Empty;
+
     private readonly List<AnalysedLabel> _labelsToAppend = new();
 
     private async Task AnalyseNextLine(string line)
     {
         var currentLineIndex = ++_lineIndex;
+        _currentLineText = line;
         var loadingSpecifierStart = -1;
         var textStart = 0;
 
@@ -200,7 +210,7 @@ public class SourceAnalyser : ISourceAnalyser
                         textStart = linePos;
                         consumedPart = new System.Range(textStart, linePos + 1);
                         _currentLine.StartCharacter = linePos;
-                        _state = await this.AnalyseMatchingMnemonics(line, consumedPart);
+                        _state = await this.AnalyseMatchingMnemonics(consumedPart);
                     }
 
                     break;
@@ -214,7 +224,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
                     else if (c == ':')
                     {
-                        this.HandleLabel(line, linePos, ref textStart);
+                        this.HandleLabel(linePos, ref textStart);
                     }
                     else if (!IsValidSymbolChar(c))
                     {
@@ -223,7 +233,7 @@ public class SourceAnalyser : ISourceAnalyser
                     else
                     {
                         // Analyse further
-                        _state = await this.AnalyseMatchingMnemonics(line, consumedPart);
+                        _state = await this.AnalyseMatchingMnemonics(consumedPart);
                     }
 
                     break;
@@ -231,12 +241,12 @@ public class SourceAnalyser : ISourceAnalyser
                     // _currentLine.Mnemonic has been populated by the previous run of AnalyseMatchingMnemonics 
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine(linePos, this.DetermineMnemonicValidity(line));
+                        this.FinishCurrentLine(linePos, this.ValidateSoleMnemonic());
                         return;
                     }
                     else if (c == ':')
                     {
-                        this.HandleLabel(line, linePos, ref textStart);
+                        this.HandleLabel(linePos, ref textStart);
                     }
                     else if (c is 'S' or 's' && !_currentLine.HasConditionCodePart &&
                              _currentLine.Specifiers.Count == 0)
@@ -251,7 +261,7 @@ public class SourceAnalyser : ISourceAnalyser
                                 _currentLine.SetFlagsRange = null;
                                 _currentLine.CannotSetFlags = false;
 
-                                _state = await this.AnalyseMatchingMnemonics(line, consumedPart);
+                                _state = await this.AnalyseMatchingMnemonics(consumedPart);
 
                                 break;
                             }
@@ -264,7 +274,7 @@ public class SourceAnalyser : ISourceAnalyser
                         else
                         {
                             // E.g. there's non-S-able XYZ and a different mnemonic XYZSW
-                            _state = await this.AnalyseMatchingMnemonics(line, consumedPart, false);
+                            _state = await this.AnalyseMatchingMnemonics(consumedPart, false);
 
                             if (_state == LineAnalysisState.InvalidMnemonic)
                             {
@@ -291,7 +301,7 @@ public class SourceAnalyser : ISourceAnalyser
                         else
                         {
                             // Check if there isn't a matching instruction (XYZ + E when there are XYZ and XYZE would get us here) 
-                            var possibleNextState = await this.AnalyseMatchingMnemonics(line, consumedPart, false);
+                            var possibleNextState = await this.AnalyseMatchingMnemonics(consumedPart, false);
 
                             if (possibleNextState == LineAnalysisState.InvalidMnemonic)
                             {
@@ -327,7 +337,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
                     else
                     {
-                        _state = await this.AnalyseMatchingMnemonics(line, consumedPart);
+                        _state = await this.AnalyseMatchingMnemonics(consumedPart);
                         this.ResetCurrentLineFlags();
                     }
 
@@ -336,7 +346,7 @@ public class SourceAnalyser : ISourceAnalyser
                 {
                     if (c == ':')
                     {
-                        this.HandleLabel(line, linePos, ref textStart);
+                        this.HandleLabel(linePos, ref textStart);
                         break;
                     }
 
@@ -363,7 +373,7 @@ public class SourceAnalyser : ISourceAnalyser
 
                     // There might still be other valid instructions.
                     var possibleNextState =
-                        await this.AnalyseMatchingMnemonics(line, new System.Range(textStart, linePos), false);
+                        await this.AnalyseMatchingMnemonics(new System.Range(textStart, linePos), false);
 
                     if (possibleNextState == LineAnalysisState.InvalidMnemonic)
                     {
@@ -397,7 +407,7 @@ public class SourceAnalyser : ISourceAnalyser
                 {
                     if (c == ':')
                     {
-                        this.HandleLabel(line, linePos, ref textStart);
+                        this.HandleLabel(linePos, ref textStart);
                         break;
                     }
 
@@ -408,7 +418,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
 
                     var range = (loadingSpecifierStart + 1)..(linePos + 1);
-                    _state = this.DetermineSpecifierValidity(line, range);
+                    _state = this.DetermineSpecifierSyntaxValidity(range);
                 }
                     break;
                 case LineAnalysisState.InvalidSpecifier:
@@ -419,7 +429,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
                     else if (c == ':')
                     {
-                        this.HandleLabel(line, linePos, ref textStart);
+                        this.HandleLabel(linePos, ref textStart);
                     }
 
                     break;
@@ -431,7 +441,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
                     else if (c == ':')
                     {
-                        this.HandleLabel(line, linePos, ref textStart);
+                        this.HandleLabel(linePos, ref textStart);
                     }
 
                     // At this state, there's no possibility of finding a new matching mnemonic by consuming more characters
@@ -442,7 +452,7 @@ public class SourceAnalyser : ISourceAnalyser
                 case LineAnalysisState.MnemonicLoaded:
                     if (c == '\n')
                     {
-                        this.FinishCurrentLine(linePos, this.DetermineMnemonicValidity(line));
+                        this.FinishCurrentLine(linePos, this.ValidateSoleMnemonic());
                         return;
                     }
                     else if (c == ' ')
@@ -452,7 +462,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
                     else
                     {
-                        this.AnalyseOperandsAndFinishLine(line, linePos);
+                        this.AnalyseOperandsAndFinishLine(linePos);
                         return;
                     }
                 case LineAnalysisState.InvalidOperands:
@@ -477,7 +487,7 @@ public class SourceAnalyser : ISourceAnalyser
         }
     }
 
-    private void HandleLabel(string line, int linePos, ref int textStart)
+    private void HandleLabel(int linePos, ref int textStart)
     {
         _currentLine!.Mnemonic = null;
         _currentLine.MnemonicRange = null;
@@ -485,7 +495,7 @@ public class SourceAnalyser : ISourceAnalyser
 
         this.ResetCurrentLineFlags();
 
-        var labelStub = new AnalysedLabel(line[textStart..linePos], new Range(_lineIndex,
+        var labelStub = new AnalysedLabel(_currentLineText[textStart..linePos], new Range(_lineIndex,
             textStart, _lineIndex, linePos), null);
 
         _labelsToAppend.Add(labelStub);
@@ -495,22 +505,28 @@ public class SourceAnalyser : ISourceAnalyser
         _state = LineAnalysisState.Empty;
     }
 
-    private void FinishCurrentLine(int linePos, LineAnalysisState endState)
+    /// <summary>
+    /// Sets the current line's state and analysis ending position. Resets the FSM.
+    /// </summary>
+    /// <param name="linePosition">Index of the character where the analysis has ended.</param>
+    /// <param name="endState">The resulting state of the currently analysed line.</param>
+    private void FinishCurrentLine(int linePosition, LineAnalysisState endState)
     {
         _state = LineAnalysisState.Empty;
         _currentLine!.State = endState;
-        _currentLine!.EndCharacter = linePos;
+        _currentLine!.EndCharacter = linePosition;
     }
 
     /// <summary>
-    /// TODO
+    /// Checks a part of a line 
     /// </summary>
-    /// <returns>InvalidMnemonic (no matches), HasMatches (possible mnemonics but no full match), HasFullMatch (the current
-    /// range of the text contains a valid mnemonic).</returns>
-    private async Task<LineAnalysisState> AnalyseMatchingMnemonics(string line, System.Range consumedRange,
+    /// <returns><see cref="LineAnalysisState.InvalidMnemonic"/> (no matches),
+    /// <see cref="LineAnalysisState.HasMatches"/> (possible mnemonics but no full match), or
+    /// <see cref="LineAnalysisState.HasFullMatch"/> (a valid mnemonic found).</returns>
+    private async Task<LineAnalysisState> AnalyseMatchingMnemonics(System.Range consumedRange,
         bool clearMatch = true)
     {
-        var linePart = line[consumedRange];
+        var linePart = _currentLineText[consumedRange];
 
         var mnemonics = await _instructionProvider.FindMatchingInstructions(linePart);
         _currentLine!.MatchingMnemonics = mnemonics;
@@ -541,17 +557,19 @@ public class SourceAnalyser : ISourceAnalyser
         return LineAnalysisState.HasMatches;
     }
 
-    private LineAnalysisState DetermineMnemonicValidity(string line)
+    /// <summary>
+    /// Checks if the currently analysed line is valid after it's been terminated only with loaded mnemonic and no operands.
+    /// Returns a <see cref="LineAnalysisState"/> to finish the current line with.
+    /// </summary>
+    /// <returns>The analysis state to end the line with.</returns>
+    private LineAnalysisState ValidateSoleMnemonic()
     {
-        // Doesn't need operands -> ValidLine
-        // Needs operands -> InvalidOperands
-
         if (_currentLine?.Mnemonic == null)
         {
             return LineAnalysisState.InvalidMnemonic;
         }
 
-        // TODO: this has to check if the syntax is valid
+        // Needs operands -> InvalidOperands
         if (_currentLine.Mnemonic.HasOperands && _currentLine.Mnemonic.Operands.Any(o => !o.Optional))
         {
             _currentLine.MissingOperands = true;
@@ -560,23 +578,24 @@ public class SourceAnalyser : ISourceAnalyser
             return LineAnalysisState.InvalidOperands;
         }
 
-        return LineAnalysisState.ValidLine;
+        // Call a validator if it exists, or consider this line valid.
+        var validator = _instructionValidatorProvider.For(_currentLine.Mnemonic);
+        return validator?.ValidateInstruction(_currentLineText, _currentLine, false) ?? LineAnalysisState.ValidLine;
     }
 
     /// <summary>
     /// TODO
     /// </summary>
-    /// <returns>LoadingSpecifier or InvalidSpecifier or SpecifierSyntaxError or HasFullMatch.</returns>
-    private LineAnalysisState DetermineSpecifierValidity(string line, System.Range consumedRange)
+    /// <returns>LoadingSpecifier, InvalidSpecifier, SpecifierSyntaxError or HasFullMatch.</returns>
+    private LineAnalysisState DetermineSpecifierSyntaxValidity(System.Range consumedRange)
     {
-        var specifier = line[consumedRange];
+        var specifier = _currentLineText[consumedRange];
         var m = _currentLine!.Mnemonic!;
         var specifierIndex = _currentLine.Specifiers.Count;
         var lineRange = new Range(_lineIndex, consumedRange.Start.Value - 1, _lineIndex,
             consumedRange.End.Value);
 
-        if (Enum.TryParse(specifier, true, out InstructionSize instructionSize) &&
-            Enum.IsDefined(typeof(InstructionSize), instructionSize))
+        if (EnumExtensions.TryParseName(specifier, out InstructionSize instructionSize))
         {
             var allowed = specifierIndex == 0 &&
                           (!m.ForcedSize.HasValue || m.ForcedSize.Value == instructionSize);
@@ -660,13 +679,12 @@ public class SourceAnalyser : ISourceAnalyser
     }
 
     /// <summary>
-    /// Performs operand analysis of a given line using regular expression matching and recursive descend.
+    /// Performs operand analysis on the current line using regular expression matching and recursive descend.
     /// </summary>
-    /// <param name="line">The whole line being analysed.</param>
     /// <param name="linePos">Index of the first character of the first operand on the line.</param>
-    private void AnalyseOperandsAndFinishLine(string line, int linePos)
+    private void AnalyseOperandsAndFinishLine(int linePos)
     {
-        var opPart = line[linePos..];
+        var opPart = _currentLineText[linePos..];
         var mnemonic = _currentLine!.Mnemonic!;
         var opDescriptors = mnemonic.Operands;
 
@@ -732,13 +750,33 @@ public class SourceAnalyser : ISourceAnalyser
         _currentLine.MissingOperands = chain.MissingOperands;
         _currentLine.Operands = chain.Operands;
 
+        if (chain.EndLineState == LineAnalysisState.ValidLine)
+        {
+            var validator = _instructionValidatorProvider.For(_currentLine.Mnemonic!);
+            if (validator != null)
+            {
+                chain.EndLineState = validator.ValidateInstruction(_currentLineText, _currentLine, true);
+            }
+        }
+        
         this.FinishCurrentLine(chain.EndLinePosition, chain.EndLineState);
     }
 
+    /// <summary>
+    /// Describes the state of an operand parsing chain.
+    /// </summary>
     private enum OperandConsumingState
     {
+        /// Current position is on the start of a possible operand (or end of line).
         ConsumingOperand,
+
+        /// Current position is after a matched operand, there are one or more operand descriptors to consume left.
         ConsumedOperand,
+
+        /// <summary>
+        /// Current position is after a matched operand, it was a match of the last available descriptor, so no more
+        /// operands can be matched, an end of line must follow.
+        /// </summary>
         ConsumedLastOperand
     }
 
@@ -759,8 +797,7 @@ public class SourceAnalyser : ISourceAnalyser
     /// <param name="chain">A temporary storage for the results of this analysis chain.</param>
     /// <returns>True if this operand and all the following ones in the chain were matched successfully.</returns>
     private bool ConsumeOperand(string opPart, int opPartLinePos, int currentPos, int descriptorIndex,
-        int actualOperandIndex,
-        ref OperandAnalysisChain chain)
+        int actualOperandIndex, ref OperandAnalysisChain chain)
     {
         var mnemonic = _currentLine!.Mnemonic!;
         var opDescriptors = mnemonic.Operands;
@@ -773,7 +810,7 @@ public class SourceAnalyser : ISourceAnalyser
             {
                 var descriptor = opDescriptors[descriptorIndex];
                 var match = descriptor.Regex.Match(opPart, currentPos);
-                
+
                 if (!match.Success || match.Index != currentPos)
                 {
                     var invalidRange = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
@@ -788,10 +825,13 @@ public class SourceAnalyser : ISourceAnalyser
 
                     return false;
                 }
-                
+
                 var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
                     opPartLinePos + currentPos + match.Length);
-                var analysed = this.CheckOperand(actualOperandIndex, opPartLinePos, descriptor, match, range);
+
+                var analyser = _operandAnalyserProvider.For(descriptor);
+                var analysed = analyser.AnalyseOperand(actualOperandIndex, opPartLinePos, match, range);
+
                 chain.Operands.Add(analysed);
 
                 if (analysed.Result != OperandResult.Valid)
@@ -863,7 +903,7 @@ public class SourceAnalyser : ISourceAnalyser
                         // No required operands follow
                         chain.EndLinePosition = currentPos;
                         chain.EndLineState = LineAnalysisState.ValidLine;
-                        return true; 
+                        return true;
                     }
 
                     // Missing operand
@@ -948,120 +988,11 @@ public class SourceAnalyser : ISourceAnalyser
             ref chain);
     }
 
-    private AnalysedOperand CheckOperand(int opIndex, int opPartLinePos, OperandDescriptor descriptor, Match match,
-        Range range)
-    {
-        /*
-         TODO:
-         - imm checking (standalone, constants, in addressing...)
-         - reg name and type checking
-         - shift type checking
-         - literal checking? guess not, this is covered by the regex itself? or should it be?
-         - register list checking
-         - alignment checking
-        */
-
-        var resultTokens = new List<AnalysedOperandToken>();
-        var input = descriptor.IsSingleToken
-            ? Enumerable.Repeat(
-                new KeyValuePair<int, OperandToken>(descriptor.SingleTokenMatchGroup, descriptor.SingleToken!), 1)
-            : descriptor.MatchGroupsTokenMappings ?? Enumerable.Empty<KeyValuePair<int, OperandToken>>();
-
-        var hasErrors = false;
-        foreach (var (groupIndex, token) in input)
-        {
-            if (match.Groups.Count <= groupIndex)
-                continue;
-
-            var matchGroup = match.Groups[groupIndex];
-            var tokenRange = new Range(range.Start.Line,
-                opPartLinePos + matchGroup.Index, range.Start.Line,
-                opPartLinePos + matchGroup.Index + matchGroup.Length);
-
-            var aot = this.CheckToken(descriptor, match, token, tokenRange, matchGroup);
-            if (aot.Result != OperandTokenResult.Valid && !aot.WarningOnly)
-            {
-                hasErrors = true;
-            }
-
-            resultTokens.Add(aot);
-        }
-
-        return new AnalysedOperand(opIndex, descriptor, range,
-            hasErrors ? OperandResult.InvalidTokens : OperandResult.Valid, null, resultTokens);
-    }
-
-    private AnalysedOperandToken CheckToken(OperandDescriptor descriptor, Match operandMatch,
-        OperandToken token, Range tokenRange, Group tokenMatch)
-    {
-        if (token.Type == OperandTokenType.ImmediateConstant)
-        {
-            var number = int.Parse(tokenMatch.Value);
-            var negative = number < 0;
-            if (negative)
-            {
-                number = -number;
-            }
-
-            var valid = CheckModifiedImmediateConstant((uint)number);
-            if (!valid)
-            {
-                return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidImmediateConstantValue,
-                    tokenRange,
-                    tokenMatch.Value);
-            }
-
-            if (negative)
-            {
-                return new AnalysedOperandToken(token.Type, OperandTokenResult.ImmediateConstantNegative, tokenRange,
-                    tokenMatch.Value, true);
-            }
-        }
-        else if (token.Type == OperandTokenType.Immediate)
-        {
-            var numberParsed = int.Parse(tokenMatch.Value);
-            var number = (uint)(numberParsed > 0 ? numberParsed : -numberParsed);
-            var maxValue = (1u << token.ImmediateSize) - 1;
-
-            if (token.IsImmediateDiv4)
-            {
-                maxValue *= 4;
-            }
-
-            if (number > maxValue || (token.IsImmediateDiv4 && number % 4 != 0))
-            {
-                return new AnalysedOperandToken(token.Type, OperandTokenResult.InvalidImmediateValue,
-                    tokenRange, tokenMatch.Value);
-            }
-            else if (token.Type == OperandTokenType.ImmediateShift)
-            {
-            }
-        }
-
-
-        return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value);
-    }
-
     /// <summary>
-    /// Checks whether the specified number is a valid modified immediate constant.
+    /// Resets all flags, <see cref="AnalysedLine.SetFlagsRange"/> and <see cref="AnalysedLine.ConditionCodeRange"/>
+    /// on the current analysed line. Used to discard those when the presumption about the mnemonic having a flag
+    /// turns out to be invalid when the next character is loaded.
     /// </summary>
-    /// <remarks>See the Architecture Reference Manual, chapter F1.7.7.</remarks>
-    /// <returns></returns>
-    private static bool CheckModifiedImmediateConstant(uint number)
-    {
-        if (number <= 0xFFu) return true;
-        for (var i = 2; i < 32; i += 2)
-        {
-            // Rotate number (left) and check if it's under 255
-            if (((number << i) | (number >> (32 - i))) <= 0xFFu)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private void ResetCurrentLineFlags()
     {
         _currentLine!.SetsFlags = false;
@@ -1074,12 +1005,16 @@ public class SourceAnalyser : ISourceAnalyser
         _currentLine.HasUnterminatedConditionCode = false;
     }
 
+    /// Characters that may start a condition code.
     private static readonly char[] ConditionCodeStarts =
     {
         'E', 'e', 'N', 'n', 'C', 'c', 'H', 'h', 'L', 'l', 'M', 'm',
         'P', 'p', 'V', 'v', 'G', 'g', 'A', 'a'
     };
 
+    /// <summary>
+    /// Checks whether a given character may start a condition code (so the FSM transitions into <see cref="LineAnalysisState.PossibleConditionCode"/>).
+    /// </summary>
     private static bool StartsConditionCode(char c) => ConditionCodeStarts.Contains(c);
 
     private static bool IsValidSymbolChar(char c, bool firstChar = false) =>

@@ -22,11 +22,8 @@ public static class EnumExtensions
     public static bool TryParseName<TEnum>(string input, out TEnum result) where TEnum : struct
     {
         var type = typeof(TEnum);
-        var success = Enum.TryParse(input, true, out TEnum parsedValue) &&
-                      (Enum.GetName(type, parsedValue)?.Equals(input, StringComparison.InvariantCultureIgnoreCase) ??
-                       false);
-        
-        result = parsedValue;
-        return success;
+        return Enum.TryParse(input, true, out result) &&
+               (Enum.GetName(type, result)?.Equals(input, StringComparison.InvariantCultureIgnoreCase) ??
+                false);
     }
 }
