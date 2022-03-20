@@ -63,6 +63,7 @@ public class SourceAnalyser : ISourceAnalyser
 
         _logger.LogDebug("Performing full analysis.");
 
+        _logger.LogWarning("------");
         try
         {
             // TODO: check and use async variants
@@ -83,12 +84,13 @@ public class SourceAnalyser : ISourceAnalyser
             foreach (var line in enumerable)
             {
                 _lineIndex++;
-                _currentLineText = line;
 
+                // TODO: handle line endings in a better way
+                _currentLineText = (line.Length == 0 || line[^1] != '\n') ? (line + '\n') : line;
                 _unsuccessfulVariants.Clear();
 
                 _secondRun = false;
-                await this.AnalyseNextLine(line);
+                await this.AnalyseCurrentLine();
                 var bestAttempt = _currentLine;
 
                 while (_currentLine!.State != LineAnalysisState.ValidLine
@@ -106,7 +108,7 @@ public class SourceAnalyser : ISourceAnalyser
                     }
 
                     _secondRun = true;
-                    await this.AnalyseNextLine(line);
+                    await this.AnalyseCurrentLine();
                 }
 
                 if (_currentLine.State != LineAnalysisState.ValidLine)
@@ -115,6 +117,9 @@ public class SourceAnalyser : ISourceAnalyser
                 }
 
                 newLineCache.Add(_lineIndex, _currentLine!);
+
+                _logger.LogWarning(
+                    $"{_lineIndex}: {_currentLine?.Mnemonic?.Mnemonic} ({_currentLine?.PreFinishState} -> {_currentLine?.State})");
 
                 if (labelsStart == -1 && _currentLine!.State == LineAnalysisState.Blank && _labelsToAppend.Count > 0)
                 {
@@ -186,10 +191,13 @@ public class SourceAnalyser : ISourceAnalyser
         await _diagnosticsPublisher.PublishAnalysisResult(this, _source.Uri, _analysedVersion).ConfigureAwait(false);
     }
 
-    public Task TriggerLineAnalysis(int line, bool added)
+    public async Task TriggerLineAnalysis(int line, bool added)
     {
         // TODO
-        throw new NotImplementedException();
+        if (_analysedVersion < _source.Version)
+        {
+            await this.TriggerFullAnalysis();
+        }
     }
 
     public AnalysedLine? GetLineAnalysis(int line)
@@ -225,8 +233,9 @@ public class SourceAnalyser : ISourceAnalyser
 
     private readonly List<AnalysedLabel> _labelsToAppend = new();
 
-    private async Task AnalyseNextLine(string line)
+    private async Task AnalyseCurrentLine()
     {
+        var line = _currentLineText;
         var loadingSpecifierStart = -1;
         var textStart = 0;
 
@@ -569,9 +578,10 @@ public class SourceAnalyser : ISourceAnalyser
     /// <param name="endState">The resulting state of the currently analysed line.</param>
     private void FinishCurrentLine(int linePosition, LineAnalysisState endState)
     {
+        _currentLine!.PreFinishState = _state;
         _state = LineAnalysisState.Empty;
-        _currentLine!.State = endState;
-        _currentLine!.EndCharacter = linePosition;
+        _currentLine.State = endState;
+        _currentLine.EndCharacter = linePosition;
     }
 
     /// <summary>

@@ -90,6 +90,11 @@ public class AnalysedLine
     public LineAnalysisState State { get; internal set; }
 
     /// <summary>
+    /// The last analysis state before this line has been finished. 
+    /// </summary>
+    public LineAnalysisState PreFinishState { get; internal set; }
+    
+    /// <summary>
     /// Mnemonics matching the current line's text.
     /// </summary>
     public List<InstructionVariant> MatchingMnemonics { get; internal set; } = new();
