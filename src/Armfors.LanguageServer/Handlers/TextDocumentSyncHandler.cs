@@ -44,7 +44,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         await _sourceStore.LoadDocument(request.TextDocument).ConfigureAwait(false);
-        var source = await _sourceStore.GetDocument(request.TextDocument.Uri).ConfigureAwait(false);
+        var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri).ConfigureAwait(false);
         var analyser = _analyserStore.GetAnalyser(source);
         await analyser.TriggerFullAnalysis();
 
