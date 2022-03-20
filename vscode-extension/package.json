@@ -1,7 +1,7 @@
 {
     "name": "code4arm",
     "publisher": "ondryaso",
-    "displayName": "Code For Arm",
+    "displayName": "Code4Arm",
     "description": "Arm Unified Assembly Language support",
     "version": "0.0.1",
     "engines": {
@@ -16,6 +16,12 @@
     ],
     "main": "./out/main.js",
     "contributes": {
+        "commands": [
+            {
+                "command": "code4arm.refreshConnection",
+                "title": "Refresh Code4Arm connection"
+            }
+        ],
         "languages": [
             {
                 "id": "arm-ual",

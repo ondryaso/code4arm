@@ -1,5 +1,5 @@
 import * as net from 'net';
-import { workspace, ExtensionContext, commands, OutputChannel, window, SignatureHelp } from 'vscode';
+import { workspace, ExtensionContext, commands, OutputChannel, window, SignatureHelp, Disposable } from 'vscode';
 
 import {
 	LanguageClient,
@@ -12,9 +12,24 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
+let clientDisposable: Disposable;
+let outputChannel: OutputChannel;
 
 export async function activate(context: ExtensionContext) {
+	const refreshHandler = async () => {
+		const currentIndex = context.subscriptions.indexOf(clientDisposable);
+		context.subscriptions.splice(currentIndex, 1);
+
+		outputChannel.appendLine("\n--- Refreshing Code4Arm connection ---\n");
+		
+		await initLanguageServer(context);
+	};
+
+	context.subscriptions.push(commands.registerCommand('code4arm.refreshConnection', refreshHandler));
+
+	outputChannel = window.createOutputChannel("Arm UAL Language Server");
 	await initLanguageServer(context);
+	context.subscriptions.push(outputChannel);
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -56,8 +71,6 @@ async function initLanguageServer(context: ExtensionContext) {
 		return Promise.resolve(result);
 	};
 
-	const outputChannel: OutputChannel = window.createOutputChannel("Arm UAL Language Server");
-
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
@@ -88,6 +101,6 @@ async function initLanguageServer(context: ExtensionContext) {
 	client.trace = Trace.Verbose;
 
 	// Start the client. This will also launch the server
-	let disposable = client.start();
-	context.subscriptions.push(disposable);
+	clientDisposable = client.start();
+	context.subscriptions.push(clientDisposable);
 }
