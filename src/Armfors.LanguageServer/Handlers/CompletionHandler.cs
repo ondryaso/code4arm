@@ -16,13 +16,15 @@ public class CompletionHandler : CompletionHandlerBase
 {
     private readonly ISourceStore _sourceStore;
     private readonly ISourceAnalyserStore _sourceAnalyserStore;
+    private readonly IInstructionProvider _instructionProvider;
     private readonly ILocalizationService _loc;
 
     public CompletionHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
-        ILocalizationService localizationService)
+        IInstructionProvider instructionProvider, ILocalizationService localizationService)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
+        _instructionProvider = instructionProvider;
         _loc = localizationService;
     }
 
@@ -107,23 +109,27 @@ public class CompletionHandler : CompletionHandlerBase
         }
 
         if (lineAnalysis.PreFinishState == LineAnalysisState.HasMatches
-            || (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch &&
-                lineAnalysis.MatchingMnemonics.Count > 1))
+            || (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch && lineAnalysis.MatchingMnemonics.Count > 1)
+            || lineAnalysis.State == LineAnalysisState.Blank)
         {
-            foreach (var match in lineAnalysis.MatchingMnemonics)
+            var target = (lineAnalysis.State == LineAnalysisState.Blank
+                ? (await _instructionProvider.GetAllInstructions())
+                : lineAnalysis.MatchingMnemonics).Select(m => m.Mnemonic).Distinct();
+            
+            foreach (var match in target)
             {
-                if (match == lineAnalysis.Mnemonic)
+                if (match == lineAnalysis.Mnemonic?.Mnemonic)
                     continue;
 
                 var ci = new CompletionItem()
                 {
                     Kind = CompletionItemKind.Method,
-                    Label = match.Mnemonic,
+                    Label = match,
                     TextEdit = new TextEdit()
                     {
                         Range = new Range(lineAnalysis.LineIndex, lineAnalysis.StartCharacter, lineAnalysis.LineIndex,
                             request.Position.Character),
-                        NewText = match.Mnemonic
+                        NewText = match
                     }
                 };
 

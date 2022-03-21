@@ -79,6 +79,14 @@ public static class TokenAnalyser
 
     public static AnalysedOperandToken CheckBasicImmediate(OperandToken token, Range tokenRange, Group tokenMatch)
     {
+        if (string.IsNullOrWhiteSpace(tokenMatch.Value))
+        {
+            // TODO: this is probably right and absence of the token should be questioned
+            // on a higher level but think about it
+            return new AnalysedOperandToken(token.Type, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, false,
+                0);
+        }
+        
         var numberParsed = int.Parse(tokenMatch.Value);
         var number = (uint)(numberParsed > 0 ? numberParsed : -numberParsed);
         var maxValue = (1u << token.ImmediateSize) - 1;
