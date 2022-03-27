@@ -893,11 +893,30 @@ public class SourceAnalyser : ISourceAnalyser
             case OperandConsumingState.ConsumingOperand:
             {
                 var descriptor = opDescriptors[descriptorIndex];
-                var match = descriptor.Regex.Match(opPart, currentPos);
+                var analyser = _operandAnalyserProvider.For(descriptor);
 
-                if (!match.Success || match.Index != currentPos)
+                // <int Regex, Match match> 
+                var matches = new List<Match>();
+                var total = 0;
+                var failed = 0;
+                var initPos = currentPos;
+
+                foreach (var regex in descriptor.Regexes)
                 {
-                    var invalidRange = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
+                    var match = regex.Match(opPart, currentPos);
+                    if (!match.Success || match.Index != currentPos)
+                    {
+                        failed++;
+                    }
+
+                    currentPos += match.Length;
+                    matches.Add(match);
+                    total++;
+                }
+
+                if (failed == total) // TODO: is this necessary?
+                {
+                    var invalidRange = new Range(_lineIndex, opPartLinePos + initPos, _lineIndex,
                         _currentLine.LineLength);
                     var invalidAnalysed = new AnalysedOperand(actualOperandIndex, descriptor, invalidRange,
                         OperandResult.SyntaxError, invalidRange);
@@ -910,12 +929,10 @@ public class SourceAnalyser : ISourceAnalyser
                     return false;
                 }
 
-                var range = new Range(_lineIndex, opPartLinePos + currentPos, _lineIndex,
-                    opPartLinePos + currentPos + match.Length);
+                var range = new Range(_lineIndex, opPartLinePos + initPos, _lineIndex,
+                    opPartLinePos + currentPos);
 
-                var analyser = _operandAnalyserProvider.For(descriptor);
-                var analysed = analyser.AnalyseOperand(actualOperandIndex, opPartLinePos, match, range);
-
+                var analysed = analyser.AnalyseOperand(actualOperandIndex, opPartLinePos, matches, range);
                 chain.Operands.Add(analysed);
 
                 if (analysed.Result != OperandResult.Valid)
@@ -928,7 +945,6 @@ public class SourceAnalyser : ISourceAnalyser
                     return false;
                 }
 
-                currentPos += match.Length;
                 chain.ConsumingState = canHaveMoreOperands
                     ? OperandConsumingState.ConsumedOperand
                     : OperandConsumingState.ConsumedLastOperand;

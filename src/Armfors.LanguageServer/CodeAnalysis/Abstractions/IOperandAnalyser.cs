@@ -9,6 +9,6 @@ namespace Armfors.LanguageServer.CodeAnalysis.Abstractions;
 
 public interface IOperandAnalyser
 {
-    AnalysedOperand AnalyseOperand(int operandIndex, int operandPartPositionInLine, Match match,
+    AnalysedOperand AnalyseOperand(int operandIndex, int operandPartPositionInLine, List<Match> matches,
         Range operandLineRange);
 }

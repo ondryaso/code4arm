@@ -18,14 +18,17 @@ public class CompletionHandler : CompletionHandlerBase
     private readonly ISourceAnalyserStore _sourceAnalyserStore;
     private readonly IInstructionProvider _instructionProvider;
     private readonly ILocalizationService _loc;
+    private readonly IDocumentationProvider _doc;
 
     public CompletionHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
-        IInstructionProvider instructionProvider, ILocalizationService localizationService)
+        IInstructionProvider instructionProvider, ILocalizationService localizationService,
+        IDocumentationProvider documentationProvider)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
         _instructionProvider = instructionProvider;
         _loc = localizationService;
+        _doc = documentationProvider;
     }
 
     public override async Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
@@ -62,13 +65,7 @@ public class CompletionHandler : CompletionHandlerBase
                     Kind = CompletionItemKind.Event,
                     Label = _loc["Set flags", ILocalizationService.CompletionLabelTag],
                     Detail = _loc["Set flags", ILocalizationService.CompletionDescriptionTag],
-                    Documentation = _loc.HasValue("Set flags", ILocalizationService.CompletionDocumentationTag)
-                        ? new MarkupContent
-                        {
-                            Kind = MarkupKind.Markdown,
-                            Value = _loc["Set flags", ILocalizationService.CompletionDocumentationTag]
-                        }
-                        : null,
+                    Documentation = _doc["Set flags"],
                     FilterText = "S",
                     TextEdit = new TextEdit()
                     {
@@ -128,7 +125,7 @@ public class CompletionHandler : CompletionHandlerBase
             {
                 startIndex = lineAnalysis.MnemonicRange?.End.Character ?? lineAnalysis.EndCharacter;
             }
-            else  if (lastSpec.IsComplete)
+            else if (lastSpec.IsComplete)
             {
                 startIndex = lastSpec.Range.End.Character;
             }
@@ -137,7 +134,7 @@ public class CompletionHandler : CompletionHandlerBase
                 startIndex = lastSpec.Range.Start.Character;
                 currentSpecifierIndex--;
             }
-            
+
             var allowedVectorDataTypes = lineAnalysis.Mnemonic.GetPossibleVectorDataTypes(currentSpecifierIndex);
 
             foreach (var allowedVectorDataType in allowedVectorDataTypes)
@@ -149,10 +146,7 @@ public class CompletionHandler : CompletionHandlerBase
                     Kind = CompletionItemKind.TypeParameter,
                     Label = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionLabelTag),
                     Detail = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionDescriptionTag),
-                    Documentation = _loc.TryGetValue(allowedVectorDataType,
-                        ILocalizationService.CompletionDocumentationTag, out var val)
-                        ? new MarkupContent { Kind = MarkupKind.Markdown, Value = val! }
-                        : null,
+                    Documentation = _doc.EnumEntry(allowedVectorDataType),
                     FilterText = $".{text}",
                     TextEdit = new TextEdit()
                     {
@@ -173,22 +167,24 @@ public class CompletionHandler : CompletionHandlerBase
         {
             var target = (lineAnalysis.State == LineAnalysisState.Blank
                 ? (await _instructionProvider.GetAllInstructions())
-                : lineAnalysis.MatchingMnemonics).Select(m => m.Mnemonic).Distinct();
+                : lineAnalysis.MatchingMnemonics).DistinctBy(m => m.Mnemonic);
 
             foreach (var match in target)
             {
-                if (match == lineAnalysis.Mnemonic?.Mnemonic)
+                if (match.Mnemonic == lineAnalysis.Mnemonic?.Mnemonic)
                     continue;
 
                 var ci = new CompletionItem()
                 {
                     Kind = CompletionItemKind.Method,
-                    Label = match,
+                    Label = match.Mnemonic,
+                    Detail = _doc.InstructionDetail(match),
+                    Documentation = _doc.InstructionEntry(match),
                     TextEdit = new TextEdit()
                     {
                         Range = new Range(lineAnalysis.LineIndex, lineAnalysis.StartCharacter, lineAnalysis.LineIndex,
                             request.Position.Character),
-                        NewText = match
+                        NewText = match.Mnemonic
                     }
                 };
 
@@ -196,7 +192,113 @@ public class CompletionHandler : CompletionHandlerBase
             }
         }
 
+        // Operand completions
+        if (lineAnalysis.PreFinishState == LineAnalysisState.MnemonicLoaded && lineAnalysis.Mnemonic!.HasOperands)
+        {
+            var token = this.DetermineTokenAtPosition(lineAnalysis, request.Position);
+            if (token.TokenDescriptor != null && token.TargetRange != null)
+            {
+                if (token.TokenDescriptor.Type == OperandTokenType.Register)
+                {
+                    ret.AddRange(this.MakeCompletionItemsForRegister(token.TargetRange,
+                        token.TokenDescriptor.RegisterMask));
+                }
+            }
+        }
+
         return new CompletionList(ret, true);
+    }
+
+    private (OperandToken? TokenDescriptor, Range? TargetRange) DetermineTokenAtPosition(AnalysedLine lineAnalysis,
+        Position position)
+    {
+        var mnemonic = lineAnalysis.Mnemonic;
+        if (mnemonic == null)
+            return (null, null);
+
+        if (!mnemonic.HasOperands)
+            return (null, null);
+
+        if (position.Character < lineAnalysis.MnemonicRange?.End.Character)
+            return (null, null);
+
+        var analysedOperands = lineAnalysis.Operands;
+        if (analysedOperands is null or { Count: 0 })
+        {
+            var firstOp = mnemonic.Operands[0];
+            return (SingleOrFirstTokenDescriptor(firstOp), lineAnalysis.AnalysedRange.Trail(0));
+        }
+
+        AnalysedOperand? cursorIn = null;
+        foreach (var analysedOperand in analysedOperands)
+        {
+            if (analysedOperand.Range.Contains(position))
+            {
+                cursorIn = analysedOperand;
+                break;
+            }
+        }
+
+        if (cursorIn != null)
+        {
+            if (cursorIn.Descriptor == null)
+                return (null, null);
+            if (cursorIn.Tokens is null or { Count: 0 })
+                return (SingleOrFirstTokenDescriptor(cursorIn.Descriptor),
+                    cursorIn.Descriptor.IsSingleToken
+                        ? cursorIn.Range
+                        : new Range(lineAnalysis.LineIndex, position.Character - 1, lineAnalysis.LineIndex,
+                            position.Character));
+
+            foreach (var token in cursorIn.Tokens)
+            {
+                if (token.Range.Contains(position))
+                {
+                    if (cursorIn.Descriptor.IsSingleToken && cursorIn.ErrorRange != null)
+                    {
+                        return (token.Token, cursorIn.Range + cursorIn.ErrorRange);
+                    }
+
+                    return (token.Token,
+                        new Range(token.Range.Start.Line, token.Range.Start.Character + 1, token.Range.End.Line,
+                            token.Range.End.Character - 1));
+                }
+            }
+        }
+
+        return (null, null);
+    }
+
+    private static OperandToken? SingleOrFirstTokenDescriptor(OperandDescriptor descriptor) =>
+        descriptor.IsSingleToken
+            ? descriptor.SingleToken
+            : descriptor.MatchGroupsTokenMappings?.FirstOrDefault().Value.FirstOrDefault().Value;
+
+    private IEnumerable<CompletionItem> MakeCompletionItemsForRegister(Range range, Register mask)
+    {
+        var values = Enum.GetValues<Register>().Where(r => mask.HasFlag(r));
+
+        foreach (var register in values)
+        {
+            var text = register.GetIndex().ToString("00");
+
+            var ci = new CompletionItem()
+            {
+                Kind = CompletionItemKind.Variable,
+                Label = _loc.EnumEntry(register, ILocalizationService.CompletionLabelTag),
+                Detail = _loc.EnumEntry(register, ILocalizationService.CompletionDescriptionTag),
+                Documentation = _doc.EnumEntry(register),
+                FilterText = register.ToString(),
+                SortText = text,
+                TextEdit = new TextEdit()
+                {
+                    Range = range,
+                    NewText = register.ToString()
+                }
+            };
+
+            yield return ci;
+        }
     }
 
     private CompletionItem MakeCompletionItemForConditionCode(AnalysedLine lineAnalysis, ConditionCode ccValue,
@@ -217,9 +319,7 @@ public class CompletionHandler : CompletionHandlerBase
             Kind = CompletionItemKind.Keyword,
             Label = _loc.EnumEntry(ccValue, labelTag),
             Detail = _loc.EnumEntry(ccValue, detailTag),
-            Documentation = _loc.TryGetValue(ccValue, docTag, out var val)
-                ? new MarkupContent { Kind = MarkupKind.Markdown, Value = val! }
-                : null,
+            Documentation = _doc.EnumEntry(ccValue, docTag),
             FilterText = ccValue.ToString(),
             TextEdit = new TextEdit()
             {

@@ -288,6 +288,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 "Invalid alignment value."), // TODO: list possible alignment values
             OperandTokenResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
             OperandTokenResult.UndefinedLabel => (-1, "Undefined label."),
+            OperandTokenResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
             _ => (-1, string.Empty)
         };
     }

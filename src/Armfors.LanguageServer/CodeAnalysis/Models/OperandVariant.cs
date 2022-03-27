@@ -105,7 +105,7 @@ public class OperandDescriptor
     public OperandType Type { get; }
 
     public OperandToken? SingleToken { get; }
-    
+
     public int SingleTokenMatchGroup { get; }
 
     /// <summary>
@@ -115,16 +115,17 @@ public class OperandDescriptor
     public bool ShiftAllowed { get; } = false;
 
     public bool IsSingleToken => this.SingleToken != null;
-    
-    public ImmutableDictionary<int, OperandToken>? MatchGroupsTokenMappings { get; }
+
+    public ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>? MatchGroupsTokenMappings { get; }
 
     public InstructionVariant Mnemonic { get; set; }
 
-    private Regex? _regex = null;
-    public Regex Regex => _regex ?? this.MakeRegex();
+    private readonly List<Regex> _regexes;
+    public IEnumerable<Regex> Regexes => _regexes;
 
-    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false, int stmg = 0,
-        params KeyValuePair<int, OperandToken>[] tokens)
+    public OperandDescriptor(IEnumerable<string> matches, OperandType type, OperandTokenType? tokenType,
+        bool optional = false, int stmg = 0,
+        params (int RegexIndex, int MatchGroup, OperandToken Token)[] tokens)
     {
         this.Mnemonic = null;
 
@@ -138,15 +139,22 @@ public class OperandDescriptor
         }
         else
         {
-            this.MatchGroupsTokenMappings = ImmutableDictionary<int, OperandToken>.Empty.AddRange(tokens);
+            this.MatchGroupsTokenMappings = tokens.GroupBy(t => t.RegexIndex)
+                .ToImmutableDictionary(g => g.Key,
+                    g => g.ToImmutableDictionary(a => a.MatchGroup,
+                        a => a.Token));
         }
 
-        _regex = new Regex(match, RegexOptions.Compiled);
+        _regexes = new List<Regex>();
+        foreach (var match in matches)
+        {
+            _regexes.Add(new Regex(match, RegexOptions.Compiled));
+        }
     }
 
-    private Regex MakeRegex()
+    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false,
+        int stmg = 0, params (int, int, OperandToken)[] tokens)
+        : this(new[] { match }, type, tokenType, optional, stmg, tokens)
     {
-        _regex = new Regex(".*", RegexOptions.Compiled);
-        return _regex;
     }
 }

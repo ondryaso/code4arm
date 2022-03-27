@@ -20,7 +20,8 @@ public enum OperandTokenResult
     RegisterListCannotContainPc,
     InvalidAlignment,
     InvalidSpecialOperand,
-    UndefinedLabel
+    UndefinedLabel,
+    SyntaxError
 }
 
 public enum OperandResult
@@ -76,11 +77,14 @@ public readonly struct AnalysedOperandTokenData
     }
 }
 
-public record AnalysedOperandToken(OperandTokenType Type, OperandTokenResult Result, Range Range, string Text,
+public record AnalysedOperandToken(OperandToken Token, OperandTokenResult Result, Range Range, string Text,
     bool WarningOnly = false, AnalysedOperandTokenData Data = default)
 {
     public OperandTokenResult Result { get; set; } = Result;
+    public OperandTokenType Type => this.Token.Type;
 }
 
 public record AnalysedOperand(int Index, OperandDescriptor? Descriptor, Range Range, OperandResult Result,
     Range? ErrorRange = null, List<AnalysedOperandToken>? Tokens = null);
+
+public record struct OperandMatchSet();

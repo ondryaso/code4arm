@@ -11,13 +11,13 @@ public static class RangeExtensions
 {
     public static Range Prolong(this Range range, int characters)
     {
-        return new Range(new Position(range.Start.Line, range.Start.Character),
-            new Position(range.End.Line, range.End.Character + characters));
+        return new Range(range.Start.Line, range.Start.Character,
+            range.End.Line, range.End.Character + characters);
     }
 
-    public static Range Trail(this Range range, int length)
+    public static Range Trail(this Range range, int length, int offset = 0)
     {
-        return new Range(new Position(range.End.Line, range.End.Character),
-            new Position(range.End.Line, range.End.Character + length));
+        return new Range(range.End.Line, range.End.Character + offset, 
+            range.End.Line, range.End.Character + length);
     }
 }

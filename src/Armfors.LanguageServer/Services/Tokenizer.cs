@@ -108,7 +108,7 @@ public class Tokenizer : ITokenizer
 
             foreach (var operand in analysis.Operands)
             {
-                if (operand.Result != OperandResult.Valid || operand.Descriptor == null)
+                if (operand.Descriptor == null)
                     continue;
 
                 if (operand.Descriptor.IsSingleToken)
@@ -124,6 +124,9 @@ public class Tokenizer : ITokenizer
                 {
                     foreach (var token in operand.Tokens)
                     {
+                        if (token.Result == OperandTokenResult.SyntaxError)
+                            continue;
+                        
                         var tt = GetOperandSemanticTokenType(token.Type);
                         if (tt == null)
                             continue;

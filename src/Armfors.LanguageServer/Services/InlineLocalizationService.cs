@@ -75,7 +75,24 @@ public class InlineLocalizationService : ILocalizationService
         { L.GetEnumEntryIdentifier(VectorDataType.F16, CompLabel), ".F16 (half-precision float)" },
         { L.GetEnumEntryIdentifier(VectorDataType.F32, CompLabel), ".F32 (single float)" },
         { L.GetEnumEntryIdentifier(VectorDataType.F64, CompLabel), ".F64 (double float)" },
-
+        
+        { L.GetEnumEntryIdentifier(Register.R0, CompLabel), "R0" },
+        { L.GetEnumEntryIdentifier(Register.R1, CompLabel), "R1" },
+        { L.GetEnumEntryIdentifier(Register.R2, CompLabel), "R2" },
+        { L.GetEnumEntryIdentifier(Register.R3, CompLabel), "R3" },
+        { L.GetEnumEntryIdentifier(Register.R4, CompLabel), "R4" },
+        { L.GetEnumEntryIdentifier(Register.R5, CompLabel), "R5" },
+        { L.GetEnumEntryIdentifier(Register.R6, CompLabel), "R6" },
+        { L.GetEnumEntryIdentifier(Register.R7, CompLabel), "R7" },
+        { L.GetEnumEntryIdentifier(Register.R8, CompLabel), "R8" },
+        { L.GetEnumEntryIdentifier(Register.R9, CompLabel), "R9" },
+        { L.GetEnumEntryIdentifier(Register.R10, CompLabel), "R10" },
+        { L.GetEnumEntryIdentifier(Register.R11, CompLabel), "R11" },
+        { L.GetEnumEntryIdentifier(Register.R12, CompLabel), "R12" },
+        { L.GetEnumEntryIdentifier(Register.SP, CompLabel), "SP (R13)" },
+        { L.GetEnumEntryIdentifier(Register.LR, CompLabel), "LR (R14)" },
+        { L.GetEnumEntryIdentifier(Register.PC, CompLabel), "PC (R15)" },
+        
         { $"Set flags.{CompLabel}", "-S (Set flags)" },
         { $"Set flags.{CompDescription}", "Set flags" }
     };
