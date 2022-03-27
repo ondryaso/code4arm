@@ -41,7 +41,7 @@ public class InstructionVariant
     public IEnumerable<VectorDataType> GetPossibleVectorDataTypes(int specifierIndex)
     {
         // TODO
-        if (specifierIndex is not 0 or 1) return Enumerable.Empty<VectorDataType>();
+        if (specifierIndex is not (0 or 1)) return Enumerable.Empty<VectorDataType>();
         return new[]
         {
             VectorDataType.Any16, VectorDataType.F16, VectorDataType.I16,

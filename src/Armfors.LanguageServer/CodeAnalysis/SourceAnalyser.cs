@@ -311,7 +311,7 @@ public class SourceAnalyser : ISourceAnalyser
                         this.HandleLabel(linePos, ref textStart);
                     }
                     else if (c is 'S' or 's' && !_currentLine.HasConditionCodePart &&
-                             _currentLine.Specifiers.Count == 0)
+                             !_currentLine.HasSpecifiers)
                     {
                         var mnemonic = _currentLine.Mnemonic!;
                         if (mnemonic.HasSetFlagsVariant)
@@ -353,7 +353,8 @@ public class SourceAnalyser : ISourceAnalyser
                             }
                         }
                     }
-                    else if (StartsConditionCode(c) && !_currentLine.HasConditionCodePart)
+                    else if (StartsConditionCode(c) && !_currentLine.HasConditionCodePart &&
+                             !_currentLine.HasSpecifiers)
                     {
                         var mnemonic = _currentLine.Mnemonic!;
                         if (mnemonic.CanBeConditional)
@@ -473,13 +474,19 @@ public class SourceAnalyser : ISourceAnalyser
                         break;
                     }
 
+                    var range = (loadingSpecifierStart + 1)..(linePos + 1);
+
                     if (!IsValidSymbolChar(c))
                     {
-                        _state = LineAnalysisState.SyntaxError;
-                        break;
+                        var spec = new AnalysedSpecifier(line[range], new Range(_lineIndex, loadingSpecifierStart,
+                            _lineIndex, linePos));
+
+                        _currentLine.Specifiers.Add(spec);
+
+                        this.FinishCurrentLine(linePos, LineAnalysisState.SpecifierSyntaxError);
+                        return;
                     }
 
-                    var range = (loadingSpecifierStart + 1)..(linePos + 1);
                     _state = this.DetermineSpecifierSyntaxValidity(range);
                 }
                     break;
@@ -488,6 +495,7 @@ public class SourceAnalyser : ISourceAnalyser
                     if (c == '\n')
                     {
                         this.FinishCurrentLine(linePos, _state);
+                        return;
                     }
                     else if (c == ':')
                     {
@@ -679,6 +687,9 @@ public class SourceAnalyser : ISourceAnalyser
             _currentLine.Specifiers.Add(spec);
             return allowed ? LineAnalysisState.HasFullMatch : LineAnalysisState.InvalidSpecifier;
         }
+
+        if (_currentLine.Specifiers.FirstOrDefault()?.IsInstructionSizeQualifier ?? false)
+            specifierIndex--;
 
         var vector = VectorDataTypeExtensions.GetVectorDataType(specifier);
         if (vector != VectorDataType.Unknown)

@@ -16,7 +16,7 @@ public class InlineLocalizationService : ILocalizationService
     private const string CompDocumentation = L.CompletionDocumentationTag;
     private const string CompDocumentationSimd = L.CompletionDocumentationSimdTag;
 
-    private readonly Dictionary<string, string> _values = new()
+    private readonly Dictionary<string, string?> _values = new()
     {
         { L.GetEnumEntryIdentifier(ConditionCode.AL, CompLabel), "-AL (Always)" },
         { L.GetEnumEntryIdentifier(ConditionCode.CC, CompLabel), "-CC (Carry clear)" },
@@ -54,13 +54,36 @@ public class InlineLocalizationService : ILocalizationService
         { L.GetEnumEntryIdentifier(ConditionCode.VC, CompDescription), "Overflow clear (V == 0)" },
         { L.GetEnumEntryIdentifier(ConditionCode.VS, CompDescription), "Overflow set (V == 0)" },
 
+        { L.GetEnumEntryIdentifier(VectorDataType.Any8, CompLabel), ".8 (any 8b element)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.Any16, CompLabel), ".16 (any 16b element)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.Any32, CompLabel), ".32 (any 32b element)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.Any64, CompLabel), ".64 (any 64b element)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.I8, CompLabel), ".I8 (sign./unsig. byte)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.I16, CompLabel), ".I16 (sign./unsig. halfword)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.I32, CompLabel), ".I32 (sign./unsig. word)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.I64, CompLabel), ".I64 (sign./unsig. doubleword)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.S8, CompLabel), ".S8 (signed byte)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.S16, CompLabel), ".S16 (signed halfword)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.S32, CompLabel), ".S32 (signed word)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.S64, CompLabel), ".S64 (signed doubleword)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.U8, CompLabel), ".U8 (unsigned byte)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.U16, CompLabel), ".U16 (unsigned halfword)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.U32, CompLabel), ".U32 (unsigned word)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.U64, CompLabel), ".U64 (unsigned doubleword)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.P8, CompLabel), ".P8 (polynomial over {0,1} of degree <8)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.P16, CompLabel), ".P16 (polynomial over {0,1} of degree <16)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.F16, CompLabel), ".F16 (half-precision float)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.F32, CompLabel), ".F32 (single float)" },
+        { L.GetEnumEntryIdentifier(VectorDataType.F64, CompLabel), ".F64 (double float)" },
+
         { $"Set flags.{CompLabel}", "-S (Set flags)" },
         { $"Set flags.{CompDescription}", "Set flags" }
     };
 
-    public string this[string entry] => _values.TryGetValue(entry, out var val) ? val : string.Empty;
+    public string this[string entry] => _values.TryGetValue(entry, out var val) ? (val ?? string.Empty) : string.Empty;
 
     public string this[string entry, int count] => this[entry];
 
     public bool HasValue(string entry) => _values.ContainsKey(entry);
+    public bool TryGetValue(string entry, out string? value) => _values.TryGetValue(entry, out value);
 }

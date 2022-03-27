@@ -18,9 +18,13 @@ public interface ILocalizationService
 
     bool HasValue(string entry);
     bool HasValue(string entry, string tag) => this.HasValue($"{entry}.{tag}");
-
     bool HasValue<T>(T enumValue, string? tag) where T : struct =>
         this.HasValue(GetEnumEntryIdentifier(enumValue, tag));
+
+    bool TryGetValue(string entry, out string? value);
+    bool TryGetValue(string entry, string tag, out string? value) => this.TryGetValue($"{entry}.{tag}", out value);
+    bool TryGetValue<T>(T enumValue, string? tag, out string? value) where T : struct =>
+        this.TryGetValue(GetEnumEntryIdentifier(enumValue, tag), out value);
 
     public string Format(string entry, params object?[] parameters)
     {

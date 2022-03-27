@@ -156,6 +156,8 @@ public class AnalysedLine
     /// </example>
     public bool HasConditionCodePart => this.ConditionCodeRange != null;
 
+    public bool HasSpecifiers => this.Specifiers.Count > 0;
+
     /// <summary>
     /// A condition code has been provided but this instruction does not support it.
     /// </summary>

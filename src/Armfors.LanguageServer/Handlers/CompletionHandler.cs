@@ -51,7 +51,8 @@ public class CompletionHandler : CompletionHandlerBase
 
         var ret = new List<CompletionItem>();
 
-        if (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch)
+        // CC/S completions
+        if (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch && lineAnalysis.Specifiers.Count == 0)
         {
             if (!lineAnalysis.SetsFlags && lineAnalysis.Mnemonic!.HasSetFlagsVariant &&
                 lineAnalysis.ConditionCodeRange == null)
@@ -62,7 +63,11 @@ public class CompletionHandler : CompletionHandlerBase
                     Label = _loc["Set flags", ILocalizationService.CompletionLabelTag],
                     Detail = _loc["Set flags", ILocalizationService.CompletionDescriptionTag],
                     Documentation = _loc.HasValue("Set flags", ILocalizationService.CompletionDocumentationTag)
-                        ? new MarkupContent { Kind = MarkupKind.Markdown, Value = _loc["Set flags", ILocalizationService.CompletionDocumentationTag] }
+                        ? new MarkupContent
+                        {
+                            Kind = MarkupKind.Markdown,
+                            Value = _loc["Set flags", ILocalizationService.CompletionDocumentationTag]
+                        }
                         : null,
                     FilterText = "S",
                     TextEdit = new TextEdit()
@@ -71,7 +76,7 @@ public class CompletionHandler : CompletionHandlerBase
                             request.Position.Character),
                         NewText = "S"
                     },
-                    SortText = "00S"
+                    SortText = "10S"
                 });
             }
 
@@ -108,14 +113,68 @@ public class CompletionHandler : CompletionHandlerBase
             }
         }
 
+        // Vector data types completions
+        if (lineAnalysis.PreFinishState is LineAnalysisState.HasFullMatch or LineAnalysisState.LoadingSpecifier &&
+            lineAnalysis.Mnemonic!.IsVector)
+        {
+            var currentSpecifierIndex = lineAnalysis.Specifiers.Count;
+            if (lineAnalysis.Specifiers.FirstOrDefault()?.IsInstructionSizeQualifier ?? false)
+                currentSpecifierIndex--;
+
+            var lastSpec = lineAnalysis.Specifiers.LastOrDefault();
+            int startIndex;
+
+            if (lastSpec == null)
+            {
+                startIndex = lineAnalysis.MnemonicRange?.End.Character ?? lineAnalysis.EndCharacter;
+            }
+            else  if (lastSpec.IsComplete)
+            {
+                startIndex = lastSpec.Range.End.Character;
+            }
+            else
+            {
+                startIndex = lastSpec.Range.Start.Character;
+                currentSpecifierIndex--;
+            }
+            
+            var allowedVectorDataTypes = lineAnalysis.Mnemonic.GetPossibleVectorDataTypes(currentSpecifierIndex);
+
+            foreach (var allowedVectorDataType in allowedVectorDataTypes)
+            {
+                var text = allowedVectorDataType.GetTextForm();
+
+                ret.Add(new CompletionItem()
+                {
+                    Kind = CompletionItemKind.TypeParameter,
+                    Label = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionLabelTag),
+                    Detail = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionDescriptionTag),
+                    Documentation = _loc.TryGetValue(allowedVectorDataType,
+                        ILocalizationService.CompletionDocumentationTag, out var val)
+                        ? new MarkupContent { Kind = MarkupKind.Markdown, Value = val! }
+                        : null,
+                    FilterText = $".{text}",
+                    TextEdit = new TextEdit()
+                    {
+                        Range = new Range(lineAnalysis.LineIndex, startIndex, lineAnalysis.LineIndex,
+                            request.Position.Character),
+                        NewText = $".{text}"
+                    },
+                    SortText = $"00{text}"
+                });
+            }
+        }
+
+        // Mnemonic completions
         if (lineAnalysis.PreFinishState == LineAnalysisState.HasMatches
-            || (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch && lineAnalysis.MatchingMnemonics.Count > 1)
+            || (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch &&
+                lineAnalysis.MatchingMnemonics.Count > 1)
             || lineAnalysis.State == LineAnalysisState.Blank)
         {
             var target = (lineAnalysis.State == LineAnalysisState.Blank
                 ? (await _instructionProvider.GetAllInstructions())
                 : lineAnalysis.MatchingMnemonics).Select(m => m.Mnemonic).Distinct();
-            
+
             foreach (var match in target)
             {
                 if (match == lineAnalysis.Mnemonic?.Mnemonic)
@@ -158,8 +217,8 @@ public class CompletionHandler : CompletionHandlerBase
             Kind = CompletionItemKind.Keyword,
             Label = _loc.EnumEntry(ccValue, labelTag),
             Detail = _loc.EnumEntry(ccValue, detailTag),
-            Documentation = _loc.HasValue(ccValue, docTag)
-                ? new MarkupContent { Kind = MarkupKind.Markdown, Value = _loc.EnumEntry(ccValue, docTag) }
+            Documentation = _loc.TryGetValue(ccValue, docTag, out var val)
+                ? new MarkupContent { Kind = MarkupKind.Markdown, Value = val! }
                 : null,
             FilterText = ccValue.ToString(),
             TextEdit = new TextEdit()
@@ -167,12 +226,12 @@ public class CompletionHandler : CompletionHandlerBase
                 Range = range ?? lineAnalysis.ConditionCodeRange!,
                 NewText = ccValue.ToString()
             },
-            SortText = $"10{ccValue}"
+            SortText = $"20{ccValue}"
         };
-        
+
         return completionItem;
     }
-    
+
     public override Task<CompletionItem> Handle(CompletionItem request, CancellationToken cancellationToken)
     {
         // This is used for Completion Resolve requests. We don't support that (yet?).
