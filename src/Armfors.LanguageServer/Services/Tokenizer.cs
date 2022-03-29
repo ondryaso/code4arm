@@ -48,6 +48,12 @@ public class Tokenizer : ITokenizer
                     Enumerable.Empty<SemanticTokenModifier>());
             }
 
+            if (analysis.Directive != null)
+            {
+                builder.Push(prepSource.GetOriginalRange(analysis.Directive.DirectiveRange),
+                    ArmSemanticTokenType.Directive, Enumerable.Empty<SemanticTokenModifier>());
+            }
+
             if (!analysis.HasMnemonicMatch)
             {
                 continue;
@@ -120,13 +126,13 @@ public class Tokenizer : ITokenizer
                     builder.Push(prepSource.GetOriginalRange(operand.Range),
                         tt.Value.Type, tt.Value.Modifiers);
                 }
-                else if (operand.Tokens is { Count: > 0 })
+                else if (operand.Tokens is {Count: > 0})
                 {
                     foreach (var token in operand.Tokens)
                     {
                         if (token.Result == OperandTokenResult.SyntaxError)
                             continue;
-                        
+
                         var tt = GetOperandSemanticTokenType(token.Type);
                         if (tt == null)
                             continue;
@@ -147,7 +153,7 @@ public class Tokenizer : ITokenizer
             OperandTokenType.Immediate or OperandTokenType.ImmediateConstant or OperandTokenType.ImmediateShift => null,
             OperandTokenType.Register => (ArmSemanticTokenType.Register, Enumerable.Empty<SemanticTokenModifier>()),
             OperandTokenType.SimdRegister => (ArmSemanticTokenType.Register,
-                new[] { ArmSemanticTokenModifier.VectorRegister }),
+                new[] {ArmSemanticTokenModifier.VectorRegister}),
             OperandTokenType.Label => (SemanticTokenType.Label, Enumerable.Empty<SemanticTokenModifier>()),
             OperandTokenType.ShiftType => (ArmSemanticTokenType.ShiftType, Enumerable.Empty<SemanticTokenModifier>()),
             _ => throw new ArgumentOutOfRangeException(nameof(tokenType), tokenType, null)

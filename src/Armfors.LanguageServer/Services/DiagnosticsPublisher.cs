@@ -118,6 +118,25 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     }
                 }
                     break;
+                case LineAnalysisState.Directive or LineAnalysisState.InvalidDirective:
+                {
+                    var directive = analysis.Directive;
+                    if (directive == null) break;
+                    if (directive.State == DirectiveState.Valid) break;
+
+                    var (code, message) = GetDirectiveDiagnostic(directive);
+                    
+                    diags.Add(new Diagnostic()
+                    {
+                        Code = code,
+                        Message = message,
+                        Range = prepSource.GetOriginalRange(directive.State == DirectiveState.UnknownDirective ? directive.DirectiveRange : directive.ParametersRange),
+                        Severity = directive.Severity,
+                        Source = Constants.ServiceSource
+                    });
+
+                    break;
+                }
             }
 
             if (analysis.Operands is { Count: > 0 })
@@ -289,6 +308,28 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
             OperandTokenResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
             OperandTokenResult.UndefinedLabel => (-1, "Undefined label."),
             OperandTokenResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            _ => (-1, string.Empty)
+        };
+    }
+
+    private static (DiagnosticCode DiagnosticCode, string Message) GetDirectiveDiagnostic(
+        AnalysedDirective analysedDirective)
+    {
+        // TODO
+        return analysedDirective.State switch
+        {
+            DirectiveState.Valid => (-1, ""),
+            DirectiveState.UnknownDirective => (10, "Unknown directive."),
+            DirectiveState.UnknownType => (-1, ""),
+            DirectiveState.RedefinedLabel => (-1, ""),
+            DirectiveState.InvalidConstant => (-1, "Invalid constant."),
+            DirectiveState.NopDirective => (-1, ""),
+            DirectiveState.InvalidArch => (-1, ""),
+            DirectiveState.InvalidArchExtension => (-1, ""),
+            DirectiveState.InvalidFloatFormat => (-1, ""),
+            DirectiveState.ThumbUnsupported => (-1, ""),
+            DirectiveState.DividedSyntaxUnsupported => (-1, ""),
+            DirectiveState.UnquotedString => (-1, ""),
             _ => (-1, string.Empty)
         };
     }

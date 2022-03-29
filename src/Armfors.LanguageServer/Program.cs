@@ -74,6 +74,7 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton<IInstructionProvider>(i => i.GetService<InstructionProvider>());
     services.AddSingleton<IOperandAnalyserProvider>(i => i.GetService<InstructionProvider>());
     services.AddSingleton<IInstructionValidatorProvider>(i => i.GetService<InstructionProvider>());
+    services.AddSingleton<IDirectiveAnalyser, DirectiveAnalyser>();
     services.AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
     services.AddSingleton<ITokenizer, Tokenizer>();

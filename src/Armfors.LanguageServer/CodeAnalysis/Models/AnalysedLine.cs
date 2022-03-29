@@ -94,6 +94,8 @@ public class AnalysedLine
     /// </summary>
     public LineAnalysisState PreFinishState { get; internal set; }
     
+    public AnalysedDirective? Directive { get; internal set; }
+    
     /// <summary>
     /// Mnemonics matching the current line's text.
     /// </summary>
