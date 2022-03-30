@@ -54,7 +54,8 @@ var languageServer = await LanguageServer.From(options =>
         .WithHandler<CompletionHandler>()
         .WithHandler<SignatureHelpHandler>()
         .WithHandler<DocumentSymbolsHandler>()
-        .WithHandler<SymbolReferencesHandler>();
+        .WithHandler<SymbolReferencesHandler>()
+        .WithHandler<DefinitionHandler>();
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);
@@ -80,4 +81,5 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
     services.AddSingleton<ITokenizer, Tokenizer>();
+    services.AddSingleton<DefinitionService>();
 }

@@ -1,5 +1,6 @@
 ﻿using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -39,41 +40,41 @@ public class SymbolReferencesHandler : ReferencesHandlerBase
                 if (targetLabel == null)
                     return new LocationContainer();
 
-                return MakeLocationsForLabel(request, analyser, targetLabel);
+                return MakeLocationsForLabel(request, analyser, source, targetLabel);
             }
-            
+
             if (operandToken.Type == OperandTokenType.Register)
             {
                 var targetRegister = operandToken.Data.Register;
-                return MakeLocationsForRegister(request, analyser, targetRegister);
+                return MakeLocationsForRegister(request, analyser, source, targetRegister);
             }
         }
         else if (token.Type == AnalysedTokenType.Label)
         {
-            return MakeLocationsForLabel(request, analyser, token.Label!);
+            return MakeLocationsForLabel(request, analyser, source, token.Label!);
         }
 
         return new LocationContainer();
     }
 
     private static LocationContainer MakeLocationsForLabel(ReferenceParams request, ISourceAnalyser analyser,
-        AnalysedLabel targetLabel)
+        IPreprocessedSource source, AnalysedLabel targetLabel)
     {
         var usages = analyser.FindLabelOccurrences(targetLabel.Label, request.Context.IncludeDeclaration);
         return new LocationContainer(usages.Select(u => new Location()
         {
-            Range = u.TokenRange,
+            Range = source.GetOriginalRange(u.TokenRange),
             Uri = request.TextDocument.Uri
         }));
     }
 
     private static LocationContainer MakeLocationsForRegister(ReferenceParams request, ISourceAnalyser analyser,
-        Register targetRegister)
+        IPreprocessedSource source, Register targetRegister)
     {
         var usages = analyser.FindRegisterOccurrences(targetRegister);
         return new LocationContainer(usages.Select(u => new Location()
         {
-            Range = u.TokenRange,
+            Range = source.GetOriginalRange(u.TokenRange),
             Uri = request.TextDocument.Uri
         }));
     }
