@@ -23,7 +23,7 @@ Log.Logger = new LoggerConfiguration()
 #else
     .WriteTo.Debug()
 #endif
-    .MinimumLevel.Warning()
+    .MinimumLevel.Debug()
     .CreateLogger();
 
 #if USE_SOCKETS
@@ -53,7 +53,8 @@ var languageServer = await LanguageServer.From(options =>
         .WithHandler<SemanticTokensHandler>()
         .WithHandler<CompletionHandler>()
         .WithHandler<SignatureHelpHandler>()
-        .WithHandler<DocumentSymbolsHandler>();
+        .WithHandler<DocumentSymbolsHandler>()
+        .WithHandler<SymbolReferencesHandler>();
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);

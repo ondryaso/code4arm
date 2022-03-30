@@ -157,7 +157,7 @@ public class SourceAnalyser : ISourceAnalyser
                         {
                             for (var i = labelsStart; i < _ctx.CurrentLineIndex; i++)
                             {
-                                    _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
+                                _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
                             }
                         }
                     }
@@ -176,7 +176,11 @@ public class SourceAnalyser : ISourceAnalyser
 
             foreach (var labelToken in allLabels)
             {
-                if (!_ctx.AnalysedLabels.ContainsKey(labelToken.Text))
+                if (_ctx.AnalysedLabels.TryGetValue(labelToken.Text, out var targetLabel))
+                {
+                    labelToken.Data = targetLabel;
+                }
+                else
                 {
                     labelToken.Result = OperandTokenResult.UndefinedLabel;
                     labelToken.Severity = DiagnosticSeverity.Information;
@@ -224,10 +228,147 @@ public class SourceAnalyser : ISourceAnalyser
         return _lastAnalysisLabels?.Values ?? Enumerable.Empty<AnalysedLabel>();
     }
 
+    public AnalysedTokenLookupResult? FindTokenAtPosition(Position position)
+    {
+        if (_lastAnalysisLines == null)
+            return null;
+        if (!_lastAnalysisLines.TryGetValue(position.Line, out var lineAnalysis))
+            return null;
+
+        foreach (var label in lineAnalysis.Labels)
+        {
+            if (label.DefinedAtLine == position.Line && label.Range.Contains(position))
+            {
+                return new AnalysedTokenLookupResult(lineAnalysis, label);
+            }
+        }
+
+        // TODO: directives!
+
+        var mnemonic = lineAnalysis.Mnemonic;
+        if (mnemonic == null)
+            // Blank line
+            return new AnalysedTokenLookupResult(lineAnalysis, lineAnalysis.AnalysedRange);
+
+        if (lineAnalysis.SetFlagsRange?.Contains(position) ?? false)
+            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.SetFlagsFlag);
+
+        if (lineAnalysis.ConditionCodeRange?.Contains(position) ?? false)
+            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.ConditionCode);
+
+        if (lineAnalysis.MnemonicRange!.Contains(position))
+            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.Mnemonic);
+
+        if (lineAnalysis.HasSpecifiers)
+        {
+            foreach (var specifier in lineAnalysis.Specifiers)
+            {
+                if (specifier.Range.Contains(position))
+                    return new AnalysedTokenLookupResult(lineAnalysis, specifier);
+            }
+        }
+
+        if (!mnemonic.HasOperands || lineAnalysis.Operands == null)
+            return new AnalysedTokenLookupResult(lineAnalysis, new Range()); // TODO: whitespace at the end?
+
+        AnalysedOperand? cursorIn = null;
+        foreach (var analysedOperand in lineAnalysis.Operands)
+        {
+            if (analysedOperand.Range.Contains(position))
+            {
+                cursorIn = analysedOperand;
+                break;
+            }
+        }
+
+        if (cursorIn != null)
+        {
+            if (cursorIn.Descriptor == null || cursorIn.Tokens is null or {Count: 0})
+                return new AnalysedTokenLookupResult(lineAnalysis, cursorIn);
+
+            foreach (var token in cursorIn.Tokens)
+            {
+                if (token.Range.Contains(position))
+                {
+                    return new AnalysedTokenLookupResult(lineAnalysis, cursorIn, token);
+                }
+            }
+
+            return new AnalysedTokenLookupResult(lineAnalysis, cursorIn);
+        }
+
+        return new AnalysedTokenLookupResult(lineAnalysis,
+            new Range(position.Line, position.Character, position.Line,
+                position.Character)); // TODO: whitespace in the middle
+    }
+
     public AnalysedLabel? GetLabel(string name)
     {
         return (_lastAnalysisLabels?.TryGetValue(name, out var val) ?? false) ? val : null;
     }
+
+    public IEnumerable<AnalysedTokenLookupResult> FindLabelOccurrences(string label, bool includeDefinition)
+    {
+        if (_lastAnalysisLines == null)
+            yield break;
+
+        foreach (var line in _lastAnalysisLines.Values)
+        {
+            foreach (var analysedLabel in line.Labels)
+            {
+                if (analysedLabel.Label == label && analysedLabel.DefinedAtLine == line.LineIndex &&
+                    (includeDefinition || analysedLabel.Redefines != null))
+                    yield return new AnalysedTokenLookupResult(line, analysedLabel);
+            }
+
+            if (line.Operands is null or {Count: 0})
+                continue;
+
+            foreach (var operand in line.Operands)
+            {
+                if (operand.Tokens is null or {Count: 0})
+                    continue;
+
+                foreach (var token in operand.Tokens.Where(t => t.Type == OperandTokenType.Label))
+                {
+                    if (token.Data.TargetLabel != null && token.Data.TargetLabel.Label == label)
+                    {
+                        yield return new AnalysedTokenLookupResult(line, operand, token);
+                    }
+                }
+            }
+        }
+    }
+
+    public IEnumerable<AnalysedTokenLookupResult> FindRegisterOccurrences(Register register)
+    {
+        if (!register.IsSingleRegister())
+            throw new InvalidOperationException("Occurrences may only be found for a single register.");
+
+        if (_lastAnalysisLines == null)
+            yield break;
+
+        foreach (var line in _lastAnalysisLines.Values)
+        {
+            if (line.Operands is null or {Count: 0})
+                continue;
+
+            foreach (var operand in line.Operands)
+            {
+                if (operand.Tokens is null or {Count: 0})
+                    continue;
+
+                foreach (var token in operand.Tokens.Where(t => t.Type == OperandTokenType.Register))
+                {
+                    if (token.Data.Register == register)
+                    {
+                        yield return new AnalysedTokenLookupResult(line, operand, token);
+                    }
+                }
+            }
+        }
+    }
+
 
     private List<InstructionVariant> _unsuccessfulVariants = new();
 
@@ -638,7 +779,7 @@ public class SourceAnalyser : ISourceAnalyser
         if (_ctx.FirstRunOnCurrentLine)
         {
             var labelStub = new AnalysedLabel(text, new Range(_ctx.CurrentLineIndex,
-                textStart, _ctx.CurrentLineIndex, linePos), null);
+                textStart, _ctx.CurrentLineIndex, linePos), null, _ctx.CurrentLineIndex);
 
             _ctx.StubLabels.Add(labelStub);
         }

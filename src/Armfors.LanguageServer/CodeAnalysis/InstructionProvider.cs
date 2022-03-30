@@ -20,9 +20,9 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 false, 1)),
 
         new InstructionVariant("ADD", true, true, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true),
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register, true),
+            new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register),
             new OperandDescriptor(new[] { "(LSL|LSR|ASR|ROR)", " #?([0-9]+)" },
                 OperandType.Shift, null, true, 0,
                 (0, 1, new OperandToken(OperandTokenType.ShiftType)),

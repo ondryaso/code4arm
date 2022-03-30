@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Abstractions;
 
@@ -39,9 +40,20 @@ public interface ISourceAnalyser
     IEnumerable<AnalysedLabel> GetLabels();
 
     /// <summary>
+    /// Returns an analysis object for a token on a given position; or null if the position is out of bounds.
+    /// </summary>
+    /// <param name="position">The position to find token on.</param>
+    /// <returns>A token lookup result, or null if the position is out of bounds.</returns>
+    AnalysedTokenLookupResult? FindTokenAtPosition(Position position);
+
+    /// <summary>
     /// Returns an <see cref="AnalysedLabel"/> with details of a label.
     /// </summary>
     /// <param name="name">The label.</param>
     /// <returns>An <see cref="AnalysedLabel"/> or null if such label does not exist.</returns>
     AnalysedLabel? GetLabel(string name);
+
+    IEnumerable<AnalysedTokenLookupResult> FindLabelOccurrences(string label, bool includeDefinition);
+
+    IEnumerable<AnalysedTokenLookupResult> FindRegisterOccurrences(Register register);
 }

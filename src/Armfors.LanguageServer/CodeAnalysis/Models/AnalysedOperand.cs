@@ -37,14 +37,16 @@ public enum OperandResult
 [StructLayout(LayoutKind.Explicit)]
 public readonly struct AnalysedOperandTokenData
 {
-    [FieldOffset(0)] public readonly Register Register;
-    [FieldOffset(0)] public readonly int Immediate;
-    [FieldOffset(0)] public readonly ShiftType ShiftType;
+    [FieldOffset(0)] public readonly AnalysedLabel? TargetLabel;
+    [FieldOffset(8)] public readonly Register Register;
+    [FieldOffset(8)] public readonly int Immediate;
+    [FieldOffset(8)] public readonly ShiftType ShiftType;
 
     public AnalysedOperandTokenData(Register register)
     {
         Immediate = default;
         ShiftType = default;
+        TargetLabel = default;
         Register = register;
     }
 
@@ -52,6 +54,7 @@ public readonly struct AnalysedOperandTokenData
     {
         Immediate = default;
         Register = default;
+        TargetLabel = default;
         ShiftType = shiftType;
     }
 
@@ -59,7 +62,16 @@ public readonly struct AnalysedOperandTokenData
     {
         ShiftType = default;
         Register = default;
+        TargetLabel = default;
         Immediate = immediate;
+    }
+    
+    public AnalysedOperandTokenData(AnalysedLabel targetLabel)
+    {
+        ShiftType = default;
+        Register = default;
+        Immediate = default;
+        TargetLabel = targetLabel;
     }
 
     public static implicit operator AnalysedOperandTokenData(Register register)
@@ -76,6 +88,11 @@ public readonly struct AnalysedOperandTokenData
     {
         return new AnalysedOperandTokenData(shiftType);
     }
+
+    public static implicit operator AnalysedOperandTokenData(AnalysedLabel analysedLabel)
+    {
+        return new AnalysedOperandTokenData(analysedLabel);
+    }
 }
 
 public record AnalysedOperandToken(OperandToken Token, OperandTokenResult Result, Range Range, string Text,
@@ -84,6 +101,7 @@ public record AnalysedOperandToken(OperandToken Token, OperandTokenResult Result
     public OperandTokenResult Result { get; set; } = Result;
     public OperandTokenType Type => this.Token.Type;
     public DiagnosticSeverity Severity { get; set; } = Severity;
+    public AnalysedOperandTokenData Data { get; set; } = Data;
 }
 
 public record AnalysedOperand(int Index, OperandDescriptor? Descriptor, Range Range, OperandResult Result,

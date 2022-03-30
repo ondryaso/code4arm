@@ -20,6 +20,7 @@ public class DirectiveAnalyser : IDirectiveAnalyser
         {"data", DirectiveType.DataSection},
         {"bss", DirectiveType.BssSection},
         {"equ", DirectiveType.SetSymbol},
+        {"set", DirectiveType.SetSymbol},
         {"equiv", DirectiveType.SetUndefinedSymbol},
         {"eqv", DirectiveType.SetUndefinedSymbol},
         {"error", DirectiveType.EmitError},
@@ -136,9 +137,10 @@ public class DirectiveAnalyser : IDirectiveAnalyser
                 state = DirectiveState.InvalidDirectiveSyntax;
                 return;
             }
-            
-            var label = new AnalysedLabel(parts[0], paramsRange.Take(parts[0].Length), context.CurrentLine, null,
-                type == DirectiveType.SetSymbol, false);
+
+            var label = new AnalysedLabel(parts[0], paramsRange.Take(parts[0].Length), context.CurrentLine,
+                context.CurrentLineIndex,
+                null, type == DirectiveType.SetSymbol, false);
 
             context.StubLabels.Add(label);
         }
