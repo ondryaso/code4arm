@@ -4,6 +4,7 @@
 using System.Text.RegularExpressions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Extensions;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.CodeAnalysis;
@@ -60,21 +61,21 @@ public static class TokenAnalyser
         var negative = numberParsed < 0;
         var number = negative ? -numberParsed : numberParsed;
 
-        var valid = CheckModifiedImmediateConstant((uint)number);
+        var valid = CheckModifiedImmediateConstant((uint) number);
         if (!valid)
         {
             return new AnalysedOperandToken(token, OperandTokenResult.InvalidImmediateConstantValue,
-                tokenRange, tokenMatch.Value, false, numberParsed);
+                tokenRange, tokenMatch.Value, numberParsed);
         }
 
         if (negative)
         {
             return new AnalysedOperandToken(token, OperandTokenResult.ImmediateConstantNegative, tokenRange,
-                tokenMatch.Value, true, numberParsed);
+                tokenMatch.Value, numberParsed, DiagnosticSeverity.Warning);
         }
 
         return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value,
-            false, numberParsed);
+            Data: numberParsed);
     }
 
     public static AnalysedOperandToken CheckBasicImmediate(OperandToken token, Range tokenRange, Group tokenMatch)
@@ -83,12 +84,11 @@ public static class TokenAnalyser
         {
             // TODO: this is probably right and absence of the token should be questioned
             // on a higher level but think about it
-            return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, false,
-                0);
+            return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, 0);
         }
-        
+
         var numberParsed = int.Parse(tokenMatch.Value);
-        var number = (uint)(numberParsed > 0 ? numberParsed : -numberParsed);
+        var number = (uint) (numberParsed > 0 ? numberParsed : -numberParsed);
         var maxValue = (1u << token.ImmediateSize) - 1;
 
         if (token.IsImmediateDiv4)
@@ -99,11 +99,10 @@ public static class TokenAnalyser
         if (number > maxValue || (token.IsImmediateDiv4 && number % 4 != 0))
         {
             return new AnalysedOperandToken(token, OperandTokenResult.InvalidImmediateValue,
-                tokenRange, tokenMatch.Value, false, numberParsed);
+                tokenRange, tokenMatch.Value, Data: numberParsed);
         }
 
-        return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, false,
-            numberParsed);
+        return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, numberParsed);
     }
 
     public static AnalysedOperandToken CheckImmediateShift(OperandToken token, Range tokenRange, Group tokenMatch,
@@ -120,7 +119,7 @@ public static class TokenAnalyser
 
         return new AnalysedOperandToken(token,
             valid ? OperandTokenResult.Valid : OperandTokenResult.InvalidImmediateValue,
-            tokenRange, tokenMatch.Value, false, number);
+            tokenRange, tokenMatch.Value, number);
     }
 
     public static AnalysedOperandToken CheckRegister(OperandDescriptor descriptor,
@@ -136,7 +135,7 @@ public static class TokenAnalyser
             if (descriptor.Type == OperandType.Register)
             {
                 return new AnalysedOperandToken(token, OperandTokenResult.InvalidRegister, tokenRange,
-                    tokenMatch.Value, false, register);
+                    tokenMatch.Value, register);
             }
 
             if (descriptor.Type == OperandType.RegisterList)
@@ -145,12 +144,11 @@ public static class TokenAnalyser
                     register == Register.PC
                         ? OperandTokenResult.RegisterListCannotContainPc
                         : OperandTokenResult.InvalidRegisterListEntry, tokenRange, tokenMatch.Value,
-                    false, register);
+                    register);
             }
         }
 
-        return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, false,
-            register);
+        return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, register);
     }
 
     public static AnalysedOperandToken CheckShiftType(OperandToken token, Range tokenRange, Group tokenMatch)
@@ -166,12 +164,12 @@ public static class TokenAnalyser
             if (!token.AllowedShiftTypes.Contains(shiftType))
             {
                 return new AnalysedOperandToken(token, OperandTokenResult.InvalidShiftType, tokenRange,
-                    tokenMatch.Value, false, shiftType);
+                    tokenMatch.Value, shiftType);
             }
         }
 
         return new AnalysedOperandToken(token, OperandTokenResult.Valid, tokenRange,
-            tokenMatch.Value, false, shiftType);
+            tokenMatch.Value, shiftType);
     }
 
     /// <summary>

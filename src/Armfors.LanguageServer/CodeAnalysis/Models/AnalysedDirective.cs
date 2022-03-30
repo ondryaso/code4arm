@@ -14,9 +14,8 @@ public enum DirectiveType
     TextSection,
     DataSection,
     BssSection,
-    Equ, // equ, set
-    Equiv, // equiv (signalling equ)
-    Eqv, // like equiv -> signalling
+    SetSymbol, // equ, set
+    SetUndefinedSymbol, // equiv (signalling equ)
     EmitError,
     EmitWarning,
     Extern,
@@ -66,7 +65,8 @@ public enum DirectiveState
     Valid,
     UnknownDirective,
     UnknownType,
-    RedefinedLabel,
+    InvalidDirectiveSyntax,
+    InvalidSymbolName,
     InvalidConstant,
     NopDirective,
     InvalidArch,

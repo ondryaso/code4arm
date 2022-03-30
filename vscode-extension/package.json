@@ -138,6 +138,7 @@
             "editor.semanticTokenColorCustomizations": {
                 "enabled": true,
                 "rules": {
+                    "directive": "#be5d82",
                     "condition_code": "#1886e0",
                     "sets_flags_flag": "#0ac77ec2",
                     "vector_data_type": "#5236f1",

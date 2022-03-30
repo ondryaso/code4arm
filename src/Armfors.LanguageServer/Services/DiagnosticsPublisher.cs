@@ -43,6 +43,25 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
 
         foreach (var analysis in analyser.GetLineAnalyses())
         {
+            // Labels
+            foreach (var label in analysis.Labels)
+            {
+                if (label.Redefines != null && label.Range.Start.Line == analysis.LineIndex)
+                {
+                    diags.Add(new Diagnostic()
+                    {
+                        Code = -1,
+                        Message = $"Redefines symbol at line {prepSource.GetOriginalLine(label.Redefines.Range.Start.Line) + 1}.",
+                        Range = prepSource.GetOriginalRange(label.Range),
+                        Severity = label.Redefines.CanBeRedefined
+                            ? DiagnosticSeverity.Hint
+                            : DiagnosticSeverity.Error,
+                        Source = Constants.ServiceSource
+                    });
+
+                }
+            }
+
             switch (analysis.State)
             {
                 case LineAnalysisState.InvalidMnemonic:
@@ -125,12 +144,14 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     if (directive.State == DirectiveState.Valid) break;
 
                     var (code, message) = GetDirectiveDiagnostic(directive);
-                    
+
                     diags.Add(new Diagnostic()
                     {
                         Code = code,
                         Message = message,
-                        Range = prepSource.GetOriginalRange(directive.State == DirectiveState.UnknownDirective ? directive.DirectiveRange : directive.ParametersRange),
+                        Range = prepSource.GetOriginalRange(directive.State == DirectiveState.UnknownDirective
+                            ? directive.DirectiveRange
+                            : directive.ParametersRange),
                         Severity = directive.Severity,
                         Source = Constants.ServiceSource
                     });
@@ -139,7 +160,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 }
             }
 
-            if (analysis.Operands is { Count: > 0 })
+            if (analysis.Operands is {Count: > 0})
             {
                 foreach (var token in analysis.Operands
                              .Where(operand => operand.Tokens != null)
@@ -153,7 +174,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         Code = code,
                         Message = message,
                         Range = prepSource.GetOriginalRange(token.Range),
-                        Severity = token.WarningOnly ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
+                        Severity = token.Severity,
                         Source = Constants.ServiceSource
                     });
                 }
@@ -298,7 +319,8 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
             OperandTokenResult.ImmediateConstantNegative => (-1,
                 "A negative immediate constant will be encoded as the reverse instruction (ADD for SUB and vice-versa). This may not be what you intended."),
             OperandTokenResult.InvalidShiftType => (-1, "Invalid shift type."), // TODO: list possible shift types
-            OperandTokenResult.InvalidRegisterListEntry => (-1, "This register cannot be used in this register list."), // TODO: say why
+            OperandTokenResult.InvalidRegisterListEntry => (-1,
+                "This register cannot be used in this register list."), // TODO: say why
             OperandTokenResult.RegisterListMustContainPc => (-1,
                 "The register list must contain the program counter (PC/R15)."),
             OperandTokenResult.RegisterListCannotContainPc => (-1,
@@ -320,8 +342,8 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         {
             DirectiveState.Valid => (-1, ""),
             DirectiveState.UnknownDirective => (10, "Unknown directive."),
+            DirectiveState.InvalidDirectiveSyntax => (DiagnosticCodes.GenericSyntaxError, "Invalid directive syntax."),
             DirectiveState.UnknownType => (-1, ""),
-            DirectiveState.RedefinedLabel => (-1, ""),
             DirectiveState.InvalidConstant => (-1, "Invalid constant."),
             DirectiveState.NopDirective => (-1, ""),
             DirectiveState.InvalidArch => (-1, ""),

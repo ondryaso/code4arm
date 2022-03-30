@@ -84,7 +84,7 @@ public class BasicOperandAnalyser : IOperandAnalyser
                 lastRange = tokenRange;
 
                 var aot = TokenAnalyser.CheckToken(_descriptor, match, resultTokens, token, tokenRange, matchGroup);
-                if (aot.Result != OperandTokenResult.Valid && !aot.WarningOnly)
+                if (aot.Result != OperandTokenResult.Valid && aot.Severity == DiagnosticSeverity.Error)
                 {
                     hasErrors = true;
                 }

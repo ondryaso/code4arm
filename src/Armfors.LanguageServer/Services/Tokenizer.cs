@@ -39,6 +39,12 @@ public class Tokenizer : ITokenizer
         await analyser.TriggerFullAnalysis();
         foreach (var analysis in analyser.GetLineAnalyses())
         {
+            if (analysis.Directive != null)
+            {
+                builder.Push(prepSource.GetOriginalRange(analysis.Directive.DirectiveRange),
+                    ArmSemanticTokenType.Directive, Enumerable.Empty<SemanticTokenModifier>());
+            }
+
             foreach (var label in analysis.Labels)
             {
                 if (label.Range.Start.Line != analysis.LineIndex)
@@ -46,12 +52,6 @@ public class Tokenizer : ITokenizer
 
                 builder.Push(prepSource.GetOriginalRange(label.Range), SemanticTokenType.Label,
                     Enumerable.Empty<SemanticTokenModifier>());
-            }
-
-            if (analysis.Directive != null)
-            {
-                builder.Push(prepSource.GetOriginalRange(analysis.Directive.DirectiveRange),
-                    ArmSemanticTokenType.Directive, Enumerable.Empty<SemanticTokenModifier>());
             }
 
             if (!analysis.HasMnemonicMatch)

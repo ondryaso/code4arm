@@ -33,6 +33,8 @@ public class SourceAnalyser : ISourceAnalyser
 
     private int _analysedVersion = -1;
 
+    internal AnalysisContext Context => _ctx;
+
     internal SourceAnalyser(ISource source, IInstructionProvider instructionProvider,
         IOperandAnalyserProvider operandAnalyserProvider, IInstructionValidatorProvider instructionValidatorProvider,
         IDiagnosticsPublisher diagnosticsPublisher, IDirectiveAnalyser directiveAnalyser,
@@ -131,7 +133,7 @@ public class SourceAnalyser : ISourceAnalyser
                     _logger.LogTrace("Series of labels starting at [{Index}].", _ctx.CurrentLineIndex);
                     labelsStart = _ctx.CurrentLineIndex;
                 }
-                else if (_ctx.CurrentLine!.State != LineAnalysisState.Blank && _ctx.StubLabels.Count > 0)
+                else if (_ctx.CurrentLine.State != LineAnalysisState.Blank && _ctx.StubLabels.Count > 0)
                 {
                     _logger.LogTrace("Series of labels terminating at [{Index}].", _ctx.CurrentLineIndex);
                     foreach (var label in _ctx.StubLabels)
@@ -141,21 +143,21 @@ public class SourceAnalyser : ISourceAnalyser
                         var populatedLabel = label with
                         {
                             PointsTo = _ctx.CurrentLine,
-                            RedefinedFrom = isAlreadyDefined ? alreadyDefined.Range.Start.Line : null
+                            Redefines = isAlreadyDefined ? alreadyDefined : null
                         };
 
                         _ctx.CurrentLine.Labels.Add(populatedLabel);
 
-                        if (!isAlreadyDefined)
+                        if (!isAlreadyDefined || alreadyDefined!.CanBeRedefined)
                         {
-                            _ctx.AnalysedLabels.Add(label.Label, label);
+                            _ctx.AnalysedLabels[label.Label] = label;
                         }
 
                         if (labelsStart != -1)
                         {
                             for (var i = labelsStart; i < _ctx.CurrentLineIndex; i++)
                             {
-                                _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
+                                    _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
                             }
                         }
                     }
@@ -177,6 +179,7 @@ public class SourceAnalyser : ISourceAnalyser
                 if (!_ctx.AnalysedLabels.ContainsKey(labelToken.Text))
                 {
                     labelToken.Result = OperandTokenResult.UndefinedLabel;
+                    labelToken.Severity = DiagnosticSeverity.Information;
                 }
             }
 
@@ -592,7 +595,7 @@ public class SourceAnalyser : ISourceAnalyser
             return false;
         }
 
-        var analysis = _directiveAnalyser.AnalyseDirective(lineChunk, linePos, _ctx.CurrentLineIndex);
+        var analysis = _directiveAnalyser.AnalyseDirective(lineChunk, linePos, this);
         _ctx.CurrentLine.Directive = analysis;
 
         this.FinishCurrentLine(_ctx.CurrentLineText.Length,

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.Extensions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -18,9 +19,9 @@ public class DirectiveAnalyser : IDirectiveAnalyser
         {"text", DirectiveType.TextSection},
         {"data", DirectiveType.DataSection},
         {"bss", DirectiveType.BssSection},
-        {"equ", DirectiveType.Equ},
-        {"equiv", DirectiveType.Equiv},
-        {"eqv", DirectiveType.Eqv},
+        {"equ", DirectiveType.SetSymbol},
+        {"equiv", DirectiveType.SetUndefinedSymbol},
+        {"eqv", DirectiveType.SetUndefinedSymbol},
         {"error", DirectiveType.EmitError},
         {"err", DirectiveType.EmitError},
         {"warning", DirectiveType.EmitWarning},
@@ -79,10 +80,15 @@ public class DirectiveAnalyser : IDirectiveAnalyser
     }
 
     public AnalysedDirective AnalyseDirective(string directiveText, int directiveStartLinePosition,
-        int lineIndex)
+        ISourceAnalyser sourceAnalyser)
     {
+        if (sourceAnalyser is not SourceAnalyser analyser)
+            throw new ArgumentException("Invalid source analyser type.", nameof(sourceAnalyser));
+
+        var lineIndex = analyser.Context.CurrentLineIndex;
+
         directiveText = directiveText[1..];
-        
+
         var directiveLastCharIndex = directiveText.IndexOfAny(new[] {' ', '\n', '.'}) - 1;
         if (directiveLastCharIndex < 0)
             directiveLastCharIndex = directiveText.Length - 1;
@@ -93,8 +99,8 @@ public class DirectiveAnalyser : IDirectiveAnalyser
         var directiveRange = new Range(lineIndex, directiveStartLinePosition, lineIndex,
             directiveStartLinePosition + directiveLastCharIndex + 2);
 
-        var paramsRange = new Range(lineIndex, directiveStartLinePosition + directiveLastCharIndex + 2,
-            lineIndex, directiveStartLinePosition + directiveText.Length);
+        var paramsRange = new Range(lineIndex, directiveStartLinePosition + directiveLastCharIndex + 3,
+            lineIndex, directiveStartLinePosition + directiveLastCharIndex + 3 + parameters.Length);
 
         var state = DirectiveState.Valid;
         var expectedWidth = -1;
@@ -106,7 +112,8 @@ public class DirectiveAnalyser : IDirectiveAnalyser
         }
         else
         {
-            this.AnalyseDirective(type, directive, parameters, ref state, ref expectedWidth, ref severity);
+            this.AnalyseDirective(type, directive, parameters, directiveRange, paramsRange, analyser.Context,
+                ref state, ref expectedWidth, ref severity);
         }
 
         return new AnalysedDirective(type, state, directiveRange, directive, paramsRange,
@@ -114,10 +121,27 @@ public class DirectiveAnalyser : IDirectiveAnalyser
     }
 
     private void AnalyseDirective(DirectiveType type, string directive, string parameters,
+        Range directiveRange, Range paramsRange, AnalysisContext context,
         ref DirectiveState state, ref int expectedWidth, ref DiagnosticSeverity severity)
     {
         if (type == DirectiveType.Other)
             return;
+
+        if (type is DirectiveType.SetSymbol or DirectiveType.SetUndefinedSymbol)
+        {
+            // TODO: check symbol name
+            var parts = parameters.Split(',');
+            if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[1]))
+            {
+                state = DirectiveState.InvalidDirectiveSyntax;
+                return;
+            }
+            
+            var label = new AnalysedLabel(parts[0], paramsRange.Take(parts[0].Length), context.CurrentLine, null,
+                type == DirectiveType.SetSymbol);
+
+            context.StubLabels.Add(label);
+        }
 
         if (type == DirectiveType.Word)
         {
@@ -129,6 +153,4 @@ public class DirectiveAnalyser : IDirectiveAnalyser
             expectedWidth = 4;
         }
     }
-    
-    
 }
