@@ -52,7 +52,8 @@ var languageServer = await LanguageServer.From(options =>
         .WithHandler<TextDocumentSyncHandler>()
         .WithHandler<SemanticTokensHandler>()
         .WithHandler<CompletionHandler>()
-        .WithHandler<SignatureHelpHandler>();
+        .WithHandler<SignatureHelpHandler>()
+        .WithHandler<DocumentSymbolsHandler>();
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);

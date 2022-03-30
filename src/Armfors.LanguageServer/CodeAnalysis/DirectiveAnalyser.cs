@@ -138,7 +138,7 @@ public class DirectiveAnalyser : IDirectiveAnalyser
             }
             
             var label = new AnalysedLabel(parts[0], paramsRange.Take(parts[0].Length), context.CurrentLine, null,
-                type == DirectiveType.SetSymbol);
+                type == DirectiveType.SetSymbol, false);
 
             context.StubLabels.Add(label);
         }

@@ -17,4 +17,6 @@ public static class Constants
     public static readonly DocumentSelector ArmUalDocumentSelector = DocumentSelector.ForLanguage(ArmUalLanguageId);
 
     public const string ServiceSource = "code4arm";
+
+    public const string ArmUalLanguageName = "Arm UAL";
 }
