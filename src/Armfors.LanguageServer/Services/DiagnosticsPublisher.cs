@@ -300,7 +300,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         return analysedOperand.Result switch
         {
             OperandResult.UnexpectedOperand => (DiagnosticCodes.OperandUnexpected, "No operand can be used here."),
-            OperandResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            OperandResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Syntax error in operand."),
             OperandResult.MissingOperand => (DiagnosticCodes.OperandExpected, "Another operand expected."),
             _ => (-1, string.Empty)
         };
@@ -329,7 +329,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 "Invalid alignment value."), // TODO: list possible alignment values
             OperandTokenResult.InvalidSpecialOperand => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
             OperandTokenResult.UndefinedLabel => (-1, "Undefined label."),
-            OperandTokenResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand."),
+            OperandTokenResult.SyntaxError => (DiagnosticCodes.OperandSyntaxError, "Invalid operand token."),
             _ => (-1, string.Empty)
         };
     }

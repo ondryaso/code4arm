@@ -35,9 +35,11 @@ public class CompletionHandler : CompletionHandlerBase
     {
         var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
-        await analyser.TriggerLineAnalysis(request.Position.Line, false);
+        var prepPosition = source.GetOriginalRange(new Range(request.Position, request.Position)).Start;
+        
+        await analyser.TriggerLineAnalysis(source.GetPreprocessedLine(prepPosition.Line), false);
 
-        var lineAnalysis = analyser.GetLineAnalysis(request.Position.Line);
+        var lineAnalysis = analyser.GetLineAnalysis(source.GetPreprocessedLine(prepPosition.Line));
         if (lineAnalysis == null)
         {
             return new CompletionList(false);
@@ -69,8 +71,8 @@ public class CompletionHandler : CompletionHandlerBase
                     FilterText = "S",
                     TextEdit = new TextEdit()
                     {
-                        Range = new Range(lineAnalysis.LineIndex, request.Position.Character, lineAnalysis.LineIndex,
-                            request.Position.Character),
+                        Range = new Range(lineAnalysis.LineIndex, prepPosition.Character, lineAnalysis.LineIndex,
+                            prepPosition.Character),
                         NewText = "S"
                     },
                     SortText = "10S"
@@ -151,7 +153,7 @@ public class CompletionHandler : CompletionHandlerBase
                     TextEdit = new TextEdit()
                     {
                         Range = new Range(lineAnalysis.LineIndex, startIndex, lineAnalysis.LineIndex,
-                            request.Position.Character),
+                            prepPosition.Character),
                         NewText = $".{text}"
                     },
                     SortText = $"00{text}"
@@ -183,7 +185,7 @@ public class CompletionHandler : CompletionHandlerBase
                     TextEdit = new TextEdit()
                     {
                         Range = new Range(lineAnalysis.LineIndex, lineAnalysis.StartCharacter, lineAnalysis.LineIndex,
-                            request.Position.Character),
+                            prepPosition.Character),
                         NewText = match.Mnemonic
                     }
                 };
@@ -191,11 +193,11 @@ public class CompletionHandler : CompletionHandlerBase
                 ret.Add(ci);
             }
         }
-
+        
         // Operand completions
         if (lineAnalysis.PreFinishState == LineAnalysisState.MnemonicLoaded && lineAnalysis.Mnemonic!.HasOperands)
         {
-            var token = this.DetermineTokenAtPosition(lineAnalysis, request.Position);
+            var token = this.DetermineTokenAtPosition(lineAnalysis, prepPosition);
             if (token.TokenDescriptor != null && token.TargetRange != null)
             {
                 if (token.TokenDescriptor.Type == OperandTokenType.Register)
@@ -260,8 +262,8 @@ public class CompletionHandler : CompletionHandlerBase
                     }
 
                     return (token.Token,
-                        new Range(token.Range.Start.Line, token.Range.Start.Character + 1, token.Range.End.Line,
-                            token.Range.End.Character - 1));
+                        new Range(token.Range.Start.Line, token.Range.Start.Character, token.Range.End.Line,
+                            token.Range.End.Character));
                 }
             }
         }

@@ -1125,9 +1125,19 @@ public class SourceAnalyser : ISourceAnalyser
                     if (!match.Success || match.Index != currentPos)
                     {
                         failed++;
+
+                        var commaMatch = _commaRegex.Match(opPart, currentPos);
+                        if (commaMatch.Success)
+                        {
+                            currentPos += commaMatch.Length;
+                        }
                     }
 
-                    currentPos += match.Length;
+                    if (currentPos == 0 || match.Index != 0)
+                    {
+                        currentPos = match.Index + match.Length;
+                    }
+
                     matches.Add(match);
                     total++;
                 }
@@ -1150,7 +1160,7 @@ public class SourceAnalyser : ISourceAnalyser
                 var range = new Range(_ctx.CurrentLineIndex, opPartLinePos + initPos, _ctx.CurrentLineIndex,
                     opPartLinePos + currentPos);
 
-                var analysed = analyser.AnalyseOperand(actualOperandIndex, opPartLinePos, matches, range);
+                var analysed = analyser.AnalyseOperand(actualOperandIndex, opPartLinePos, matches, range, opPart);
                 chain.Operands.Add(analysed);
 
                 if (analysed.Result != OperandResult.Valid)

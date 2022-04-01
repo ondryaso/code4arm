@@ -104,7 +104,8 @@ public class OperandDescriptor
 
     public OperandType Type { get; }
 
-    public OperandToken? SingleToken { get; }
+    public OperandToken? SingleToken =>
+        _singleToken ? this.MatchGroupsTokenMappings?[0][this.SingleTokenMatchGroup] : null;
 
     public int SingleTokenMatchGroup { get; }
 
@@ -114,9 +115,11 @@ public class OperandDescriptor
     /// </summary>
     public bool ShiftAllowed { get; } = false;
 
-    public bool IsSingleToken => this.SingleToken != null;
+    public bool IsSingleToken => _singleToken;
 
-    public ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>? MatchGroupsTokenMappings { get; }
+    private readonly bool _singleToken;
+
+    public ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>> MatchGroupsTokenMappings { get; }
 
     public InstructionVariant Mnemonic { get; set; }
 
@@ -134,8 +137,10 @@ public class OperandDescriptor
 
         if (tokenType.HasValue)
         {
-            this.SingleToken = new OperandToken(tokenType.Value);
+            _singleToken = true;
             this.SingleTokenMatchGroup = stmg;
+            this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>.Empty
+                .Add(0, ImmutableDictionary<int, OperandToken>.Empty.Add(stmg, new OperandToken(tokenType.Value)));
         }
         else
         {
@@ -154,7 +159,7 @@ public class OperandDescriptor
 
     public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false,
         int stmg = 0, params (int, int, OperandToken)[] tokens)
-        : this(new[] { match }, type, tokenType, optional, stmg, tokens)
+        : this(new[] {match}, type, tokenType, optional, stmg, tokens)
     {
     }
 }

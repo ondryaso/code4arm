@@ -29,6 +29,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 (1, 1, new OperandToken(OperandTokenType.ImmediateShift)))),
 
         new InstructionVariant("MOV", true, true),
+        
         new InstructionVariant("LDR", true, false, false,
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
             new OperandDescriptor(new[] { "\\[", "\\G ?(R0|R1|R2|R3|R4)", "\\G ?(, ?#?([+-]?[0-9]+))?", "\\G ?\\]" },
@@ -36,6 +37,15 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 (1, 1, new OperandToken(OperandTokenType.Register)),
                 (2, 2, new OperandToken(OperandTokenType.Immediate) { ImmediateSize = 4 })),
             new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true)),
+        
+        new InstructionVariant("LDR", true, false, false,
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor(new[] { "\\[", "\\G ?(R0|R1|R2|R3|R4)", "\\G ?, ?(R0|R1|R2|R3|R4)", " ?\\]" },
+                OperandType.RegisterAddressing, null, false, 0,
+                (1, 1, new OperandToken(OperandTokenType.Register)),
+                (2, 1, new OperandToken(OperandTokenType.Register))),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true)),
+        
         new InstructionVariant("B", true, true, false,
             new OperandDescriptor("(.+)", OperandType.Label, OperandTokenType.Label)),
         new InstructionVariant("NOP", false, false),

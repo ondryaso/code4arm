@@ -20,53 +20,75 @@ public class BasicOperandAnalyser : IOperandAnalyser
         _descriptor = descriptor;
     }
 
+    private readonly Regex _commaRegex = new("\\G ?, ?", RegexOptions.Compiled);
+
     public AnalysedOperand AnalyseOperand(int operandIndex, int operandPartPositionInLine, List<Match> matches,
-        Range operandLineRange)
+        Range operandLineRange, string operandLine)
     {
         var resultTokens = new List<AnalysedOperandToken>();
         var hasErrors = false;
-        Range? lastRange = null;
+        var position = operandLineRange.Start.Character;
 
         for (var mi = 0; mi < matches.Count; mi++)
         {
-            ImmutableDictionary<int, OperandToken>? mappings = null;
             var match = matches[mi];
 
-            if (_descriptor.IsSingleToken)
-            {
-                if (mi != 0)
-                    throw new InvalidOperationException();
+            var hasMappings = _descriptor.MatchGroupsTokenMappings.TryGetValue(mi, out var mappings);
 
-                mappings = ImmutableDictionary<int, OperandToken>.Empty.Add(_descriptor.SingleTokenMatchGroup,
-                    _descriptor.SingleToken!);
-            }
-            else
+            if (!hasMappings || mappings!.IsEmpty)
             {
-                var hasMappings = _descriptor.MatchGroupsTokenMappings?.TryGetValue(mi, out mappings) ?? false;
-                if (!hasMappings || mappings!.IsEmpty)
+                // In a 'literal' match without operand token mappings.
+                // These must always be successful.
+
+                if (!match.Success)
                 {
-                    if (!match.Success)
-                    {
-                        var range = lastRange == null ? operandLineRange : new Range(lastRange.Start, operandLineRange.End);
-                        
-                        return new AnalysedOperand(operandIndex, _descriptor, operandLineRange,
-                           OperandResult.SyntaxError, range, resultTokens);
-                    }
+                    var range = new Range(operandLineRange.Start.Line, position,
+                        operandLineRange.Start.Line, operandPartPositionInLine + operandLine.Length - 2);
 
-                    continue;
+                    return new AnalysedOperand(operandIndex, _descriptor, operandLineRange,
+                        OperandResult.SyntaxError, range, resultTokens);
                 }
+
+                if (resultTokens.Count > 0)
+                {
+                    // If there was a result token before, set its range to the position of the matched literal
+                    // Completions will be suggested all the way to this literal.
+                    resultTokens[^1].Range.End.Character = operandPartPositionInLine + match.Index;
+                }
+
+                if (match.Index != 0)
+                {
+                    position = operandPartPositionInLine + match.Index + match.Length;
+                }
+
+                continue;
             }
 
-            foreach (var (groupIndex, token) in mappings!)
+            if (hasErrors)
+                continue;
+
+            foreach (var (groupIndex, token) in mappings)
             {
                 if (!match.Success)
                 {
-                    var range = lastRange == null ? operandLineRange : new Range(lastRange.Start, operandLineRange.End);
+                    var range = new Range(operandLineRange.Start.Line, position + 1,
+                        operandLineRange.Start.Line, position + 1);
+
+                    var commaMatch = _commaRegex.Match(operandLine, position - operandPartPositionInLine);
+                    if (commaMatch.Success)
+                    {
+                        range.Start.Character += commaMatch.Length - 1;
+                        range.End.Character += commaMatch.Length - 1;
+                    }
+
+                    position = range.End.Character;
+
                     resultTokens.Add(new AnalysedOperandToken(token, OperandTokenResult.SyntaxError, range,
                         string.Empty));
-                    
+
                     hasErrors = true;
-                    mi = matches.Count;
+
+                    //mi = matches.Count;  // Ends the outer cycle
                     break;
                 }
 
@@ -74,21 +96,22 @@ public class BasicOperandAnalyser : IOperandAnalyser
                     continue;
 
                 var matchGroup = match.Groups[groupIndex];
-                
+
                 var matchStart = matchGroup.Index < match.Index ? match.Index : matchGroup.Index;
                 var matchLen = matchGroup.Index < match.Index ? match.Length : matchGroup.Length;
-                
+
                 var tokenRange = new Range(operandLineRange.Start.Line,
                     operandPartPositionInLine + matchStart, operandLineRange.Start.Line,
                     operandPartPositionInLine + matchStart + matchLen);
-                lastRange = tokenRange;
+
+                position = tokenRange.End.Character;
 
                 var aot = TokenAnalyser.CheckToken(_descriptor, match, resultTokens, token, tokenRange, matchGroup);
                 if (aot.Result != OperandTokenResult.Valid && aot.Severity == DiagnosticSeverity.Error)
                 {
                     hasErrors = true;
                 }
-                
+
                 resultTokens.Add(aot);
             }
         }
