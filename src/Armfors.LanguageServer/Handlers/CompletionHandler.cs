@@ -4,6 +4,7 @@
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
 using Armfors.LanguageServer.Extensions;
+using Armfors.LanguageServer.Models.Abstractions;
 using Armfors.LanguageServer.Services.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -35,7 +36,7 @@ public class CompletionHandler : CompletionHandlerBase
     {
         var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
-        var prepPosition = source.GetOriginalRange(new Range(request.Position, request.Position)).Start;
+        var prepPosition = source.GetPreprocessedPosition(request.Position);
 
         await analyser.TriggerLineAnalysis(source.GetPreprocessedLine(prepPosition.Line), false);
 
@@ -62,6 +63,9 @@ public class CompletionHandler : CompletionHandlerBase
             if (!lineAnalysis.SetsFlags && lineAnalysis.Mnemonic!.HasSetFlagsVariant &&
                 lineAnalysis.ConditionCodeRange == null)
             {
+                var originalRangeForSetFlags = source.GetOriginalRange(new Range(lineAnalysis.LineIndex,
+                    prepPosition.Character, lineAnalysis.LineIndex, prepPosition.Character));
+
                 ret.Add(new CompletionItem()
                 {
                     Kind = CompletionItemKind.Event,
@@ -71,8 +75,7 @@ public class CompletionHandler : CompletionHandlerBase
                     FilterText = "S",
                     TextEdit = new TextEdit()
                     {
-                        Range = new Range(lineAnalysis.LineIndex, prepPosition.Character, lineAnalysis.LineIndex,
-                            prepPosition.Character),
+                        Range = originalRangeForSetFlags,
                         NewText = "S"
                     },
                     SortText = "10S"
@@ -92,7 +95,7 @@ public class CompletionHandler : CompletionHandlerBase
 
                 foreach (var ccValue in ccValues)
                 {
-                    var completionItem = this.MakeCompletionItemForConditionCode(lineAnalysis, ccValue);
+                    var completionItem = this.MakeCompletionItemForConditionCode(lineAnalysis, ccValue, source);
                     ret.Add(completionItem);
                 }
             }
@@ -106,7 +109,7 @@ public class CompletionHandler : CompletionHandlerBase
                     if (ccValue == ConditionCode.Invalid)
                         continue;
 
-                    var completionItem = this.MakeCompletionItemForConditionCode(lineAnalysis, ccValue, range);
+                    var completionItem = this.MakeCompletionItemForConditionCode(lineAnalysis, ccValue, source, range);
                     ret.Add(completionItem);
                 }
             }
@@ -138,6 +141,8 @@ public class CompletionHandler : CompletionHandlerBase
             }
 
             var allowedVectorDataTypes = lineAnalysis.Mnemonic.GetPossibleVectorDataTypes(currentSpecifierIndex);
+            var originalRangeForVectorDataType = source.GetOriginalRange(new Range(lineAnalysis.LineIndex, startIndex,
+                lineAnalysis.LineIndex, prepPosition.Character));
 
             foreach (var allowedVectorDataType in allowedVectorDataTypes)
             {
@@ -152,8 +157,7 @@ public class CompletionHandler : CompletionHandlerBase
                     FilterText = $".{text}",
                     TextEdit = new TextEdit()
                     {
-                        Range = new Range(lineAnalysis.LineIndex, startIndex, lineAnalysis.LineIndex,
-                            prepPosition.Character),
+                        Range = originalRangeForVectorDataType,
                         NewText = $".{text}"
                     },
                     SortText = $"00{text}"
@@ -171,6 +175,9 @@ public class CompletionHandler : CompletionHandlerBase
                 ? (await _instructionProvider.GetAllInstructions())
                 : lineAnalysis.MatchingMnemonics).DistinctBy(m => m.Mnemonic);
 
+            var originalRangeForMnemonic = source.GetOriginalRange(new Range(lineAnalysis.LineIndex,
+                lineAnalysis.StartCharacter, lineAnalysis.LineIndex, prepPosition.Character));
+
             foreach (var match in target)
             {
                 if (match.Mnemonic == lineAnalysis.Mnemonic?.Mnemonic)
@@ -184,8 +191,7 @@ public class CompletionHandler : CompletionHandlerBase
                     Documentation = _doc.InstructionEntry(match),
                     TextEdit = new TextEdit()
                     {
-                        Range = new Range(lineAnalysis.LineIndex, lineAnalysis.StartCharacter, lineAnalysis.LineIndex,
-                            prepPosition.Character),
+                        Range = originalRangeForMnemonic,
                         NewText = match.Mnemonic
                     }
                 };
@@ -198,16 +204,19 @@ public class CompletionHandler : CompletionHandlerBase
         if (lineAnalysis.PreFinishState == LineAnalysisState.MnemonicLoaded && lineAnalysis.Mnemonic!.HasOperands)
         {
             var token = this.DetermineTokenAtPosition(lineAnalysis, prepPosition);
+
             if (token.TokenDescriptor != null && token.TargetRange != null)
             {
+                var originalRange = source.GetOriginalRange(token.TargetRange);
+
                 if (token.TokenDescriptor.Type == OperandTokenType.Register)
                 {
-                    ret.AddRange(this.MakeCompletionItemsForRegister(token.TargetRange,
+                    ret.AddRange(this.MakeCompletionItemsForRegister(originalRange,
                         token.TokenDescriptor.RegisterMask));
                 }
                 else if (token.TokenDescriptor.Type == OperandTokenType.ShiftType)
                 {
-                    ret.AddRange(this.MakeCompletionItemsForShiftType(token.TargetRange,
+                    ret.AddRange(this.MakeCompletionItemsForShiftType(originalRange,
                         token.TokenDescriptor.AllowedShiftTypes));
                 }
             }
@@ -230,7 +239,7 @@ public class CompletionHandler : CompletionHandlerBase
             return (null, null);
 
         var analysedOperands = lineAnalysis.Operands;
-        if (analysedOperands is null or {Count: 0})
+        if (analysedOperands is null or { Count: 0 })
         {
             var firstOp = mnemonic.Operands[0];
             return (SingleOrFirstTokenDescriptor(firstOp), lineAnalysis.AnalysedRange.Trail(0));
@@ -252,7 +261,7 @@ public class CompletionHandler : CompletionHandlerBase
                 return (null, null);
             if (cursorIn.Tokens == null && cursorIn.Descriptor.Type == OperandType.Shift)
                 return (cursorIn.Descriptor.MatchGroupsTokenMappings[0].First().Value, cursorIn.ErrorRange);
-            if (cursorIn.Tokens is null or {Count: 0})
+            if (cursorIn.Tokens is null or { Count: 0 })
                 return (SingleOrFirstTokenDescriptor(cursorIn.Descriptor),
                     cursorIn.Descriptor.IsSingleToken
                         ? cursorIn.Range
@@ -309,7 +318,7 @@ public class CompletionHandler : CompletionHandlerBase
             yield return ci;
         }
     }
-    
+
     private IEnumerable<CompletionItem> MakeCompletionItemsForShiftType(Range range, ShiftType[]? whitelist)
     {
         var values = whitelist ?? Enum.GetValues<ShiftType>();
@@ -338,7 +347,7 @@ public class CompletionHandler : CompletionHandlerBase
     }
 
     private CompletionItem MakeCompletionItemForConditionCode(AnalysedLine lineAnalysis, ConditionCode ccValue,
-        Range? range = null)
+        IPreprocessedSource source, Range? range = null)
     {
         var labelTag = lineAnalysis.Mnemonic!.IsVector
             ? ILocalizationService.CompletionLabelSimdTag
@@ -359,7 +368,7 @@ public class CompletionHandler : CompletionHandlerBase
             FilterText = ccValue.ToString(),
             TextEdit = new TextEdit()
             {
-                Range = range ?? lineAnalysis.ConditionCodeRange!,
+                Range = source.GetOriginalRange(range ?? lineAnalysis.ConditionCodeRange!),
                 NewText = ccValue.ToString()
             },
             SortText = $"20{ccValue}"
@@ -382,7 +391,7 @@ public class CompletionHandler : CompletionHandlerBase
             DocumentSelector = Constants.ArmUalDocumentSelector,
             ResolveProvider = false, // we will see
             WorkDoneProgress = false,
-            TriggerCharacters = new[] {" ", ",", ".", "[", "{", "-"}
+            TriggerCharacters = new[] { " ", ",", ".", "[", "{", "-" }
         };
     }
 }
