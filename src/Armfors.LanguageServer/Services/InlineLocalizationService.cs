@@ -93,6 +93,16 @@ public class InlineLocalizationService : ILocalizationService
         { L.GetEnumEntryIdentifier(Register.LR, CompLabel), "LR (R14)" },
         { L.GetEnumEntryIdentifier(Register.PC, CompLabel), "PC (R15)" },
         
+        { L.GetEnumEntryIdentifier(ShiftType.ASR, CompLabel), "ASR (arithm. shift right)" },
+        { L.GetEnumEntryIdentifier(ShiftType.LSL, CompLabel), "LSL (logical shift left)" },
+        { L.GetEnumEntryIdentifier(ShiftType.LSR, CompLabel), "LSR (logical shift right)" },
+        { L.GetEnumEntryIdentifier(ShiftType.ROR, CompLabel), "ROR (rotate right)" },
+        
+        { L.GetEnumEntryIdentifier(ShiftType.ASR, CompDescription), "Shifts right, keeps sign" },
+        { L.GetEnumEntryIdentifier(ShiftType.LSL, CompDescription), "Shifts left" },
+        { L.GetEnumEntryIdentifier(ShiftType.LSR, CompDescription), "Shifts right, fills with 0s" },
+        { L.GetEnumEntryIdentifier(ShiftType.ROR, CompDescription), "Rotates right" },
+        
         { $"Set flags.{CompLabel}", "-S (Set flags)" },
         { $"Set flags.{CompDescription}", "Set flags" }
     };

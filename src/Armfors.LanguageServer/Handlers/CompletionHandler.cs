@@ -36,7 +36,7 @@ public class CompletionHandler : CompletionHandlerBase
         var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
         var prepPosition = source.GetOriginalRange(new Range(request.Position, request.Position)).Start;
-        
+
         await analyser.TriggerLineAnalysis(source.GetPreprocessedLine(prepPosition.Line), false);
 
         var lineAnalysis = analyser.GetLineAnalysis(source.GetPreprocessedLine(prepPosition.Line));
@@ -193,7 +193,7 @@ public class CompletionHandler : CompletionHandlerBase
                 ret.Add(ci);
             }
         }
-        
+
         // Operand completions
         if (lineAnalysis.PreFinishState == LineAnalysisState.MnemonicLoaded && lineAnalysis.Mnemonic!.HasOperands)
         {
@@ -204,6 +204,11 @@ public class CompletionHandler : CompletionHandlerBase
                 {
                     ret.AddRange(this.MakeCompletionItemsForRegister(token.TargetRange,
                         token.TokenDescriptor.RegisterMask));
+                }
+                else if (token.TokenDescriptor.Type == OperandTokenType.ShiftType)
+                {
+                    ret.AddRange(this.MakeCompletionItemsForShiftType(token.TargetRange,
+                        token.TokenDescriptor.AllowedShiftTypes));
                 }
             }
         }
@@ -225,7 +230,7 @@ public class CompletionHandler : CompletionHandlerBase
             return (null, null);
 
         var analysedOperands = lineAnalysis.Operands;
-        if (analysedOperands is null or { Count: 0 })
+        if (analysedOperands is null or {Count: 0})
         {
             var firstOp = mnemonic.Operands[0];
             return (SingleOrFirstTokenDescriptor(firstOp), lineAnalysis.AnalysedRange.Trail(0));
@@ -245,7 +250,9 @@ public class CompletionHandler : CompletionHandlerBase
         {
             if (cursorIn.Descriptor == null)
                 return (null, null);
-            if (cursorIn.Tokens is null or { Count: 0 })
+            if (cursorIn.Tokens == null && cursorIn.Descriptor.Type == OperandType.Shift)
+                return (cursorIn.Descriptor.MatchGroupsTokenMappings[0].First().Value, cursorIn.ErrorRange);
+            if (cursorIn.Tokens is null or {Count: 0})
                 return (SingleOrFirstTokenDescriptor(cursorIn.Descriptor),
                     cursorIn.Descriptor.IsSingleToken
                         ? cursorIn.Range
@@ -302,6 +309,33 @@ public class CompletionHandler : CompletionHandlerBase
             yield return ci;
         }
     }
+    
+    private IEnumerable<CompletionItem> MakeCompletionItemsForShiftType(Range range, ShiftType[]? whitelist)
+    {
+        var values = whitelist ?? Enum.GetValues<ShiftType>();
+
+        foreach (var shiftType in values)
+        {
+            var text = shiftType.ToString();
+
+            var ci = new CompletionItem()
+            {
+                Kind = CompletionItemKind.Variable,
+                Label = _loc.EnumEntry(shiftType, ILocalizationService.CompletionLabelTag),
+                Detail = _loc.EnumEntry(shiftType, ILocalizationService.CompletionDescriptionTag),
+                Documentation = _doc.EnumEntry(shiftType),
+                FilterText = text,
+                SortText = text,
+                TextEdit = new TextEdit()
+                {
+                    Range = range,
+                    NewText = text
+                }
+            };
+
+            yield return ci;
+        }
+    }
 
     private CompletionItem MakeCompletionItemForConditionCode(AnalysedLine lineAnalysis, ConditionCode ccValue,
         Range? range = null)
@@ -348,7 +382,7 @@ public class CompletionHandler : CompletionHandlerBase
             DocumentSelector = Constants.ArmUalDocumentSelector,
             ResolveProvider = false, // we will see
             WorkDoneProgress = false,
-            TriggerCharacters = new[] { " ", ",", ".", "[", "{", "-" }
+            TriggerCharacters = new[] {" ", ",", ".", "[", "{", "-"}
         };
     }
 }
