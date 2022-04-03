@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
-public class InstructionVariant
+public class InstructionVariant : IEquatable<InstructionVariant>
 {
     public bool HasSetFlagsVariant { get; }
     public bool CanBeConditional { get; }
@@ -14,6 +14,9 @@ public class InstructionVariant
     public string Mnemonic { get; }
     public bool HasOperands => !this.Operands.IsEmpty;
     public InstructionSize? ForcedSize { get; }
+
+    public InstructionVariantFlag VariantFlags { get; init; } = InstructionVariantFlag.NoFlags;
+    public int VariantPriority { get; init; } = 0;
 
     public ImmutableList<OperandDescriptor> Operands { get; }
 
@@ -47,5 +50,32 @@ public class InstructionVariant
             VectorDataType.Any16, VectorDataType.F16, VectorDataType.I16,
             VectorDataType.U16, VectorDataType.S16, VectorDataType.P16
         };
+    }
+
+    public bool Equals(InstructionVariant? other)
+    {
+        if (ReferenceEquals(null, other))
+            return false;
+        if (ReferenceEquals(this, other))
+            return true;
+
+        return this.Mnemonic == other.Mnemonic && this.VariantFlags == other.VariantFlags && this.Operands.SequenceEqual(other.Operands);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (ReferenceEquals(null, obj))
+            return false;
+        if (ReferenceEquals(this, obj))
+            return true;
+        if (obj.GetType() != this.GetType())
+            return false;
+
+        return this.Equals((InstructionVariant)obj);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(this.Mnemonic, this.Operands);
     }
 }

@@ -98,7 +98,7 @@ public record OperandToken(OperandTokenType Type)
 /// descriptor's regex match groups. If a descriptor describes a sole atomic expression, its <see cref="SingleToken"/>
 /// is populated instead of the dictionary. 
 /// </remarks>
-public class OperandDescriptor
+public class OperandDescriptor : IEquatable<OperandDescriptor>
 {
     public bool Optional { get; }
 
@@ -159,7 +159,36 @@ public class OperandDescriptor
 
     public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false,
         int stmg = 0, params (int, int, OperandToken)[] tokens)
-        : this(new[] {match}, type, tokenType, optional, stmg, tokens)
+        : this(new[] { match }, type, tokenType, optional, stmg, tokens)
     {
+    }
+
+    public bool Equals(OperandDescriptor? other)
+    {
+        if (ReferenceEquals(null, other))
+            return false;
+        if (ReferenceEquals(this, other))
+            return true;
+        
+        return this.Mnemonic.Equals(other.Mnemonic) &&
+               this.Optional == other.Optional && this.Type == other.Type &&
+               _regexes.SequenceEqual(other._regexes);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (ReferenceEquals(null, obj))
+            return false;
+        if (ReferenceEquals(this, obj))
+            return true;
+        if (obj.GetType() != this.GetType())
+            return false;
+        
+        return this.Equals((OperandDescriptor)obj);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(_regexes, this.Optional, (int)this.Type, this.Mnemonic);
     }
 }
