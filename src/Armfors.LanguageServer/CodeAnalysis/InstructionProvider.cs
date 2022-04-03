@@ -14,47 +14,51 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     private List<InstructionVariant> instructions = new()
     {
         new InstructionVariant("ADD", true, true, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true),
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>", 1, true),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rn>"),
             new OperandDescriptor("#?([+-]?[0-9]+)", OperandType.ImmediateConstant, OperandTokenType.ImmediateConstant,
-                false, 1)) { VariantPriority = 1 },
+                "<const>")) { VariantPriority = 1 },
 
         new InstructionVariant("ADD", true, true, false,
-                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register, true),
-                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register),
-                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register),
+                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register,
+                    "<Rd>"),
+                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register,
+                    "<Rn>"),
+                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register,
+                    "<Rm>"),
                 new OperandDescriptor(new[] { "(LSL|LSR|ASR|ROR)", " #?([0-9]+)" },
-                    OperandType.Shift, null, true, 0,
-                    (0, 1, new OperandToken(OperandTokenType.ShiftType)),
-                    (1, 1, new OperandToken(OperandTokenType.ImmediateShift))))
+                    OperandType.Shift, true,
+                    (0, 1, new OperandToken(OperandTokenType.ShiftType, "<shift>")),
+                    (1, 1, new OperandToken(OperandTokenType.ImmediateShift, "<imm>"))))
             { VariantPriority = 2 },
-        
+
         new InstructionVariant("ADD", true, true, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true),
-            new OperandDescriptor("(SP)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>", 1, true),
+            new OperandDescriptor("(SP)", OperandType.Register, false,
+                (0, 1, new OperandToken(OperandTokenType.Register, "SP") { RegisterMask = Register.SP })),
             new OperandDescriptor("#?([+-]?[0-9]+)", OperandType.ImmediateConstant, OperandTokenType.ImmediateConstant,
-                false, 1)) { VariantPriority = 0, VariantFlags = InstructionVariantFlag.UncommonVariant},
+                "<const>")) { VariantPriority = 0, VariantFlags = InstructionVariantFlag.UncommonVariant },
 
         new InstructionVariant("MOV", true, true),
 
         new InstructionVariant("LDR", true, false, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>"),
             new OperandDescriptor(new[] { "\\[", "\\G ?(R0|R1|R2|R3|R4)", "\\G ?(, ?#?([+-]?[0-9]+))?", "\\G ?\\]" },
-                OperandType.RegisterAddressing, null, false, 0,
-                (1, 1, new OperandToken(OperandTokenType.Register)),
-                (2, 2, new OperandToken(OperandTokenType.Immediate) { ImmediateSize = 4 })),
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true)),
+                OperandType.ImmediateAddressing, false, (1, 1, new OperandToken(OperandTokenType.Register, "<Rn>")),
+                (2, 2, new OperandToken(OperandTokenType.Immediate, "<imm>") { ImmediateSize = 4 })),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rx>", 1,
+                true)),
 
         new InstructionVariant("LDR", true, false, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>"),
             new OperandDescriptor(new[] { "\\[", "\\G ?(R0|R1|R2|R3|R4)", "\\G ?, ?(R0|R1|R2|R3|R4)", " ?\\]" },
-                OperandType.RegisterAddressing, null, false, 0,
-                (1, 1, new OperandToken(OperandTokenType.Register)),
-                (2, 1, new OperandToken(OperandTokenType.Register))),
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, true)),
+                OperandType.RegisterAddressing, false,
+                (1, 1, new OperandToken(OperandTokenType.Register, "<Rn>")),
+                (2, 1, new OperandToken(OperandTokenType.Register, "<Rm>"))),
+            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rx>")),
 
         new InstructionVariant("B", true, true, false,
-            new OperandDescriptor("(.+)", OperandType.Label, OperandTokenType.Label)),
+            new OperandDescriptor("(.+)", OperandType.Label, OperandTokenType.Label, "<label>")),
         new InstructionVariant("NOP", false, false),
         new InstructionVariant("SB", false, false) { VariantFlags = InstructionVariantFlag.AdvancedInstruction },
         new InstructionVariant("VADD", true, false, true) { VariantFlags = InstructionVariantFlag.Simd }
@@ -71,10 +75,12 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             .Where(m => m.Mnemonic.StartsWith(line, StringComparison.InvariantCultureIgnoreCase)).ToList());
     }
 
-    public Task<List<InstructionVariant>> GetVariants(string mnemonic)
+    public Task<List<InstructionVariant>> GetVariants(string mnemonic, InstructionVariantFlag exclude)
     {
         return Task.FromResult(instructions
-            .Where(m => m.Mnemonic.Equals(mnemonic, StringComparison.InvariantCultureIgnoreCase)).ToList());
+            .Where(m => m.Mnemonic.Equals(mnemonic, StringComparison.InvariantCultureIgnoreCase))
+            .Where(m => (m.VariantFlags & exclude) == 0)
+            .ToList());
     }
 
     public IOperandAnalyser For(OperandDescriptor descriptor)

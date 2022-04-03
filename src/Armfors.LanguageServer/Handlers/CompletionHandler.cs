@@ -38,9 +38,9 @@ public class CompletionHandler : CompletionHandlerBase
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
         var prepPosition = source.GetPreprocessedPosition(request.Position);
 
-        await analyser.TriggerLineAnalysis(source.GetPreprocessedLine(prepPosition.Line), false);
+        await analyser.TriggerLineAnalysis(prepPosition.Line, false);
 
-        var lineAnalysis = analyser.GetLineAnalysis(source.GetPreprocessedLine(prepPosition.Line));
+        var lineAnalysis = analyser.GetLineAnalysis(prepPosition.Line);
         if (lineAnalysis == null)
         {
             return new CompletionList(false);

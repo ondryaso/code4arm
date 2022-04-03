@@ -1,6 +1,10 @@
 // SignatureHelpHandler.cs
 // Author: Ondřej Ondryáš
 
+using System.Text;
+using Armfors.LanguageServer.CodeAnalysis.Abstractions;
+using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.Services.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -9,80 +13,133 @@ namespace Armfors.LanguageServer.Handlers;
 
 public class SignatureHelpHandler : SignatureHelpHandlerBase
 {
-    public override Task<SignatureHelp?> Handle(SignatureHelpParams request, CancellationToken cancellationToken)
+    private readonly ISourceStore _sourceStore;
+    private readonly ISourceAnalyserStore _sourceAnalyserStore;
+    private readonly IInstructionProvider _instructionProvider;
+    private readonly IDocumentationProvider _documentationProvider;
+
+    public SignatureHelpHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
+        IInstructionProvider instructionProvider, IDocumentationProvider documentationProvider)
     {
-        if (request.Position.Character >= 10)
+        _sourceStore = sourceStore;
+        _sourceAnalyserStore = sourceAnalyserStore;
+        _instructionProvider = instructionProvider;
+        _documentationProvider = documentationProvider;
+    }
+
+    public override async Task<SignatureHelp?> Handle(SignatureHelpParams request, CancellationToken cancellationToken)
+    {
+        var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
+        var analyser = _sourceAnalyserStore.GetAnalyser(source);
+        var prepPosition = source.GetPreprocessedPosition(request.Position);
+
+        await analyser.TriggerLineAnalysis(prepPosition.Line, false);
+
+        var lineAnalysis = analyser.GetLineAnalysis(prepPosition.Line);
+        if (lineAnalysis == null)
         {
-            return Task.FromResult<SignatureHelp?>(null);
+            return null;
         }
 
-        var sh = new SignatureHelp()
+        if (lineAnalysis.PreFinishState != LineAnalysisState.MnemonicLoaded
+            || lineAnalysis.Mnemonic is not { HasOperands: true })
         {
-            Signatures = new Container<SignatureInformation>(new SignatureInformation()
+            return null;
+        }
+
+        var allVariants = await _instructionProvider.GetVariants(lineAnalysis.Mnemonic.Mnemonic);
+        // TODO: filter
+        allVariants.Sort();
+        var currentVariant = 0;
+        var ret = new List<SignatureInformation>();
+
+        for (var i = 0; i < allVariants.Count; i++)
+        {
+            var variant = allVariants[i];
+
+            if (variant.Equals(lineAnalysis.Mnemonic))
             {
-                Label = "MOV <Rd>, <Rn>",
-                ActiveParameter = request.Position.Character switch
-                {
-                    < 4 => null,
-                    < 7 => 0,
-                    < 10 => 1,
-                    _ => null
-                },
-                Documentation = new MarkupContent()
-                {
-                    Value = ""
-                },
-                Parameters = new Container<ParameterInformation>(new ParameterInformation()
-                    {
-                        Label = new ParameterInformationLabel((4, 8)),
-                        Documentation = new MarkupContent()
-                        {
-                            Kind = MarkupKind.Markdown,
-                            Value =
-                                "## MOV – Moves things.\nPls.\n\n[Arm® Documentation](command:workbench.action.findInFiles)"
-                        }
-                    },
-                    new ParameterInformation()
-                    {
-                        Label = new ParameterInformationLabel((10, 14)),
-                        Documentation = "Source"
-                    })
-            }, new SignatureInformation()
+                var token = analyser.FindTokenAtPosition(prepPosition);
+                ret.Add(token is { Type: AnalysedTokenType.OperandToken }
+                    ? this.MakeSignatureInformation(variant, token.OperandToken!.Token)
+                    : this.MakeSignatureInformation(variant));
+
+                currentVariant = i;
+            }
+            else
             {
-                Label = "MOV <Rd>, #const",
-                ActiveParameter = request.Position.Character switch
+                ret.Add(this.MakeSignatureInformation(variant));
+            }
+        }
+
+        return new SignatureHelp()
+        {
+            Signatures = ret,
+            ActiveSignature = currentVariant
+        };
+    }
+
+    private SignatureInformation MakeSignatureInformation(InstructionVariant variant, OperandToken? toTag = null)
+    {
+        var paramInfo = new List<ParameterInformation>();
+        int? active = null;
+        var sb = new StringBuilder();
+
+        sb.Append(variant.Mnemonic);
+        sb.Append(' ');
+
+        for (var i = 0; i < variant.Operands.Count; i++)
+        {
+            var operandDescriptor = variant.Operands[i];
+            var hasCustomFormatting = operandDescriptor.TokenFormatting != null;
+            if (hasCustomFormatting)
+            {
+                sb.Append(string.Format(operandDescriptor.TokenFormatting!, operandDescriptor.MatchGroupsTokenMappings
+                    .SelectMany(t => t.Value)
+                    .Select(t => t.Value.SymbolicName as object).ToArray()));
+            }
+
+            foreach (var tokenMapping in operandDescriptor.MatchGroupsTokenMappings.SelectMany(t => t.Value))
+            {
+                if (!hasCustomFormatting)
                 {
-                    < 4 => null,
-                    < 7 => 0,
-                    < 10 => 1,
-                    _ => null
-                },
-                Documentation = new MarkupContent()
+                    sb.Append(tokenMapping.Value.SymbolicName);
+                    sb.Append(' ');
+                }
+
+                if (toTag == tokenMapping.Value)
                 {
-                    Kind = MarkupKind.Markdown,
-                    Value = "pls **const**"
-                },
-                Parameters = new Container<ParameterInformation>(new ParameterInformation()
-                    {
-                        Label = new ParameterInformationLabel((4, 8)),
-                        Documentation = new MarkupContent()
-                        {
-                            Kind = MarkupKind.Markdown,
-                            Value =
-                                "**MOV – Moves const things.**\n\nPls.\n\n[Arm® Documentation](command:workbench.action.findInFiles)"
-                        }
-                    },
-                    new ParameterInformation()
-                    {
-                        Label = new ParameterInformationLabel((10, 14)),
-                        Documentation = "Source"
-                    })
-            }),
-            ActiveSignature = 1,
-            ActiveParameter = null
+                    active = paramInfo.Count;
+                }
+
+                paramInfo.Add(new ParameterInformation()
+                {
+                    Label = new ParameterInformationLabel(tokenMapping.Value.SymbolicName),
+                    Documentation =
+                        _documentationProvider.InstructionOperandEntry(variant, tokenMapping.Value.SymbolicName)
+                });
+            }
+
+            if (!hasCustomFormatting)
+            {
+                sb.Length -= 1;
+            }
+
+            if (i != variant.Operands.Count - 1)
+            {
+                sb.Append(", ");
+            }
+        }
+
+        var si = new SignatureInformation()
+        {
+            Documentation = _documentationProvider.InstructionEntry(variant),
+            Label = sb.ToString(),
+            ActiveParameter = active ?? int.MaxValue,
+            Parameters = paramInfo
         };
 
-        return Task.FromResult(sh);
+        return si;
     }
 
     protected override SignatureHelpRegistrationOptions CreateRegistrationOptions(SignatureHelpCapability capability,
@@ -90,6 +147,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
     {
         return new SignatureHelpRegistrationOptions()
         {
+            TriggerCharacters = new Container<string>(",", " "),
             DocumentSelector = Constants.ArmUalDocumentSelector
         };
     }

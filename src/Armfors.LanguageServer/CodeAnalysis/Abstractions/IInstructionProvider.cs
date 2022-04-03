@@ -25,6 +25,12 @@ public interface IInstructionProvider
     /// Returns a list of all <see cref="InstructionVariant"/> definitions of a given mnemonic, i.e. definitions
     /// whose <see cref="InstructionVariant.Mnemonic"/> is equal to <paramref name="mnemonic"/>.
     /// </summary>
+    /// <remarks>
+    /// Variants whose <see cref="InstructionVariant.VariantFlags"/> match one or more bits set
+    /// in <paramref name="exclude"/> will be excluded from the returned list.
+    /// </remarks>
     /// <param name="mnemonic">The mnemonic to return variants for.</param>
-    Task<List<InstructionVariant>> GetVariants(string mnemonic);
+    /// <param name="exclude">Flags specifying variants to exclude.</param>
+    Task<List<InstructionVariant>> GetVariants(string mnemonic,
+        InstructionVariantFlag exclude = InstructionVariantFlag.NoFlags);
 }

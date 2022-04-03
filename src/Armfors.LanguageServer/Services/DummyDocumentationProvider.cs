@@ -34,4 +34,15 @@ public class DummyDocumentationProvider : IDocumentationProvider
                 $"## {instructionVariant.Mnemonic}\nThis is a documentation entry for {instructionVariant.Mnemonic}."
         };
     }
+
+    public MarkupContent? InstructionOperandEntry(InstructionVariant instructionVariant, string tokenName)
+    {
+        tokenName = tokenName.Replace("<", "&lt;").Replace(">", "&gt;");
+        return new MarkupContent
+        {
+            Kind = MarkupKind.Markdown,
+            Value =
+                $"## {tokenName}\nThis is a documentation entry for operand {tokenName} of {instructionVariant.Mnemonic}."
+        };
+    }
 }

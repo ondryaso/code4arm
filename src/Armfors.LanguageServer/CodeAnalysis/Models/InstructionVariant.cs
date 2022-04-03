@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
-public class InstructionVariant : IEquatable<InstructionVariant>
+public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<InstructionVariant>
 {
     public bool HasSetFlagsVariant { get; }
     public bool CanBeConditional { get; }
@@ -20,6 +20,8 @@ public class InstructionVariant : IEquatable<InstructionVariant>
 
     public ImmutableList<OperandDescriptor> Operands { get; }
 
+    private readonly int _operandsHashCode;
+
     public InstructionVariant(string mnemonic, bool cbc, bool hs, bool v = false,
         params OperandDescriptor[] descriptors)
     {
@@ -32,6 +34,7 @@ public class InstructionVariant : IEquatable<InstructionVariant>
         foreach (var descriptor in descriptors)
         {
             descriptor.Mnemonic = this;
+            _operandsHashCode = HashCode.Combine(_operandsHashCode, descriptor.GetHashCode());
         }
     }
 
@@ -59,7 +62,19 @@ public class InstructionVariant : IEquatable<InstructionVariant>
         if (ReferenceEquals(this, other))
             return true;
 
-        return this.Mnemonic == other.Mnemonic && this.VariantFlags == other.VariantFlags && this.Operands.SequenceEqual(other.Operands);
+        return this.Mnemonic == other.Mnemonic &&
+               this.VariantFlags == other.VariantFlags &&
+               this.Operands.SequenceEqual(other.Operands);
+    }
+
+    public int CompareTo(InstructionVariant? other)
+    {
+        if (other == null)
+            return -1;
+        if (other.Mnemonic != this.Mnemonic)
+            return string.Compare(other.Mnemonic, this.Mnemonic, StringComparison.Ordinal);
+
+        return other.VariantPriority - this.VariantPriority;
     }
 
     public override bool Equals(object? obj)
@@ -76,6 +91,6 @@ public class InstructionVariant : IEquatable<InstructionVariant>
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(this.Mnemonic, this.Operands);
+        return HashCode.Combine(this.Mnemonic, this.VariantFlags, _operandsHashCode);
     }
 }

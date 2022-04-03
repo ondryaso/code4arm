@@ -56,7 +56,8 @@ public enum OperandTokenType
 /// A token is an atomic part of an operand syntax, such as a register name or shift type.
 /// </summary>
 /// <param name="Type">The <see cref="OperandTokenType"/> type of this token.</param>
-public record OperandToken(OperandTokenType Type)
+/// <param name="SymbolicName">The name of the token shown in signature help.</param>
+public record OperandToken(OperandTokenType Type, string SymbolicName)
 {
     /// <summary>
     /// Allowed general-purpose registers for tokens of type <see cref="OperandTokenType.Register"/>. 
@@ -98,14 +99,14 @@ public record OperandToken(OperandTokenType Type)
 /// descriptor's regex match groups. If a descriptor describes a sole atomic expression, its <see cref="SingleToken"/>
 /// is populated instead of the dictionary. 
 /// </remarks>
-public class OperandDescriptor : IEquatable<OperandDescriptor>
+public class OperandDescriptor
 {
     public bool Optional { get; }
 
     public OperandType Type { get; }
 
     public OperandToken? SingleToken =>
-        _singleToken ? this.MatchGroupsTokenMappings?[0][this.SingleTokenMatchGroup] : null;
+        _singleToken ? this.MatchGroupsTokenMappings[0][this.SingleTokenMatchGroup] : null;
 
     public int SingleTokenMatchGroup { get; }
 
@@ -126,69 +127,55 @@ public class OperandDescriptor : IEquatable<OperandDescriptor>
     private readonly List<Regex> _regexes;
     public IEnumerable<Regex> Regexes => _regexes;
 
-    public OperandDescriptor(IEnumerable<string> matches, OperandType type, OperandTokenType? tokenType,
-        bool optional = false, int stmg = 0,
-        params (int RegexIndex, int MatchGroup, OperandToken Token)[] tokens)
-    {
-        this.Mnemonic = null;
+    public string? TokenFormatting { get; init; }
 
-        this.Optional = optional;
+    private OperandDescriptor(OperandType type)
+    {
         this.Type = type;
-
-        if (tokenType.HasValue)
+        if (type == OperandType.ImmediateAddressing)
         {
-            _singleToken = true;
-            this.SingleTokenMatchGroup = stmg;
-            this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>.Empty
-                .Add(0, ImmutableDictionary<int, OperandToken>.Empty.Add(stmg, new OperandToken(tokenType.Value)));
+            this.TokenFormatting = "[ {0} {{, {1}}} ]";
         }
-        else
+        else if (type == OperandType.RegisterAddressing)
         {
-            this.MatchGroupsTokenMappings = tokens.GroupBy(t => t.RegexIndex)
-                .ToImmutableDictionary(g => g.Key,
-                    g => g.ToImmutableDictionary(a => a.MatchGroup,
-                        a => a.Token));
-        }
-
-        _regexes = new List<Regex>();
-        foreach (var match in matches)
-        {
-            _regexes.Add(new Regex(match, RegexOptions.Compiled));
+            this.TokenFormatting = "[ {0},  {1} ]";
         }
     }
 
-    public OperandDescriptor(string match, OperandType type, OperandTokenType? tokenType, bool optional = false,
-        int stmg = 0, params (int, int, OperandToken)[] tokens)
-        : this(new[] { match }, type, tokenType, optional, stmg, tokens)
+    public OperandDescriptor(string regex, OperandType type, OperandTokenType tokenType, string tokenName,
+        int singleTokenMatchGroup = 1, bool optional = false)
+        : this(type)
     {
+        this.Mnemonic = null!;
+        this.Optional = optional;
+
+        _singleToken = true;
+        this.SingleTokenMatchGroup = singleTokenMatchGroup;
+
+        this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>.Empty
+            .Add(0, ImmutableDictionary<int, OperandToken>.Empty.Add(singleTokenMatchGroup,
+                new OperandToken(tokenType, tokenName)));
+
+        _regexes = new List<Regex> { new Regex(regex, RegexOptions.Compiled) };
     }
 
-    public bool Equals(OperandDescriptor? other)
+    public OperandDescriptor(IEnumerable<string> matches, OperandType type, bool optional,
+        params (int RegexIndex, int MatchGroup, OperandToken Token)[] tokens)
+        : this(type)
     {
-        if (ReferenceEquals(null, other))
-            return false;
-        if (ReferenceEquals(this, other))
-            return true;
-        
-        return this.Mnemonic.Equals(other.Mnemonic) &&
-               this.Optional == other.Optional && this.Type == other.Type &&
-               _regexes.SequenceEqual(other._regexes);
+        this.Mnemonic = null!;
+        this.Optional = optional;
+
+        this.MatchGroupsTokenMappings = tokens.GroupBy(t => t.RegexIndex)
+            .ToImmutableDictionary(g => g.Key,
+                g => g.ToImmutableDictionary(a => a.MatchGroup,
+                    a => a.Token));
+
+        _regexes = matches.Select(m => new Regex(m, RegexOptions.Compiled)).ToList();
     }
 
-    public override bool Equals(object? obj)
+    public OperandDescriptor(string regex, OperandType type, bool optional, params (int, int, OperandToken)[] tokens)
+        : this(new[] { regex }, type, optional, tokens)
     {
-        if (ReferenceEquals(null, obj))
-            return false;
-        if (ReferenceEquals(this, obj))
-            return true;
-        if (obj.GetType() != this.GetType())
-            return false;
-        
-        return this.Equals((OperandDescriptor)obj);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(_regexes, this.Optional, (int)this.Type, this.Mnemonic);
     }
 }

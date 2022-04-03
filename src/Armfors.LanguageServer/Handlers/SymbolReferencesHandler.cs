@@ -23,10 +23,11 @@ public class SymbolReferencesHandler : ReferencesHandlerBase
     {
         var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
-
+        var prepPosition = source.GetPreprocessedPosition(request.Position);
+        
         await analyser.TriggerFullAnalysis();
 
-        var token = analyser.FindTokenAtPosition(request.Position);
+        var token = analyser.FindTokenAtPosition(prepPosition);
         if (token == null)
             return new LocationContainer();
 

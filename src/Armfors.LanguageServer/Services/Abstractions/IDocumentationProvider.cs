@@ -12,9 +12,12 @@ public interface IDocumentationProvider
 
     string InstructionDetail(InstructionVariant instructionVariant);
     MarkupContent? InstructionEntry(InstructionVariant instructionVariant);
+    MarkupContent? InstructionOperandEntry(InstructionVariant instructionVariant, string tokenName);
 
     MarkupContent? EnumEntry<T>(T enumValue, string? tag = null) where T : struct, Enum
     {
-        return this[ILocalizationService.GetEnumEntryIdentifier(enumValue, tag ?? ILocalizationService.CompletionDocumentationTag)];
+        return this[
+            ILocalizationService.GetEnumEntryIdentifier(enumValue,
+                tag ?? ILocalizationService.CompletionDocumentationTag)];
     }
 }
