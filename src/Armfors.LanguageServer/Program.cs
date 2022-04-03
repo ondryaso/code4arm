@@ -81,5 +81,4 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();
     services.AddSingleton<ITokenizer, Tokenizer>();
-    services.AddSingleton<DefinitionService>();
 }
