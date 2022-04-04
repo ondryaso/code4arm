@@ -27,6 +27,8 @@ public class SourceAnalyser : ISourceAnalyser
 
     private Dictionary<int, AnalysedLine>? _lastAnalysisLines;
     private Dictionary<string, AnalysedLabel>? _lastAnalysisLabels;
+    private List<AnalysedFunction>? _lastFunctions;
+
     private AnalysisContext _ctx;
 
     public ISource Source => _source;
@@ -71,7 +73,7 @@ public class SourceAnalyser : ISourceAnalyser
 
         _logger.LogDebug("Performing full analysis.");
 
-        _logger.LogWarning("------");
+        //_logger.LogWarning("------");
         try
         {
             // TODO: check and use async variants
@@ -94,102 +96,49 @@ public class SourceAnalyser : ISourceAnalyser
 
                 // TODO: handle line endings in a better way
                 _ctx.CurrentLineText = (line.Length == 0 || line[^1] != '\n') ? (line + '\n') : line;
-                _unsuccessfulVariants.Clear();
 
-                await this.AnalyseCurrentLine();
-                var bestAttempt = _ctx.CurrentLine;
-
-                while (_ctx.CurrentLine.State != LineAnalysisState.ValidLine
-                       && _ctx.CurrentLine.FullMatches.Count > 1
-                       && _ctx.CurrentLine.FullMatches.Count > _unsuccessfulVariants.Count)
-                {
-                    if (_ctx.CurrentLine.Mnemonic != null)
-                    {
-                        _unsuccessfulVariants.Add(_ctx.CurrentLine.Mnemonic);
-                    }
-
-                    if (bestAttempt.Operands?.Count <= _ctx.CurrentLine.Operands?.Count)
-                    {
-                        bestAttempt = _ctx.CurrentLine;
-                    }
-
-                    _ctx.FirstRunOnCurrentLine = false;
-                    await this.AnalyseCurrentLine();
-                }
-
-                if (_ctx.CurrentLine.State != LineAnalysisState.ValidLine)
-                {
-                    _ctx.CurrentLine = bestAttempt;
-                }
-
+                // Analyse the current line 
+                await this.FindBestCurrentLineAnalysis();
                 _ctx.AnalysedLines.Add(_ctx.CurrentLineIndex, _ctx.CurrentLine);
 
-                _logger.LogWarning(
-                    $"{_ctx.CurrentLineIndex}: {_ctx.CurrentLine.Mnemonic?.Mnemonic} ({_ctx.CurrentLine.PreFinishState} -> {_ctx.CurrentLine.State})");
+                //_logger.LogWarning(
+                //    $"{_ctx.CurrentLineIndex}: {_ctx.CurrentLine.Mnemonic?.Mnemonic} ({_ctx.CurrentLine.PreFinishState} -> {_ctx.CurrentLine.State})");
 
                 if (labelsStart == -1 && _ctx.CurrentLine.State == LineAnalysisState.Blank &&
                     _ctx.StubLabels.Count > 0)
                 {
+                    // Labels were found on the current line and it is otherwise 
                     _logger.LogTrace("Series of labels starting at [{Index}].", _ctx.CurrentLineIndex);
                     labelsStart = _ctx.CurrentLineIndex;
                 }
                 else if (_ctx.CurrentLine.State != LineAnalysisState.Blank && _ctx.StubLabels.Count > 0)
                 {
                     _logger.LogTrace("Series of labels terminating at [{Index}].", _ctx.CurrentLineIndex);
-                    foreach (var label in _ctx.StubLabels)
-                    {
-                        var isAlreadyDefined = _ctx.AnalysedLabels.TryGetValue(label.Label, out var alreadyDefined);
-
-                        var populatedLabel = label with
-                        {
-                            PointsTo = _ctx.CurrentLine,
-                            Redefines = isAlreadyDefined ? alreadyDefined : null
-                        };
-
-                        _ctx.CurrentLine.Labels.Add(populatedLabel);
-
-                        if (!isAlreadyDefined || alreadyDefined!.CanBeRedefined)
-                        {
-                            _ctx.AnalysedLabels[label.Label] = label;
-                        }
-
-                        if (labelsStart != -1)
-                        {
-                            for (var i = labelsStart; i < _ctx.CurrentLineIndex; i++)
-                            {
-                                _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
-                            }
-                        }
-                    }
-
-                    _ctx.StubLabels.Clear();
+                    this.FixupLineLabels(labelsStart);
                     labelsStart = -1;
                 }
-            }
 
-            var allLabels = _ctx.AnalysedLines.Values
-                .Where(o => o.State == LineAnalysisState.ValidLine && o.Operands is {Count: > 0})
-                .SelectMany(o => o.Operands!)
-                .Where(op => op.Result == OperandResult.Valid && op.Tokens is {Count: > 0})
-                .SelectMany(o => o.Tokens!)
-                .Where(t => t.Type == OperandTokenType.Label);
+                if (_ctx.CurrentLine.Directive is {Type: DirectiveType.Type})
+                {
+                    var directive = _ctx.CurrentLine.Directive;
+                    var match = _funcTypeRegex.Match(directive.ParametersText);
 
-            foreach (var labelToken in allLabels)
-            {
-                if (_ctx.AnalysedLabels.TryGetValue(labelToken.Text, out var targetLabel))
-                {
-                    labelToken.Data = targetLabel;
-                }
-                else
-                {
-                    labelToken.Result = OperandTokenResult.UndefinedLabel;
-                    labelToken.Severity = DiagnosticSeverity.Information;
+                    if (match.Success)
+                    {
+                        var targetLabel = match.Groups[1].Value;
+                        _ctx.StubFunctions ??= new List<AnalysedFunction>();
+                        _ctx.StubFunctions.Add(new AnalysedFunction(targetLabel, directive));
+                    }
                 }
             }
+
+            this.FillReferencesInLabelOperands();
+            this.FindFunctions();
 
             _analysedVersion = _source.Version ?? -1;
             _lastAnalysisLines = _ctx.AnalysedLines;
             _lastAnalysisLabels = _ctx.AnalysedLabels;
+            _lastFunctions = _ctx.StubFunctions;
 
             _logger.LogDebug("Analysis done. {Lines} lines, {Labels} labels. Analysed version: {AnalysedVersion}.",
                 _ctx.AnalysedLines.Count, _ctx.AnalysedLabels.Count, _analysedVersion);
@@ -201,6 +150,156 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         await _diagnosticsPublisher.PublishAnalysisResult(this, _source.Uri, _analysedVersion).ConfigureAwait(false);
+    }
+
+    private async Task FindBestCurrentLineAnalysis()
+    {
+        _unsuccessfulVariants.Clear();
+
+        await this.AnalyseCurrentLine();
+        var bestAttempt = _ctx.CurrentLine;
+
+        while (_ctx.CurrentLine.State != LineAnalysisState.ValidLine
+               && _ctx.CurrentLine.FullMatches.Count > 1
+               && _ctx.CurrentLine.FullMatches.Count > _unsuccessfulVariants.Count)
+        {
+            if (_ctx.CurrentLine.Mnemonic != null)
+            {
+                _unsuccessfulVariants.Add(_ctx.CurrentLine.Mnemonic);
+            }
+
+            if (bestAttempt.Operands?.Count <= _ctx.CurrentLine.Operands?.Count)
+            {
+                bestAttempt = _ctx.CurrentLine;
+            }
+
+            _ctx.FirstRunOnCurrentLine = false;
+            await this.AnalyseCurrentLine();
+        }
+
+        if (_ctx.CurrentLine.State != LineAnalysisState.ValidLine)
+        {
+            _ctx.CurrentLine = bestAttempt;
+        }
+    }
+
+    private readonly Regex _funcTypeRegex =
+        new Regex("^ ?(\\\"[a-zA-Z_.$][a-zA-Z0-9_.$ ]*\\\"|[a-zA-Z_.$][a-zA-Z0-9_.$]*) ?, ?%function ?$",
+            RegexOptions.Compiled);
+
+    private void FindFunctions()
+    {
+        if (_ctx.StubFunctions == null)
+            return;
+
+        var beginLines = new List<AnalysedFunction>();
+        var startedFunctions = new List<AnalysedFunction>();
+
+        foreach (var stubFunction in _ctx.StubFunctions)
+        {
+            if (_ctx.AnalysedLabels.TryGetValue(stubFunction.Label, out var label))
+            {
+                stubFunction.TargetAnalysedLabel = label;
+                stubFunction.StartLine = label.PointsTo?.LineIndex ?? label.DefinedAtLine;
+                label.TargetFunction = stubFunction;
+
+                if (!beginLines.Contains(stubFunction))
+                    beginLines.Add(stubFunction);
+            }
+        }
+
+        beginLines.Sort((a, b) => a.StartLine - b.StartLine);
+        
+        foreach (var pair in _ctx.AnalysedLines)
+        {
+            if (beginLines.Count > 0)
+            {
+                var first = beginLines[0];
+                while (first.StartLine == pair.Key)
+                {
+                    startedFunctions.Add(first);
+                    beginLines.RemoveAt(0);
+                    if (beginLines.Count > 0)
+                        first = beginLines[0];
+                    else break;
+                }
+            }
+
+            if (startedFunctions.Count > 0)
+            {
+                var analysedLine = pair.Value;
+                if (EndsFunction(analysedLine))
+                {
+                    foreach (var function in startedFunctions)
+                    {
+                        function.EndLine = analysedLine.LineIndex;
+                    }
+
+                    startedFunctions.Clear();
+                }
+            }
+
+            if (beginLines.Count == 0 && startedFunctions.Count == 0)
+                break;
+        }
+    }
+
+    private static bool EndsFunction(AnalysedLine line)
+        => line.Mnemonic?.Mnemonic is "B" or "BX" &&
+           (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false);
+
+    private void FixupLineLabels(int labelsStart)
+    {
+        foreach (var label in _ctx.StubLabels)
+        {
+            var isAlreadyDefined = _ctx.AnalysedLabels.TryGetValue(label.Label, out var alreadyDefined);
+
+            var populatedLabel = label with
+            {
+                PointsTo = _ctx.CurrentLine,
+                Redefines = isAlreadyDefined ? alreadyDefined : null
+            };
+
+            _ctx.CurrentLine.Labels.Add(populatedLabel);
+
+            if (!isAlreadyDefined || alreadyDefined!.CanBeRedefined)
+            {
+                _ctx.AnalysedLabels[label.Label] = label;
+            }
+
+            if (labelsStart != -1)
+            {
+                for (var i = labelsStart; i < _ctx.CurrentLineIndex; i++)
+                {
+                    _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
+                }
+            }
+        }
+
+        _ctx.StubLabels.Clear();
+    }
+
+    private void FillReferencesInLabelOperands()
+    {
+        var allLabels = _ctx.AnalysedLines.Values
+            .Where(o => o.State == LineAnalysisState.ValidLine && o.Operands is {Count: > 0})
+            .SelectMany(o => o.Operands!)
+            .Where(op => op.Result == OperandResult.Valid && op.Tokens is {Count: > 0})
+            .SelectMany(o => o.Tokens!)
+            .Where(t => t.Type == OperandTokenType.Label);
+
+        foreach (var labelToken in allLabels)
+        {
+            if (_ctx.AnalysedLabels.TryGetValue(labelToken.Text, out var targetLabel))
+            {
+                labelToken.Data = targetLabel;
+            }
+            else
+            {
+                labelToken.Result = OperandTokenResult.UndefinedLabel;
+                labelToken.Severity = DiagnosticSeverity.Information;
+            }
+        }
     }
 
     public async Task TriggerLineAnalysis(int line, bool added)
@@ -369,6 +468,10 @@ public class SourceAnalyser : ISourceAnalyser
         }
     }
 
+    public IEnumerable<AnalysedFunction> GetFunctions()
+    {
+        return _lastFunctions ?? Enumerable.Empty<AnalysedFunction>();
+    }
 
     private List<InstructionVariant> _unsuccessfulVariants = new();
 
@@ -381,7 +484,7 @@ public class SourceAnalyser : ISourceAnalyser
         _ctx.CurrentLine = new AnalysedLine(_ctx.CurrentLineIndex, line.Length);
         _ctx.InsideString = false;
 
-        _logger.LogTrace("Analysing line [{Index}]: {Line}.", _ctx.CurrentLineIndex, line);
+        _logger.LogTrace("Analysing line {Index}.", _ctx.CurrentLineIndex);
 
         for (var linePos = 0; linePos < line.Length; linePos++)
         {

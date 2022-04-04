@@ -56,4 +56,6 @@ public interface ISourceAnalyser
     IEnumerable<AnalysedTokenLookupResult> FindLabelOccurrences(string label, bool includeDefinition);
 
     IEnumerable<AnalysedTokenLookupResult> FindRegisterOccurrences(Register register);
+
+    IEnumerable<AnalysedFunction> GetFunctions();
 }

@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Collections.Generic;
+using Armfors.LanguageServer.Extensions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -38,6 +39,18 @@ public interface ISource
     int? Version { get; }
 
     /// <summary>
+    /// The total number of lines.
+    /// </summary>
+    int Lines
+    {
+        get
+        {
+            var text = this.Text;
+            return text.GetPositionForIndex(text.Length - 1).Line + 1;
+        }
+    }
+
+    /// <summary>
     /// The current contents of the document.
     /// </summary>
     string Text { get; }
@@ -53,7 +66,7 @@ public interface ISource
     /// </summary>
     /// <param name="line">The line index to get text on.</param>
     string this[int line] { get; }
-    
+
     /// <summary>
     /// Iterates through lines in the document's text.
     /// Lines include newline characters converted to \n.
@@ -78,7 +91,7 @@ public interface ISource
     /// </summary>
     /// <param name="line">The line index to get text on.</param>
     Task<string> GetTextAsync(int line);
-    
+
     /// <summary>
     /// Asynchronously iterates through lines in the document's text.
     /// Lines include newline characters converted to \n.

@@ -15,6 +15,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Serilog;
+using Serilog.Events;
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
@@ -23,7 +24,8 @@ Log.Logger = new LoggerConfiguration()
 #else
     .WriteTo.Debug()
 #endif
-    .MinimumLevel.Debug()
+    .MinimumLevel.Verbose()
+    .MinimumLevel.Override("OmniSharp", LogEventLevel.Warning)
     .CreateLogger();
 
 #if USE_SOCKETS
@@ -55,7 +57,8 @@ var languageServer = await LanguageServer.From(options =>
         .WithHandler<SignatureHelpHandler>()
         .WithHandler<DocumentSymbolsHandler>()
         .WithHandler<SymbolReferencesHandler>()
-        .WithHandler<DefinitionHandler>();
+        .WithHandler<DefinitionHandler>()
+        .WithHandler<FoldingRangesHandler>();
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);
