@@ -1142,21 +1142,6 @@ public class SourceAnalyser : ISourceAnalyser
                     total++;
                 }
 
-                if (failed == total) // TODO: is this necessary?
-                {
-                    var invalidRange = new Range(_ctx.CurrentLineIndex, opPartLinePos + initPos, _ctx.CurrentLineIndex,
-                        _ctx.CurrentLine.LineLength);
-                    var invalidAnalysed = new AnalysedOperand(actualOperandIndex, descriptor, invalidRange,
-                        OperandResult.SyntaxError, invalidRange);
-
-                    chain.Operands.Add(invalidAnalysed);
-                    chain.ErroneousOperandIndex = invalidAnalysed.Index;
-                    chain.EndLinePosition = _ctx.CurrentLine.LineLength;
-                    chain.EndLineState = LineAnalysisState.InvalidOperands;
-
-                    return false;
-                }
-
                 var range = new Range(_ctx.CurrentLineIndex, opPartLinePos + initPos, _ctx.CurrentLineIndex,
                     opPartLinePos + currentPos);
 

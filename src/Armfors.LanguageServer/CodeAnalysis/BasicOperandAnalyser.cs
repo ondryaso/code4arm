@@ -71,7 +71,7 @@ public class BasicOperandAnalyser : IOperandAnalyser
             {
                 if (!match.Success)
                 {
-                    var range = new Range(operandLineRange.Start.Line, position + 1,
+                    var range = new Range(operandLineRange.Start.Line, position,
                         operandLineRange.Start.Line, position + 1);
 
                     var commaMatch = _commaRegex.Match(operandLine, position - operandPartPositionInLine);
@@ -122,6 +122,9 @@ public class BasicOperandAnalyser : IOperandAnalyser
          - alignment checking
         */
 
+        if (resultTokens.Count > 0 && resultTokens[^1].Range.End.Character > operandLineRange.End.Character)
+            operandLineRange.End.Character = resultTokens[^1].Range.End.Character;
+        
         return new AnalysedOperand(operandIndex, _descriptor, operandLineRange,
             hasErrors ? OperandResult.InvalidTokens : OperandResult.Valid, null, resultTokens);
     }
