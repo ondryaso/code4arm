@@ -103,6 +103,9 @@ public class InlineLocalizationService : ILocalizationService
         { L.GetEnumEntryIdentifier(ShiftType.LSR, CompDescription), "Shifts right, fills with 0s" },
         { L.GetEnumEntryIdentifier(ShiftType.ROR, CompDescription), "Rotates right" },
         
+        {$"Label.{CompDescription}", "label"},
+        {$"FunctionSymbol.{CompDescription}", "function symbol"},
+        
         { $"Set flags.{CompLabel}", "-S (Set flags)" },
         { $"Set flags.{CompDescription}", "Set flags" }
     };

@@ -219,6 +219,11 @@ public class CompletionHandler : CompletionHandlerBase
                     ret.AddRange(this.MakeCompletionItemsForShiftType(originalRange,
                         token.TokenDescriptor.AllowedShiftTypes));
                 }
+                else if (token.TokenDescriptor.Type == OperandTokenType.Label)
+                {
+                    var text = source[token.TargetRange].Trim();
+                    ret.AddRange(this.MakeCompletionItemsForLabel(originalRange, text, analyser));
+                }
             }
         }
 
@@ -239,7 +244,7 @@ public class CompletionHandler : CompletionHandlerBase
             return (null, null);
 
         var analysedOperands = lineAnalysis.Operands;
-        if (analysedOperands is null or { Count: 0 })
+        if (analysedOperands is null or {Count: 0})
         {
             var firstOp = mnemonic.Operands[0];
             return (SingleOrFirstTokenDescriptor(firstOp), lineAnalysis.AnalysedRange.Trail(0));
@@ -261,7 +266,7 @@ public class CompletionHandler : CompletionHandlerBase
                 return (null, null);
             if (cursorIn.Tokens == null && cursorIn.Descriptor.Type == OperandType.Shift)
                 return (cursorIn.Descriptor.MatchGroupsTokenMappings[0].First().Value, cursorIn.ErrorRange);
-            if (cursorIn.Tokens is null or { Count: 0 })
+            if (cursorIn.Tokens is null or {Count: 0})
                 return (SingleOrFirstTokenDescriptor(cursorIn.Descriptor),
                     cursorIn.Descriptor.IsSingleToken
                         ? cursorIn.Range
@@ -346,6 +351,32 @@ public class CompletionHandler : CompletionHandlerBase
         }
     }
 
+    private IEnumerable<CompletionItem> MakeCompletionItemsForLabel(Range range, string data, ISourceAnalyser analyser)
+    {
+        var values = analyser.GetLabels()
+            .Where(l => l.Label.StartsWith(data, StringComparison.InvariantCulture));
+
+        foreach (var label in values)
+        {
+            var ci = new CompletionItem()
+            {
+                // TODO: add support for custom documentation
+                Kind = label.TargetFunction == null ? CompletionItemKind.Field : CompletionItemKind.Method,
+                Detail = label.TargetFunction == null
+                    ? _loc["Label", ILocalizationService.CompletionDescriptionTag]
+                    : _loc["FunctionSymbol", ILocalizationService.CompletionDescriptionTag],
+                Label = label.Label,
+                TextEdit = new TextEdit()
+                {
+                    Range = range,
+                    NewText = label.Label
+                }
+            };
+
+            yield return ci;
+        }
+    }
+
     private CompletionItem MakeCompletionItemForConditionCode(AnalysedLine lineAnalysis, ConditionCode ccValue,
         IPreprocessedSource source, Range? range = null)
     {
@@ -391,7 +422,7 @@ public class CompletionHandler : CompletionHandlerBase
             DocumentSelector = Constants.ArmUalDocumentSelector,
             ResolveProvider = false, // we will see
             WorkDoneProgress = false,
-            TriggerCharacters = new[] { " ", ",", ".", "[", "{", "-" }
+            TriggerCharacters = new[] {" ", ",", ".", "[", "{", "-"}
         };
     }
 }
