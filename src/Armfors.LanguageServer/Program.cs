@@ -58,7 +58,8 @@ var languageServer = await LanguageServer.From(options =>
         .WithHandler<DocumentSymbolsHandler>()
         .WithHandler<SymbolReferencesHandler>()
         .WithHandler<DefinitionHandler>()
-        .WithHandler<FoldingRangesHandler>();
+        .WithHandler<FoldingRangesHandler>()
+        .WithHandler<CodeLensHandler>();
 }).ConfigureAwait(false);
 
 await languageServer.WaitForExit.ConfigureAwait(false);

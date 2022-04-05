@@ -1,5 +1,5 @@
 import * as net from 'net';
-import { workspace, ExtensionContext, commands, OutputChannel, window, SignatureHelp, Disposable } from 'vscode';
+import { workspace, ExtensionContext, commands, OutputChannel, window, SignatureHelp, Disposable, TextDocumentShowOptions, Range } from 'vscode';
 
 import {
 	LanguageClient,
@@ -21,11 +21,25 @@ export async function activate(context: ExtensionContext) {
 		context.subscriptions.splice(currentIndex, 1);
 
 		outputChannel.appendLine("\n--- Refreshing Code4Arm connection ---\n");
-		
+
 		await initLanguageServer(context);
 	};
 
+	const labelRefsHandler = async (line: number, char: number) => {
+		const doc = window.activeTextEditor?.document;
+		if (!doc)
+			return;
+
+		const opts: TextDocumentShowOptions = {
+			selection: new Range(line, char, line, char)
+		};
+
+		await window.showTextDocument(doc, opts);
+		await commands.executeCommand('editor.action.goToReferences');
+	};
+
 	context.subscriptions.push(commands.registerCommand('code4arm.refreshConnection', refreshHandler));
+	context.subscriptions.push(commands.registerCommand('code4arm.labelAndReferences', labelRefsHandler));
 
 	outputChannel = window.createOutputChannel("Arm UAL Language Server");
 	await initLanguageServer(context);

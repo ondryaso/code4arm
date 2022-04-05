@@ -20,6 +20,10 @@
             {
                 "command": "code4arm.refreshConnection",
                 "title": "Refresh Code4Arm connection"
+            },
+            {
+                "command": "code4arm.labelAndReferences",
+                "title": "Go to label and find references"
             }
         ],
         "languages": [

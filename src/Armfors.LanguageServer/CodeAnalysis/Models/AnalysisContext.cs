@@ -20,6 +20,7 @@ internal class AnalysisContext
     public Dictionary<string, AnalysedLabel> AnalysedLabels { get; }
     public List<AnalysedLabel> StubLabels { get; }
     public List<AnalysedFunction>? StubFunctions { get; set; }
+    public List<string>? GlobalLabels { get; set; }
     public bool FirstRunOnCurrentLine { get; set; } = true;
     public bool InsideString { get; set; } = false;
 

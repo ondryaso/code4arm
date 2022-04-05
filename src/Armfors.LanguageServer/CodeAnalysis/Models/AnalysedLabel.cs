@@ -9,4 +9,6 @@ public record AnalysedLabel(string Label, Range Range, AnalysedLine? PointsTo, i
     AnalysedLabel? Redefines = null, bool CanBeRedefined = false, bool IsCodeLabel = true)
 {
     public AnalysedFunction? TargetFunction { get; set; }
+    public bool IsGlobal { get; set; }
+    public int ReferencesCount { get; set; }
 };

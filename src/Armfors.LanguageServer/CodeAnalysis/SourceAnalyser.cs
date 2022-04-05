@@ -55,14 +55,14 @@ public class SourceAnalyser : ISourceAnalyser
 
     public async Task TriggerFullAnalysis()
     {
-        _logger.LogTrace(
-            "Full analysis request. Currently analysed version: {AnalysedVersion}. Source version: {SourceVersion}.",
-            _analysedVersion, _source.Version);
-
         if (_analysedVersion >= _source.Version)
         {
             return;
         }
+
+        _logger.LogTrace(
+            "Full analysis request. Currently analysed version: {AnalysedVersion}. Source version: {SourceVersion}.",
+            _analysedVersion, _source.Version);
 
         await _analysisSemaphore.WaitAsync();
 
@@ -130,9 +130,16 @@ public class SourceAnalyser : ISourceAnalyser
                         _ctx.StubFunctions.Add(new AnalysedFunction(targetLabel, directive));
                     }
                 }
+                else if (_ctx.CurrentLine.Directive is {Type: DirectiveType.Global})
+                {
+                    var label = _ctx.CurrentLine.Directive.ParametersText;
+                    _ctx.GlobalLabels ??= new List<string>();
+                    _ctx.GlobalLabels.Add(label);
+                }
             }
 
             this.FillReferencesInLabelOperands();
+            this.MarkGlobalLabels();
             this.FindFunctions();
 
             _analysedVersion = _source.Version ?? -1;
@@ -150,6 +157,20 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         await _diagnosticsPublisher.PublishAnalysisResult(this, _source.Uri, _analysedVersion).ConfigureAwait(false);
+    }
+
+    private void MarkGlobalLabels()
+    {
+        if (_ctx.GlobalLabels == null)
+            return;
+
+        foreach (var globalLabel in _ctx.GlobalLabels)
+        {
+            if (_ctx.AnalysedLabels.TryGetValue(globalLabel, out var labelAnalysis))
+            {
+                labelAnalysis.IsGlobal = true;
+            }
+        }
     }
 
     private async Task FindBestCurrentLineAnalysis()
@@ -209,7 +230,7 @@ public class SourceAnalyser : ISourceAnalyser
         }
 
         beginLines.Sort((a, b) => a.StartLine - b.StartLine);
-        
+
         foreach (var pair in _ctx.AnalysedLines)
         {
             if (beginLines.Count > 0)
@@ -293,6 +314,7 @@ public class SourceAnalyser : ISourceAnalyser
             if (_ctx.AnalysedLabels.TryGetValue(labelToken.Text, out var targetLabel))
             {
                 labelToken.Data = targetLabel;
+                targetLabel.ReferencesCount++;
             }
             else
             {
