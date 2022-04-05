@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Serilog;
 using Serilog.Events;
@@ -40,7 +41,8 @@ var languageServer = await LanguageServer.From(options =>
 {
 #if USE_SOCKETS
     options.WithInput(networkStream)
-        .WithOutput(networkStream);
+        .WithOutput(networkStream)
+        .RegisterForDisposal(tcpConnection);
 #else
     options.WithInput(Console.OpenStandardInput())
         .WithOutput(Console.OpenStandardOutput());
@@ -49,7 +51,7 @@ var languageServer = await LanguageServer.From(options =>
     options.ConfigureLogging(logBuilder => logBuilder
             .AddSerilog(Log.Logger)
             .AddLanguageProtocolLogging()
-            .SetMinimumLevel(LogLevel.Information))
+            .SetMinimumLevel(LogLevel.Trace))
         .WithServices(ConfigureServices)
         .WithHandler<TextDocumentSyncHandler>()
         .WithHandler<SemanticTokensHandler>()
@@ -72,6 +74,9 @@ tcpServer.Stop();
 static void ConfigureServices(IServiceCollection services)
 {
     services.AddLogging();
+
+    services.AddSingleton(new ConfigurationItem() {Section = "code4arm"});
+
     services.AddSingleton(Mock.Of<ITokenizer>());
     services.AddSingleton<IFileSystem, FileSystem>();
     services.AddSingleton<ISourceStore, FileSourceStore>();

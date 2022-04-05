@@ -1,9 +1,11 @@
 ﻿using Armfors.LanguageServer.CodeAnalysis.Abstractions;
+using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Services.Abstractions;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 
 namespace Armfors.LanguageServer.Handlers;
 
@@ -11,15 +13,22 @@ public class CodeLensHandler : CodeLensHandlerBase
 {
     private readonly ISourceStore _sourceStore;
     private readonly ISourceAnalyserStore _sourceAnalyserStore;
+    private readonly ILanguageServerConfiguration _configContainer;
 
-    public CodeLensHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore)
+    public CodeLensHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
+        ILanguageServerConfiguration configContainer)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
+        _configContainer = configContainer;
     }
 
     public override async Task<CodeLensContainer> Handle(CodeLensParams request, CancellationToken cancellationToken)
     {
+        var config = await _configContainer.GetServerOptions(request);
+        if (!config.ShowCodeLens)
+            return new CodeLensContainer();
+
         var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri);
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
 

@@ -57,11 +57,12 @@ public class SourceAnalyser : ISourceAnalyser
     {
         if (_analysedVersion >= _source.Version)
         {
+            _logger.LogTrace("Full analysis request, returning last version {Version}.", _analysedVersion);
             return;
         }
 
         _logger.LogTrace(
-            "Full analysis request. Currently analysed version: {AnalysedVersion}. Source version: {SourceVersion}.",
+            "Full analysis request. Analysed version: {AnalysedVersion}. Source version: {SourceVersion}.",
             _analysedVersion, _source.Version);
 
         await _analysisSemaphore.WaitAsync();
@@ -73,7 +74,6 @@ public class SourceAnalyser : ISourceAnalyser
 
         _logger.LogDebug("Performing full analysis.");
 
-        //_logger.LogWarning("------");
         try
         {
             // TODO: check and use async variants
@@ -101,8 +101,8 @@ public class SourceAnalyser : ISourceAnalyser
                 await this.FindBestCurrentLineAnalysis();
                 _ctx.AnalysedLines.Add(_ctx.CurrentLineIndex, _ctx.CurrentLine);
 
-                //_logger.LogWarning(
-                //    $"{_ctx.CurrentLineIndex}: {_ctx.CurrentLine.Mnemonic?.Mnemonic} ({_ctx.CurrentLine.PreFinishState} -> {_ctx.CurrentLine.State})");
+                //_logger.LogTrace(
+                //    $"[{_ctx.CurrentLineIndex}]: {_ctx.CurrentLine.Mnemonic?.Mnemonic} ({_ctx.CurrentLine.PreFinishState} -> {_ctx.CurrentLine.State})");
 
                 if (labelsStart == -1 && _ctx.CurrentLine.State == LineAnalysisState.Blank &&
                     _ctx.StubLabels.Count > 0)
@@ -147,8 +147,10 @@ public class SourceAnalyser : ISourceAnalyser
             _lastAnalysisLabels = _ctx.AnalysedLabels;
             _lastFunctions = _ctx.StubFunctions;
 
-            _logger.LogDebug("Analysis done. {Lines} lines, {Labels} labels. Analysed version: {AnalysedVersion}.",
-                _ctx.AnalysedLines.Count, _ctx.AnalysedLabels.Count, _analysedVersion);
+            _logger.LogDebug(
+                "Analysis done. {Lines} lines, {Labels} labels ({Global} global), {Funcs} functions. Analysed version: {AnalysedVersion}.",
+                _ctx.AnalysedLines.Count, _ctx.AnalysedLabels.Count, _ctx.GlobalLabels?.Count ?? 0,
+                _ctx.StubFunctions?.Count ?? 0, _analysedVersion);
         }
         finally
         {
@@ -267,8 +269,7 @@ public class SourceAnalyser : ISourceAnalyser
 
     private static bool EndsFunction(AnalysedLine line)
         => (line.Mnemonic?.Mnemonic is "B" or "BX" &&
-            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false)) 
-           
+            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false))
            || (line.Mnemonic?.Mnemonic is "POP" or "LDM" or "LDR" &&
                (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.PC) ?? false) ?? false));
 

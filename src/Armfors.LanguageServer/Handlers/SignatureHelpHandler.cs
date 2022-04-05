@@ -4,10 +4,12 @@
 using System.Text;
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Services.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 
 namespace Armfors.LanguageServer.Handlers;
 
@@ -17,14 +19,17 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
     private readonly ISourceAnalyserStore _sourceAnalyserStore;
     private readonly IInstructionProvider _instructionProvider;
     private readonly IDocumentationProvider _documentationProvider;
+    private readonly ILanguageServerConfiguration _configurationContainer;
 
     public SignatureHelpHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
-        IInstructionProvider instructionProvider, IDocumentationProvider documentationProvider)
+        IInstructionProvider instructionProvider, IDocumentationProvider documentationProvider,
+        ILanguageServerConfiguration configurationContainer)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
         _instructionProvider = instructionProvider;
         _documentationProvider = documentationProvider;
+        _configurationContainer = configurationContainer;
     }
 
     public override async Task<SignatureHelp?> Handle(SignatureHelpParams request, CancellationToken cancellationToken)
@@ -47,8 +52,11 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             return null;
         }
 
+        var config = await _configurationContainer.GetServerOptions(request);
+        var filterFlag = config.Flag;
+        
         var allVariants = await _instructionProvider.GetVariants(lineAnalysis.Mnemonic.Mnemonic);
-        // TODO: filter
+        
         allVariants.Sort();
         var currentVariant = 0;
         var ret = new List<SignatureInformation>();
@@ -57,7 +65,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
         {
             var variant = allVariants[i];
 
-            if (variant.Equals(lineAnalysis.Mnemonic))
+            if (variant.Equals(lineAnalysis.Mnemonic) && !lineAnalysis.MissingOperands)
             {
                 var token = analyser.FindTokenAtPosition(prepPosition);
                 ret.Add(token is { Type: AnalysedTokenType.OperandToken }
@@ -68,6 +76,9 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             }
             else
             {
+                if ((variant.VariantFlags & filterFlag) != 0)
+                    continue;
+                
                 ret.Add(this.MakeSignatureInformation(variant));
             }
         }

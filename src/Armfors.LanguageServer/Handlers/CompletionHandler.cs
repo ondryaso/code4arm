@@ -9,6 +9,7 @@ using Armfors.LanguageServer.Services.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Armfors.LanguageServer.Handlers;
@@ -20,16 +21,18 @@ public class CompletionHandler : CompletionHandlerBase
     private readonly IInstructionProvider _instructionProvider;
     private readonly ILocalizationService _loc;
     private readonly IDocumentationProvider _doc;
+    private readonly ILanguageServerConfiguration _configurationContainer;
 
     public CompletionHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
         IInstructionProvider instructionProvider, ILocalizationService localizationService,
-        IDocumentationProvider documentationProvider)
+        IDocumentationProvider documentationProvider, ILanguageServerConfiguration configurationContainer)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
         _instructionProvider = instructionProvider;
         _loc = localizationService;
         _doc = documentationProvider;
+        _configurationContainer = configurationContainer;
     }
 
     public override async Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
@@ -45,6 +48,8 @@ public class CompletionHandler : CompletionHandlerBase
         {
             return new CompletionList(false);
         }
+
+        var config = await _configurationContainer.GetServerOptions(request);
 
         // Kdy ukázat nápovědu instrukcí?
         // Automaticky při psaní instrukce – PODLE STAVU ANALÝZY:
@@ -181,6 +186,8 @@ public class CompletionHandler : CompletionHandlerBase
             foreach (var match in target)
             {
                 if (match.Mnemonic == lineAnalysis.Mnemonic?.Mnemonic)
+                    continue;
+                if ((match.VariantFlags & config.Flag) != 0)
                     continue;
 
                 var ci = new CompletionItem()

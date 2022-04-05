@@ -135,6 +135,46 @@
                 }
             }
         ],
+        "configuration": {
+            "title": "Code4Arm",
+            "properties": {
+                "code4arm.showCodeLens": {
+                    "description": "Show CodeLens over function labels.",
+                    "type": "boolean",
+                    "default": true
+                },
+                "code4arm.instructionFilter": {
+                    "description": "Controls which instructions are suggested in code completions.",
+                    "type": "string",
+                    "default": "Basic",
+                    "enum": [
+                        "Basic",
+                        "Uncommon",
+                        "Advanced"
+                    ],
+                    "enumDescriptions": [
+                        "Only the most basic instructions, including arithmetic, logic and data manipulation instructions.",
+                        "Basic instructions with addition of less frequently used arithmetic instructions.",
+                        "All instructions, including the system-level ones."
+                    ]
+                },
+                "code4arm.instructionBlacklist": {
+                    "description": "Prohibits specified instructions from showing up in code completions.",
+                    "type": "array",
+                    "default": []
+                },
+                "code4arm.showUncommonMnemonicVariants": {
+                    "markdownDescription": "Show specific and less frequently used variants of mnemonics, e.g. `ADD SP, #<const>`.",
+                    "type": "boolean",
+                    "default": false
+                },
+                "code4arm.showSimdInstructions": {
+                    "markdownDescription": "Suggest SIMD/FP instructions in code completions.",
+                    "type": "boolean",
+                    "default": true
+                }
+            }
+        },
         "configurationDefaults": {
             "[arm-ual]": {
                 "editor.semanticHighlighting.enabled": true

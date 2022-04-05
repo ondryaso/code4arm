@@ -51,14 +51,14 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     diags.Add(new Diagnostic()
                     {
                         Code = -1,
-                        Message = $"Redefines symbol at line {prepSource.GetOriginalLine(label.Redefines.Range.Start.Line) + 1}.",
+                        Message =
+                            $"Redefines symbol at line {prepSource.GetOriginalLine(label.Redefines.Range.Start.Line) + 1}.",
                         Range = prepSource.GetOriginalRange(label.Range),
                         Severity = label.Redefines.CanBeRedefined
                             ? DiagnosticSeverity.Hint
                             : DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
-
                 }
             }
 
@@ -282,6 +282,41 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         Source = Constants.ServiceSource
                     });
                 }
+            }
+        }
+
+        var functions = analyser.GetFunctions().ToList();
+        functions.Sort((a, b) => a.StartLine - b.StartLine);
+
+        // Function endings
+        for (var i = 0; i < functions.Count; i++)
+        {
+            var function = functions[i];
+            if (function.TargetAnalysedLabel == null)
+                continue;
+
+            if (function.EndLine == -1)
+            {
+                diags.Add(new Diagnostic()
+                {
+                    Code = -1,
+                    Message = $"No instruction that would end function '{function.Label}' found.",
+                    Range = prepSource.GetOriginalRange(function.TargetAnalysedLabel.Range),
+                    Severity = DiagnosticSeverity.Hint,
+                    Source = Constants.ServiceSource
+                });
+            }
+
+            if (i > 0 && function.StartLine <= functions[i - 1].EndLine)
+            {
+                diags.Add(new Diagnostic()
+                {
+                    Code = -1,
+                    Message = $"Function '{function.Label}' starts before function '{functions[i - 1].Label}' has ended.",
+                    Range = prepSource.GetOriginalRange(function.TargetAnalysedLabel.Range),
+                    Severity = DiagnosticSeverity.Hint,
+                    Source = Constants.ServiceSource
+                });
             }
         }
 
