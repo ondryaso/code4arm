@@ -266,8 +266,11 @@ public class SourceAnalyser : ISourceAnalyser
     }
 
     private static bool EndsFunction(AnalysedLine line)
-        => line.Mnemonic?.Mnemonic is "B" or "BX" &&
-           (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false);
+        => (line.Mnemonic?.Mnemonic is "B" or "BX" &&
+            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false)) 
+           
+           || (line.Mnemonic?.Mnemonic is "POP" or "LDM" or "LDR" &&
+               (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.PC) ?? false) ?? false));
 
     private void FixupLineLabels(int labelsStart)
     {
