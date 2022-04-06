@@ -18,17 +18,20 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
     private readonly ISourceStore _sourceStore;
     private readonly ISourceAnalyserStore _sourceAnalyserStore;
     private readonly IInstructionProvider _instructionProvider;
-    private readonly IDocumentationProvider _documentationProvider;
+    private readonly ISymbolDocumentationProvider _symbolDocumentationProvider;
+    private readonly IInstructionDocumentationProvider _instructionDocumentationProvider;
     private readonly ILanguageServerConfiguration _configurationContainer;
 
     public SignatureHelpHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
-        IInstructionProvider instructionProvider, IDocumentationProvider documentationProvider,
+        IInstructionProvider instructionProvider, ISymbolDocumentationProvider symbolDocumentationProvider,
+        IInstructionDocumentationProvider instructionDocumentationProvider,
         ILanguageServerConfiguration configurationContainer)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
         _instructionProvider = instructionProvider;
-        _documentationProvider = documentationProvider;
+        _symbolDocumentationProvider = symbolDocumentationProvider;
+        _instructionDocumentationProvider = instructionDocumentationProvider;
         _configurationContainer = configurationContainer;
     }
 
@@ -47,16 +50,18 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
         }
 
         if (lineAnalysis.PreFinishState != LineAnalysisState.MnemonicLoaded
-            || lineAnalysis.Mnemonic is not { HasOperands: true })
+            || lineAnalysis.Mnemonic is not {HasOperands: true})
         {
             return null;
         }
 
         var config = await _configurationContainer.GetServerOptions(request);
         var filterFlag = config.Flag;
-        
+
         var allVariants = await _instructionProvider.GetVariants(lineAnalysis.Mnemonic.Mnemonic);
-        
+        if (allVariants is not {Count: > 0})
+            return null;
+
         allVariants.Sort();
         var currentVariant = 0;
         var ret = new List<SignatureInformation>();
@@ -68,7 +73,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             if (variant.Equals(lineAnalysis.Mnemonic) && !lineAnalysis.MissingOperands)
             {
                 var token = analyser.FindTokenAtPosition(prepPosition);
-                ret.Add(token is { Type: AnalysedTokenType.OperandToken }
+                ret.Add(token is {Type: AnalysedTokenType.OperandToken}
                     ? this.MakeSignatureInformation(variant, token.OperandToken!.Token)
                     : this.MakeSignatureInformation(variant));
 
@@ -78,7 +83,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             {
                 if ((variant.VariantFlags & filterFlag) != 0)
                     continue;
-                
+
                 ret.Add(this.MakeSignatureInformation(variant));
             }
         }
@@ -127,7 +132,8 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
                 {
                     Label = new ParameterInformationLabel(tokenMapping.Value.SymbolicName),
                     Documentation =
-                        _documentationProvider.InstructionOperandEntry(variant, tokenMapping.Value.SymbolicName)
+                        _instructionDocumentationProvider.InstructionOperandEntry(variant,
+                            tokenMapping.Value.SymbolicName)
                 });
             }
 
@@ -144,7 +150,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
 
         var si = new SignatureInformation()
         {
-            Documentation = _documentationProvider.InstructionEntry(variant),
+            Documentation = _instructionDocumentationProvider.InstructionEntry(variant),
             Label = sb.ToString(),
             ActiveParameter = active ?? int.MaxValue,
             Parameters = paramInfo

@@ -23,4 +23,10 @@
         <PackageReference Include="System.IO.Abstractions" Version="16.1.11" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="instruction_definitions.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

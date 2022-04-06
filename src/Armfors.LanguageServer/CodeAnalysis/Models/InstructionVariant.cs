@@ -7,53 +7,40 @@ namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
 public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<InstructionVariant>
 {
-    public bool HasSetFlagsVariant { get; }
-    public bool CanBeConditional { get; }
-
-    public bool IsVector { get; }
     public string Mnemonic { get; }
-    public bool HasOperands => !this.Operands.IsEmpty;
-    public InstructionSize? ForcedSize { get; }
+    public InstructionVariantFlag VariantFlags { get; }
+    public int VariantPriority { get; }
+    public bool HasOperands { get; }
+    public bool HasSetFlagsVariant { get; init; }
+    public bool CanBeConditional { get; init; }
+    public bool IsVector { get; init; }
+    public InstructionSize? ForcedSize { get; init; }
 
-    public InstructionVariantFlag VariantFlags { get; init; } = InstructionVariantFlag.NoFlags;
-    public int VariantPriority { get; init; } = 0;
+    private ImmutableList<OperandDescriptor>? _operandDescriptors;
 
-    public ImmutableList<OperandDescriptor> Operands { get; }
+    public ImmutableList<OperandDescriptor> Operands => _operandDescriptors ??= this.ParseOperands();
 
-    private readonly int _operandsHashCode;
+    private readonly InstructionVariantModel _model;
 
-    public InstructionVariant(string mnemonic, bool cbc, bool hs, bool v = false,
-        params OperandDescriptor[] descriptors)
+    internal InstructionVariant(string mnemonic, bool hasOperands, InstructionVariantModel model)
     {
-        this.HasSetFlagsVariant = hs;
-        this.CanBeConditional = cbc;
+        _model = model;
+        
         this.Mnemonic = mnemonic;
-        this.ForcedSize = null;
-        this.IsVector = v;
-        this.Operands = descriptors.ToImmutableList();
-        foreach (var descriptor in descriptors)
+        this.VariantFlags = (InstructionVariantFlag) model.Flags;
+        this.VariantPriority = model.Priority;
+        this.HasOperands = hasOperands;
+        
+        if (!hasOperands)
         {
-            descriptor.Mnemonic = this;
-            _operandsHashCode = HashCode.Combine(_operandsHashCode, descriptor.GetHashCode());
+            _operandDescriptors = ImmutableList<OperandDescriptor>.Empty;
         }
     }
 
-    public bool IsVectorDataTypeAllowed(int specifierIndex, VectorDataType type)
+    private ImmutableList<OperandDescriptor> ParseOperands()
     {
-        // TODO
-        return this.IsVector && specifierIndex is 0 or 1 && type.GetElementSize() == 16;
     }
-
-    public IEnumerable<VectorDataType> GetPossibleVectorDataTypes(int specifierIndex)
-    {
-        // TODO
-        if (specifierIndex is not (0 or 1)) return Enumerable.Empty<VectorDataType>();
-        return new[]
-        {
-            VectorDataType.Any16, VectorDataType.F16, VectorDataType.I16,
-            VectorDataType.U16, VectorDataType.S16, VectorDataType.P16
-        };
-    }
+    
 
     public bool Equals(InstructionVariant? other)
     {
@@ -64,7 +51,7 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
 
         return this.Mnemonic == other.Mnemonic &&
                this.VariantFlags == other.VariantFlags &&
-               this.Operands.SequenceEqual(other.Operands);
+               _model.DefinitionLine.Equals(other._model.DefinitionLine, StringComparison.Ordinal);
     }
 
     public int CompareTo(InstructionVariant? other)
@@ -86,11 +73,11 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
         if (obj.GetType() != this.GetType())
             return false;
 
-        return this.Equals((InstructionVariant)obj);
+        return this.Equals((InstructionVariant) obj);
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(this.Mnemonic, this.VariantFlags, _operandsHashCode);
+        return HashCode.Combine(this.Mnemonic, this.VariantFlags, _model.DefinitionLine);
     }
 }

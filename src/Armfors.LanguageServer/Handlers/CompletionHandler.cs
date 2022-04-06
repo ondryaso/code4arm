@@ -20,18 +20,24 @@ public class CompletionHandler : CompletionHandlerBase
     private readonly ISourceAnalyserStore _sourceAnalyserStore;
     private readonly IInstructionProvider _instructionProvider;
     private readonly ILocalizationService _loc;
-    private readonly IDocumentationProvider _doc;
+    private readonly IInstructionDocumentationProvider _instrDoc;
+    private readonly IInstructionValidatorProvider _instructionValidatorProvider;
+    private readonly ISymbolDocumentationProvider _symbolDoc;
     private readonly ILanguageServerConfiguration _configurationContainer;
 
     public CompletionHandler(ISourceStore sourceStore, ISourceAnalyserStore sourceAnalyserStore,
         IInstructionProvider instructionProvider, ILocalizationService localizationService,
-        IDocumentationProvider documentationProvider, ILanguageServerConfiguration configurationContainer)
+        IInstructionDocumentationProvider instructionDocumentationProvider,
+        IInstructionValidatorProvider instructionValidatorProvider,
+        ISymbolDocumentationProvider symbolDocumentationProvider, ILanguageServerConfiguration configurationContainer)
     {
         _sourceStore = sourceStore;
         _sourceAnalyserStore = sourceAnalyserStore;
         _instructionProvider = instructionProvider;
         _loc = localizationService;
-        _doc = documentationProvider;
+        _instrDoc = instructionDocumentationProvider;
+        _instructionValidatorProvider = instructionValidatorProvider;
+        _symbolDoc = symbolDocumentationProvider;
         _configurationContainer = configurationContainer;
     }
 
@@ -76,7 +82,7 @@ public class CompletionHandler : CompletionHandlerBase
                     Kind = CompletionItemKind.Event,
                     Label = _loc["Set flags", ILocalizationService.CompletionLabelTag],
                     Detail = _loc["Set flags", ILocalizationService.CompletionDescriptionTag],
-                    Documentation = _doc["Set flags"],
+                    Documentation = _symbolDoc["Set flags"],
                     FilterText = "S",
                     TextEdit = new TextEdit()
                     {
@@ -145,28 +151,34 @@ public class CompletionHandler : CompletionHandlerBase
                 currentSpecifierIndex--;
             }
 
-            var allowedVectorDataTypes = lineAnalysis.Mnemonic.GetPossibleVectorDataTypes(currentSpecifierIndex);
-            var originalRangeForVectorDataType = source.GetOriginalRange(new Range(lineAnalysis.LineIndex, startIndex,
-                lineAnalysis.LineIndex, prepPosition.Character));
-
-            foreach (var allowedVectorDataType in allowedVectorDataTypes)
+            var instructionValidator = _instructionValidatorProvider.For(lineAnalysis.Mnemonic!);
+            if (instructionValidator != null)
             {
-                var text = allowedVectorDataType.GetTextForm();
+                var allowedVectorDataTypes =
+                    instructionValidator.GetPossibleVectorDataTypes(currentSpecifierIndex, lineAnalysis);
+                var originalRangeForVectorDataType = source.GetOriginalRange(new Range(lineAnalysis.LineIndex,
+                    startIndex,
+                    lineAnalysis.LineIndex, prepPosition.Character));
 
-                ret.Add(new CompletionItem()
+                foreach (var allowedVectorDataType in allowedVectorDataTypes)
                 {
-                    Kind = CompletionItemKind.TypeParameter,
-                    Label = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionLabelTag),
-                    Detail = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionDescriptionTag),
-                    Documentation = _doc.EnumEntry(allowedVectorDataType),
-                    FilterText = $".{text}",
-                    TextEdit = new TextEdit()
+                    var text = allowedVectorDataType.GetTextForm();
+
+                    ret.Add(new CompletionItem()
                     {
-                        Range = originalRangeForVectorDataType,
-                        NewText = $".{text}"
-                    },
-                    SortText = $"00{text}"
-                });
+                        Kind = CompletionItemKind.TypeParameter,
+                        Label = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionLabelTag),
+                        Detail = _loc.EnumEntry(allowedVectorDataType, ILocalizationService.CompletionDescriptionTag),
+                        Documentation = _symbolDoc.EnumEntry(allowedVectorDataType),
+                        FilterText = $".{text}",
+                        TextEdit = new TextEdit()
+                        {
+                            Range = originalRangeForVectorDataType,
+                            NewText = $".{text}"
+                        },
+                        SortText = $"00{text}"
+                    });
+                }
             }
         }
 
@@ -194,8 +206,8 @@ public class CompletionHandler : CompletionHandlerBase
                 {
                     Kind = CompletionItemKind.Method,
                     Label = match.Mnemonic,
-                    Detail = _doc.InstructionDetail(match),
-                    Documentation = _doc.InstructionEntry(match),
+                    Detail = _instrDoc.InstructionDetail(match),
+                    Documentation = _instrDoc.InstructionEntry(match),
                     TextEdit = new TextEdit()
                     {
                         Range = originalRangeForMnemonic,
@@ -317,7 +329,7 @@ public class CompletionHandler : CompletionHandlerBase
                 Kind = CompletionItemKind.Variable,
                 Label = _loc.EnumEntry(register, ILocalizationService.CompletionLabelTag),
                 Detail = _loc.EnumEntry(register, ILocalizationService.CompletionDescriptionTag),
-                Documentation = _doc.EnumEntry(register),
+                Documentation = _symbolDoc.EnumEntry(register),
                 FilterText = register.ToString(),
                 SortText = text,
                 TextEdit = new TextEdit()
@@ -344,7 +356,7 @@ public class CompletionHandler : CompletionHandlerBase
                 Kind = CompletionItemKind.Variable,
                 Label = _loc.EnumEntry(shiftType, ILocalizationService.CompletionLabelTag),
                 Detail = _loc.EnumEntry(shiftType, ILocalizationService.CompletionDescriptionTag),
-                Documentation = _doc.EnumEntry(shiftType),
+                Documentation = _symbolDoc.EnumEntry(shiftType),
                 FilterText = text,
                 SortText = text,
                 TextEdit = new TextEdit()
@@ -402,7 +414,7 @@ public class CompletionHandler : CompletionHandlerBase
             Kind = CompletionItemKind.Keyword,
             Label = _loc.EnumEntry(ccValue, labelTag),
             Detail = _loc.EnumEntry(ccValue, detailTag),
-            Documentation = _doc.EnumEntry(ccValue, docTag),
+            Documentation = _symbolDoc.EnumEntry(ccValue, docTag),
             FilterText = ccValue.ToString(),
             TextEdit = new TextEdit()
             {

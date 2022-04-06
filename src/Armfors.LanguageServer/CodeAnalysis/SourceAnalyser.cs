@@ -1039,19 +1039,23 @@ public class SourceAnalyser : ISourceAnalyser
             specifierIndex--;
 
         var vector = VectorDataTypeExtensions.GetVectorDataType(specifier);
+        var instructionValidator = _instructionValidatorProvider.For(_ctx.CurrentLine.Mnemonic!);
+
         if (vector != VectorDataType.Unknown)
         {
-            var allowed = m.IsVectorDataTypeAllowed(specifierIndex, vector);
+            var allowed = instructionValidator != null &&
+                          instructionValidator.IsVectorDataTypeAllowed(specifierIndex, vector, _ctx.CurrentLine);
             var spec = new AnalysedSpecifier(specifier, lineRange, vector, specifierIndex, allowed);
 
             _ctx.CurrentLine.Specifiers.Add(spec);
             return allowed ? LineAnalysisState.HasFullMatch : LineAnalysisState.InvalidSpecifier;
         }
 
-        var possibleVectorTypes = m.GetPossibleVectorDataTypes(specifierIndex);
-        foreach (var possibleVectorType in possibleVectorTypes)
+        if (instructionValidator != null)
         {
-            if (possibleVectorType.GetTextForm().StartsWith(specifier, StringComparison.InvariantCultureIgnoreCase))
+            var possibleVectorTypes = instructionValidator.GetPossibleVectorDataTypes(specifierIndex, _ctx.CurrentLine);
+            if (possibleVectorTypes.Any(possibleVectorType => possibleVectorType.GetTextForm()
+                    .StartsWith(specifier, StringComparison.InvariantCultureIgnoreCase)))
             {
                 return LineAnalysisState.LoadingSpecifier;
             }

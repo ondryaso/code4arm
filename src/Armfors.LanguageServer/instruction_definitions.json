@@ -1,0 +1,309 @@
+{
+  "definitions": {
+    "ADC": {
+      "name": "Add with Carry",
+      "variants": [
+        {
+          "asm": [ "ADC<SCQ> <IMM>", { "A":  "B" }, "" ],
+          "doc": "adc_i",
+          "desc": 1,
+          "prio": 3
+        },
+        {
+          "asm": "ADC<SCQ> <RRX>",
+          "doc": "adc_r",
+          "desc": 2,
+          "prio": 1
+        },
+        {
+          "asm": "ADC<SCQ> <SHIFT>",
+          "doc": "adc_r",
+          "desc": 3,
+          "prio": 4
+        },
+        {
+          "asm": "ADC<SCQ> <SHIFTR>",
+          "doc": "adc_rr",
+          "desc": 4,
+          "prio": 2
+        }
+      ]
+    },
+    "ADD": {
+      "name": "Add",
+      "variants": [
+        {
+          "asm": "ADD<S>{<q>} {<Rd>,} <Rn>, #<const>",
+          "doc": "add_i",
+          "desc": 2,
+          "prio": 5
+        },
+        {
+          "asm": "ADD<S>{<c>}{<q>} {<Rd>,} <Rn>, <Rm>, RRX",
+          "doc": "add_r",
+          "desc": 3,
+          "prio": 2
+        },
+        {
+          "asm": "ADD<S>{<c>}{<q>} {<Rd>,} <Rn>, <Rm> {, <shift> #<amount>}",
+          "doc": "add_r",
+          "desc": 4,
+          "prio": 4
+        },
+        {
+          "asm": "ADD<S>{<c>}{<q>} {<Rd>,} <Rn>, <Rm>, <shift> <Rs>",
+          "doc": "add_rr",
+          "desc": 5,
+          "prio": 3
+        },
+        {
+          "asm": "ADD<S>{<c>}{<q>} {<Rd>,} SP, #<const>",
+          "doc": "add_sp_i",
+          "filter": 8
+        },
+        {
+          "asm": "ADD<S>{<c>}{<q>} {<Rd>,} SP, <Rm>, RRX",
+          "doc": "add_sp_r",
+          "filter": 8
+        },
+        {
+          "asm": "ADD<S>{<c>}{<q>} {<Rd>,} SP, <Rm> {, <shift> #<amount>}",
+          "doc": "add_sp_r",
+          "filter": 8
+        },
+        {
+          "asm": "ADD{<q>} <Rd>, PC, #<const>",
+          "doc": "add_adr",
+          "desc": 1
+        }
+      ]
+    },
+    "ADR": {
+      "name": "Form PC-relative address",
+      "variants": [
+        {
+          "asm": "ADR<CQ> <Rd>, <label>",
+          "doc": "adr",
+          "desc": 0
+        }
+      ]
+    },
+    "AND": {
+      "name": "Bitwise AND",
+      "variants": [
+        {
+          "asm": "AND<SCQ> <IMM>",
+          "doc": "and_i",
+          "desc": 1
+        },
+        {
+          "asm": "AND<SCQ> <RRX>",
+          "doc": "and_r",
+          "desc": 2
+        },
+        {
+          "asm": "AND<SCQ> <SHIFT>",
+          "doc": "and_r",
+          "desc": 3
+        },
+        {
+          "asm": "AND<SCQ> <SHIFTR>",
+          "doc": "and_rr",
+          "desc": 4
+        }
+      ]
+    },
+    "B": {
+      "name": "Branch",
+      "variants": [
+        {
+          "asm": "B<CQ> <label>",
+          "doc": "b",
+          "desc": 0,
+          "symbolsDesc": {
+            "<label>": 1
+          }
+        }
+      ]
+    },
+    "BL": {
+      "name": "Branch with Link",
+      "variants": [
+        {
+          "asm": "BL<CQ> <label>",
+          "doc": "bl_i",
+          "desc": 1,
+          "symbolsDesc": {
+            "<label>": 2
+          }
+        }
+      ]
+    },
+    "BX": {
+      "name": "Branch and Exchange",
+      "variants": [
+        {
+          "asm": "BX<CQ> <Rm>",
+          "doc": "bx",
+          "desc": 1,
+          "symbolsDesc": {
+            "<Rm>": 2
+          },
+          "filter": 2
+        },
+        {
+          "asm": "BXJ<CQ> <Rm>",
+          "doc": "bxj",
+          "desc": 1,
+          "symbolsDesc": {
+            "<label>": 2
+          },
+          "filter": 10
+        }
+      ]
+    },
+    "BLX": {
+      "name": "Branch with Link and Exchange",
+      "variants": [
+        {
+          "asm": "BLX<CQ> <label>",
+          "doc": "bl_i",
+          "desc": 1,
+          "symbolsDesc": {
+            "<label>": 2
+          },
+          "filter": 4
+        },
+        {
+          "asm": "BLX<CQ> <Rm>",
+          "doc": "blx_r",
+          "desc": 3,
+          "symbolsDesc": {
+            "<Rm>": 4
+          },
+          "filter": 4
+        }
+      ]
+    },
+    "LDR": {
+      "name": "Load Register",
+      "variants": [
+        {
+          "asm": "LDR<O:B|SB|H|SH|x><CQ> <Rt>, <label>",
+          "doc": {
+            "B": "ldrb_l",
+            "SB": "ldrsb_l",
+            "H": "ldrh_l",
+            "SH": "ldrsh_l",
+            "x:": "ldr_l"
+          },
+          "desc": 1,
+          "symbolsDesc": {
+            "<O:B>": 2,
+            "<O:SB>": 3,
+            "<O:H>": 4,
+            "<O:SH>": 5,
+            "<O:x>": 6,
+            "<label>": 7
+          }
+        },
+        {
+          "asm": "LDR<O:B|SB|H|SH|x><CQ> <Rt>, <RIIMM>",
+          "doc": {
+            "B": "ldrb_i",
+            "SB": "ldrsb_i",
+            "H": "ldrh_i",
+            "SH": "ldrsh_i",
+            "x:": "ldr_i"
+          },
+          "desc": 8,
+          "symbolsDesc": {
+            "<O:B>": 2,
+            "<O:SB>": 3,
+            "<O:H>": 4,
+            "<O:SH>": 5,
+            "<O:x>": 6
+          }
+        },
+        {
+          "asm": "LDR<O:B|SB|H|SH|x><CQ> <Rt>, <RIR>",
+          "doc": {
+            "B": "ldrb_r",
+            "SB": "ldrsb_r",
+            "H": "ldrh_r",
+            "SH": "ldrsh_r",
+            "x:": "ldr_r"
+          },
+          "desc": 9,
+          "symbolsDesc": {
+            "<O:B>": 2,
+            "<O:SB>": 3,
+            "<O:H>": 4,
+            "<O:SH>": 5,
+            "<O:x>": 6
+          }
+        }
+      ]
+    }
+  },
+  "descriptions": {
+    "ADC": [
+      "Adds two values and the Carry flag value.",
+      "Adds an immediate value and the Carry flag to <Rn>.",
+      "Adds <Rn>, the Carry flag value, and <Rm> rotated right by 1 through Carry.",
+      "Adds <Rn>, the Carry flag value, and <Rm>, optionally shifted or rotated.",
+      "Adds <Rn>, the Carry flag value and <Rm> shifted or rotated by value in <Rs>."
+    ],
+    "ADD": [
+      "Adds two values.",
+      "Adds an immediate value to the PC value (aligned) to form a PC-relative address.",
+      "Adds an immediate value to <Rn>.",
+      "Adds <Rn> and <Rm> rotated right by 1 through Carry.",
+      "Adds <Rn> and <Rm>, optionally shifted or rotated.",
+      "Adds <Rn> and <Rm> shifted or rotated by value in <Rs>."
+    ],
+    "ADR": [
+      "Adds an immediate value to the PC value (aligned) to form a PC-relative address."
+    ],
+    "AND": [
+      "Bitwise AND of two values.",
+      "Performs a bitwise AND of <Rn> and an immediate value.",
+      "Performs a bitwise AND of <Rn> and <Rm> rotated right by 1 through Carry.",
+      "Performs a bitwise AND of <Rn> and <Rm>, optionally shifted or rotated.",
+      "Performs a bitwise AND of <Rn> and <Rm> shifted or rotated by value in <Rs>."
+    ],
+    "B": [
+      "Branches to a label (PC-relative target address).",
+      "The label of the instruction that is to be branched to. Encoded as the offset from the PC value of the B instruction to this label."
+    ],
+    "BL": [
+      "Calls a subroutine at a label, sets LR.",
+      "Calls a subroutine (branches to a PC-relative address) and sets LR to the return address (the instruction following this one).",
+      "The label of the instruction that is to be branched to. Encoded as the offset from the PC value of the BL instruction to this label."
+    ],
+    "BX": [
+      "Branches to an address specified by a register, exchanges instruction set.",
+      "Branches to an address and instruction set specified by a register. Changes the currently used instruction set between A32 to T32 based on bit 0 of <Rm>.",
+      "The general-purpose register holding the address to be branched to. The PC can be used."
+    ],
+    "BLX": [
+      "Calls a subroutine, sets LR, exchanges instruction set.",
+      "Calls a subroutine and sets LR to the return address. Changes the currently used instruction set from A32 to T32 or vice-versa.",
+      "The label of the instruction that is to be branched to. Encoded as the offset from the PC value of the BLX instruction to this label.",
+      "Calls a subroutine at an address specified in <Rm> and sets LR to the return address. Changes the currently used instruction set between A32 to T32 based on bit 0 of <Rm>.",
+      "The general-purpose register holding the address to be branched to."
+    ],
+    "LDR": [
+      "Loads data from memory and writes it to a register.",
+      "Loads data from memory at address specified by a label, and writes it to <Rt>.",
+      "Load Reg. Byte: A byte is loaded and zero-extended to 32 bits written to the register.",
+      "Load Reg. Signed Byte: A byte is loaded and sign-extended to 32 bits written to the register.",
+      "Load Reg. Halfword: A halfword (16 bits) is loaded and zero-extended to 32 bits written to the register.",
+      "Load Reg. Signed Halfword: A halfword (16 bits) is loaded and sign-extended to 32 bits written to the register.",
+      "Load Reg. A word (32 bits) is loaded and written to the register.",
+      "The label of the literal data item that is to be loaded into <Rt>. Encoded as the offset from the Align(PC, 4) value of the LDR instruction to this label.",
+      "Loads data from memory at address calculated from <Rn> and an immediate offset. Offset/pre-indexed/post-indexed addressing can be used.",
+      "Loads data from memory at address calculated from <Rn> and offset register <Rm> (optionally shifted). Offset/pre-indexed/post-indexed addressing can be used."
+    ]
+  }
+}

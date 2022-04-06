@@ -7,7 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Armfors.LanguageServer.Services;
 
-public class DummyDocumentationProvider : IDocumentationProvider
+public class DummyDocumentationProvider : ISymbolDocumentationProvider, IInstructionDocumentationProvider
 {
     private readonly ILocalizationService _localizationService;
 

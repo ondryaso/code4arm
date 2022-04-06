@@ -31,6 +31,6 @@ public interface IInstructionProvider
     /// </remarks>
     /// <param name="mnemonic">The mnemonic to return variants for.</param>
     /// <param name="exclude">Flags specifying variants to exclude.</param>
-    Task<List<InstructionVariant>> GetVariants(string mnemonic,
+    Task<List<InstructionVariant>?> GetVariants(string mnemonic,
         InstructionVariantFlag exclude = InstructionVariantFlag.NoFlags);
 }

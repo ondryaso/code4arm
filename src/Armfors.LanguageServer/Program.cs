@@ -82,10 +82,11 @@ static void ConfigureServices(IServiceCollection services)
     services.AddSingleton<ISourceStore, FileSourceStore>();
     services.AddSingleton<InstructionProvider>();
     services.AddSingleton<ILocalizationService, InlineLocalizationService>();
-    services.AddSingleton<IDocumentationProvider, DummyDocumentationProvider>();
+    services.AddSingleton<ISymbolDocumentationProvider, DummyDocumentationProvider>();
     services.AddSingleton<IInstructionProvider>(i => i.GetService<InstructionProvider>());
     services.AddSingleton<IOperandAnalyserProvider>(i => i.GetService<InstructionProvider>());
     services.AddSingleton<IInstructionValidatorProvider>(i => i.GetService<InstructionProvider>());
+    services.AddSingleton<IInstructionDocumentationProvider>(i => i.GetService<InstructionProvider>());
     services.AddSingleton<IDirectiveAnalyser, DirectiveAnalyser>();
     services.AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>();
     services.AddSingleton<ISourceAnalyserStore, SourceAnalyserStore>();

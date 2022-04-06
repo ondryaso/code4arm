@@ -6,13 +6,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Armfors.LanguageServer.Services.Abstractions;
 
-public interface IDocumentationProvider
+public interface ISymbolDocumentationProvider
 {
     MarkupContent? this[string key] { get; }
-
-    string InstructionDetail(InstructionVariant instructionVariant);
-    MarkupContent? InstructionEntry(InstructionVariant instructionVariant);
-    MarkupContent? InstructionOperandEntry(InstructionVariant instructionVariant, string tokenName);
 
     MarkupContent? EnumEntry<T>(T enumValue, string? tag = null) where T : struct, Enum
     {

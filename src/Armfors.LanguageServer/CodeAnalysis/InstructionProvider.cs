@@ -1,103 +1,185 @@
-// InstructionProvider.cs
-// Author: Ondřej Ondryáš
-
+﻿using System.Text.RegularExpressions;
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.Services.Abstractions;
+using Newtonsoft.Json;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Armfors.LanguageServer.CodeAnalysis;
 
-/// <summary>
-/// Dummy implementation
-/// </summary>
-public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvider, IInstructionValidatorProvider
+internal class StringToUpperConverter : JsonConverter
 {
-    private List<InstructionVariant> instructions = new()
+    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
     {
-        new InstructionVariant("ADD", true, true, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>", 1, true),
-            new OperandDescriptor("\\G(SP)", OperandType.Register, false,
-                (0, 1, new OperandToken(OperandTokenType.Register, "SP") {RegisterMask = Register.SP})),
-            new OperandDescriptor("\\G#?([+-]?[0-9]+)", OperandType.ImmediateConstant,
-                OperandTokenType.ImmediateConstant,
-                "<const>")) {VariantPriority = 0, VariantFlags = InstructionVariantFlag.UncommonVariant},
+        throw new NotImplementedException();
+    }
 
-        new InstructionVariant("ADD", true, true, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>", 1, true),
-            new OperandDescriptor("\\G(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rn>"),
-            new OperandDescriptor("\\G#?([+-]?[0-9]+)", OperandType.ImmediateConstant,
-                OperandTokenType.ImmediateConstant,
-                "<const>")) {VariantPriority = 1},
+    public override object? ReadJson(JsonReader reader, Type objectType, object existingValue,
+        JsonSerializer serializer)
+    {
+        if (existingValue is string s)
+            return s.ToUpperInvariant();
 
-        new InstructionVariant("ADD", true, true, false,
-                new OperandDescriptor("(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register,
-                    "<Rd>"),
-                new OperandDescriptor("\\G(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register,
-                    "<Rn>"),
-                new OperandDescriptor("\\G(R15|R0|R1|R2|R3|R4|PC)", OperandType.Register, OperandTokenType.Register,
-                    "<Rm>"),
-                new OperandDescriptor(new[] {"\\G(LSL|LSR|ASR|ROR)", "\\G #?([0-9]+)"},
-                    OperandType.Shift, true,
-                    (0, 1, new OperandToken(OperandTokenType.ShiftType, "<shift>")),
-                    (1, 1, new OperandToken(OperandTokenType.ImmediateShift, "<imm>"))))
-            {VariantPriority = 2},
+        return null;
+    }
 
-        new InstructionVariant("MOV", true, true),
-/*
-        new InstructionVariant("LDR", true, false, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>"),
-            new OperandDescriptor(new[] { "\\[", "\\G ?(R0|R1|R2|R3|R4)", "\\G ?(, ?#?([+-]?[0-9]+))?", "\\G ?\\]" },
-                OperandType.ImmediateAddressing, false, (1, 1, new OperandToken(OperandTokenType.Register, "<Rn>")),
-                (2, 2, new OperandToken(OperandTokenType.Immediate, "<imm>") { ImmediateSize = 4 })),
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rx>", 1,
-                true)),*/
+    public override bool CanConvert(Type objectType)
+    {
+        return objectType == typeof(string);
+    }
+}
 
-        new InstructionVariant("LDR", true, false, false,
-            new OperandDescriptor("(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rd>"),
-            new OperandDescriptor(new[] {"\\[", "\\G ?(R0|R1|R2|R3|R4)", "\\G ?, ?(R0|R1|R2|R3|R4)", " ?\\]"},
-                OperandType.RegisterAddressing, false,
-                (1, 1, new OperandToken(OperandTokenType.Register, "<Rn>")),
-                (2, 1, new OperandToken(OperandTokenType.Register, "<Rm>"))),
-            new OperandDescriptor("\\G(R0|R1|R2|R3|R4)", OperandType.Register, OperandTokenType.Register, "<Rx>")),
+internal class InstructionDefinitionModel
+{
+    [JsonProperty(Required = Required.Always)]
+    [JsonConverter(typeof(StringToUpperConverter))]
+    public string Name { get; init; } = null!;
 
-        new InstructionVariant("B", true, true, false,
-            new OperandDescriptor("\\G(.+)", OperandType.Label, OperandTokenType.Label, "<label>")),
+    [JsonProperty(Required = Required.Always)]
+    public List<InstructionVariantModel> VariantModels { get; init; } = null!;
+}
 
-        new InstructionVariant("BX", true, false, false,
-            new OperandDescriptor("\\G(R14|R0|R1|LR)", OperandType.Register, false,
-                (0, 1,
-                    new OperandToken(OperandTokenType.Register, "<Rs>")
-                        {RegisterMask = Register.R0 | Register.R1 | Register.LR}))),
+internal class InstructionVariantModel
+{
+    [JsonProperty("asm", Required = Required.Always)]
+    public string DefinitionLine { get; init; } = null!;
 
-        new InstructionVariant("NOP", false, false),
-        new InstructionVariant("SB", false, false) {VariantFlags = InstructionVariantFlag.AdvancedInstruction},
-        new InstructionVariant("VADD", true, false, true) {VariantFlags = InstructionVariantFlag.Simd}
-    };
+    [JsonProperty("doc", Required = Required.Always)]
+    public string Documentation { get; init; } = null!;
+
+    [JsonProperty("desc")] public int DescriptionIndex { get; init; }
+    [JsonProperty("prio")] public int Priority { get; init; }
+    [JsonProperty("flags")] public int Flags { get; init; }
+    [JsonProperty("symbolsDesc")] public Dictionary<string, int>? SymbolDescriptionsIndices { get; init; }
+}
+
+internal class InstructionDefinition
+{
+    public string Name { get; init; }
+    public List<InstructionVariant> Variants { get; } = new();
+}
+
+public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvider, IInstructionValidatorProvider,
+    IInstructionDocumentationProvider
+{
+    private readonly string _definitionPath;
+
+    private Dictionary<string, InstructionDefinition>? _definitions;
+
+    private List<InstructionVariant>? _allVariants;
+
+    public InstructionProvider()
+    {
+        // TODO: Where do I want to get the definition file from?
+        _definitionPath = "instruction_definitions.json";
+    }
+
+    private void EnsureLoaded()
+    {
+        if (_definitions != null)
+            return;
+
+        using var stream = File.OpenText(_definitionPath);
+        using var jsonReader = new JsonTextReader(stream);
+        var serializer = new JsonSerializer();
+        var rawData = serializer.Deserialize<Dictionary<string, InstructionDefinitionModel>?>(jsonReader);
+
+        if (rawData == null)
+            throw new Exception();
+
+        _definitions = new Dictionary<string, InstructionDefinition>();
+        _allVariants = new List<InstructionVariant>();
+
+        foreach (var (mnemonic, model) in rawData)
+        {
+            foreach (var m in model.VariantModels)
+            {
+                this.ExpandDefinition(mnemonic, model, m);
+            }
+        }
+
+        // TODO: handle failures
+    }
+
+    private Regex _mnemonicSpecifierRegex = new(@"");
+    private Regex _symbolRegex = new(@"<(\w*?)>");
+    private Regex _typeVariantExpansionRegex = new(@"(<O:(\w+?)\|(?:(\w+?)\|)*(\w+?)>)?(<(S)?(C)?(Q)?>)?({<c>})?({<q>})?");
+
+    private void ExpandDefinition(string mnemonic, InstructionDefinitionModel definitionModel,
+        InstructionVariantModel variantModel)
+    {
+        var def = variantModel.DefinitionLine.Trim();
+        var defSpaceIndex = def.IndexOf(' ');
+        var hasOperands = defSpaceIndex == -1;
+        var mnemonicPart = def[..defSpaceIndex];
+
+        Match? match = null;
+        mnemonicPart = _typeVariantExpansionRegex.Replace(mnemonicPart, (m =>
+        {
+            match = m;
+            return string.Empty;
+        }), 1);
+        
+        
+    }
+
 
     public Task<List<InstructionVariant>> GetAllInstructions()
     {
-        return Task.FromResult(instructions);
+        this.EnsureLoaded();
+        return Task.FromResult(_allVariants!);
     }
 
     public Task<List<InstructionVariant>> FindMatchingInstructions(string line)
     {
-        return Task.FromResult(instructions
+        this.EnsureLoaded();
+
+        return Task.FromResult(_allVariants!
             .Where(m => m.Mnemonic.StartsWith(line, StringComparison.InvariantCultureIgnoreCase)).ToList());
     }
 
-    public Task<List<InstructionVariant>> GetVariants(string mnemonic, InstructionVariantFlag exclude)
+    public Task<List<InstructionVariant>?> GetVariants(string mnemonic,
+        InstructionVariantFlag exclude = InstructionVariantFlag.NoFlags)
     {
-        return Task.FromResult(instructions
-            .Where(m => m.Mnemonic.Equals(mnemonic, StringComparison.InvariantCultureIgnoreCase))
+        this.EnsureLoaded();
+        mnemonic = mnemonic.ToUpperInvariant();
+
+        if (!_definitions!.TryGetValue(mnemonic, out var model))
+            return Task.FromResult<List<InstructionVariant>?>(null);
+
+        return Task.FromResult<List<InstructionVariant>?>(model.Variants
             .Where(m => (m.VariantFlags & exclude) == 0)
             .ToList());
     }
 
     public IOperandAnalyser For(OperandDescriptor descriptor)
     {
+        // TODO: Cache
         return new BasicOperandAnalyser(descriptor);
     }
 
     public IInstructionValidator? For(InstructionVariant instructionVariant)
+    {
+        return null;
+    }
+
+    public string InstructionDetail(InstructionVariant instructionVariant)
+    {
+        this.EnsureLoaded();
+        if (_rawDefinitions?.TryGetValue(instructionVariant.Mnemonic, out var model) ?? false)
+        {
+            return model.Name;
+        }
+
+        return string.Empty;
+    }
+
+    public MarkupContent? InstructionEntry(InstructionVariant instructionVariant)
+    {
+        return null;
+    }
+
+    public MarkupContent? InstructionOperandEntry(InstructionVariant instructionVariant, string tokenName)
     {
         return null;
     }
