@@ -82,8 +82,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         // TODO: handle failures
     }
 
-    private Regex _mnemonicSpecifierRegex = new(@"");
-    private Regex _symbolRegex = new(@"<(\w*?)>");
+    private Regex _symbolRegex = new(@"<(?<optional>\??)(?<symbol>\w*?)>");
 
     // Start with a <
     // Match O:... (group var is the whole thing, then there are the parts in varA, varB, varC)
@@ -91,7 +90,8 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     // Match optional S/C/Q (groups S, C, Q) and >
     // Match optional {<c>} and {<q>} (groups C2, Q2)
     private Regex _typeVariantExpansionRegex =
-        new(@"<(?<var>O:(?<varA>\w+?)\|(?:(?<varB>\w+?)\|)*(?<varC>\w+?)>)?((?(var)<|)(?<S>S)?(?<C>C)?(?<Q>Q)?>)?(?<C2>{<c>})?(?<Q2>{<q>})?");
+        new(
+            @"<(?<var>O:(?<varA>\w+?)\|(?:(?<varB>\w+?)\|)*(?<varC>\w+?)>)?((?(var)<|)(?<S>S)?(?<C>C)?(?<Q>Q)?>)?(?<C2>{<c>})?(?<Q2>{<q>})?");
 
     private struct ExpansionContext
     {
@@ -198,7 +198,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         if (!_definitions!.TryGetValue(variantMnemonic, out var definition))
             definition = new InstructionDefinition() { Name = ctx.DefinitionModel.Name };
 
-        var variant = new InstructionVariant(variantMnemonic, ctx.HasOperands, ctx.VariantModel)
+        var variant = new InstructionVariant(variantMnemonic, ctx.HasOperands, ctx.VariantModel, this)
         {
             HasSetFlagsVariant = ctx.HasSetFlags,
             CanBeConditional = ctx.HasConditionCode,
@@ -209,6 +209,30 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         definition.Variants.Add(variant);
         _allVariants!.Add(variant);
     }
+
+    public IEnumerable<OperandDescriptor> GetOperands(InstructionVariant instructionVariant)
+    {
+        if (!instructionVariant.HasOperands)
+            return Enumerable.Empty<OperandDescriptor>();
+
+        var operandDefinitions = instructionVariant.Model.Definition[1..];
+        var ret = new List<OperandDescriptor>(operandDefinitions.Length);
+
+        foreach (var operandDefinition in operandDefinitions)
+        {
+            var matches = _symbolRegex.Matches(operandDefinition);
+            if (matches.Count == 0)
+            {
+                ret.Add(new OperandDescriptor(instructionVariant, operandDefinition));
+                continue;
+            }
+            
+            // TODO
+        }
+
+        return ret;
+    }
+
 
     public Task<List<InstructionVariant>> GetAllInstructions()
     {

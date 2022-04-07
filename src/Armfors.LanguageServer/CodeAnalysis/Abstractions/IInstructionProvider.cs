@@ -33,4 +33,6 @@ public interface IInstructionProvider
     /// <param name="exclude">Flags specifying variants to exclude.</param>
     Task<List<InstructionVariant>?> GetVariants(string mnemonic,
         InstructionVariantFlag exclude = InstructionVariantFlag.NoFlags);
+
+    IEnumerable<OperandDescriptor> GetOperands(InstructionVariant variant);
 }

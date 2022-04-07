@@ -9,7 +9,7 @@
         "prio": 3
       },
       {
-        "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<RRX>"],
+        "asm": ["ADC<SCQ>", "<?Rd> mrdka <Rp>", "<Rn>", "<Rm>", "<RRX>"],
         "doc": "adc_r",
         "desc": 2,
         "prio": 1

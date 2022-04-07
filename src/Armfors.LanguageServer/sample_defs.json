@@ -4,25 +4,25 @@
       "name": "Add with Carry",
       "variants": [
         {
-          "asm": [ "ADC<SCQ> <IMM>", { "A":  "B" }, "" ],
+          "asm": ["ADC<SCQ>", "<Ic>"],
           "doc": "adc_i",
           "desc": 1,
           "prio": 3
         },
         {
-          "asm": "ADC<SCQ> <RRX>",
+          "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<RRX>"],
           "doc": "adc_r",
           "desc": 2,
           "prio": 1
         },
         {
-          "asm": "ADC<SCQ> <SHIFT>",
+          "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<?SHI>"],
           "doc": "adc_r",
           "desc": 3,
           "prio": 4
         },
         {
-          "asm": "ADC<SCQ> <SHIFTR>",
+          "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<SHR>"],
           "doc": "adc_rr",
           "desc": 4,
           "prio": 2
@@ -190,12 +190,12 @@
       "variants": [
         {
           "asm": "LDR<O:B|SB|H|SH|x><CQ> <Rt>, <label>",
-          "doc": {
+          "doc": "ldr_l",
+          "docVariants": {
             "B": "ldrb_l",
             "SB": "ldrsb_l",
             "H": "ldrh_l",
-            "SH": "ldrsh_l",
-            "x:": "ldr_l"
+            "SH": "ldrsh_l"
           },
           "desc": 1,
           "symbolsDesc": {
@@ -209,12 +209,12 @@
         },
         {
           "asm": "LDR<O:B|SB|H|SH|x><CQ> <Rt>, <RIIMM>",
-          "doc": {
+          "doc": "ldr_i",
+          "docVariants": {
             "B": "ldrb_i",
             "SB": "ldrsb_i",
             "H": "ldrh_i",
-            "SH": "ldrsh_i",
-            "x:": "ldr_i"
+            "SH": "ldrsh_i"
           },
           "desc": 8,
           "symbolsDesc": {
@@ -227,12 +227,12 @@
         },
         {
           "asm": "LDR<O:B|SB|H|SH|x><CQ> <Rt>, <RIR>",
-          "doc": {
+          "doc": "ldr_r",
+          "docVariants": {
             "B": "ldrb_r",
             "SB": "ldrsb_r",
             "H": "ldrh_r",
-            "SH": "ldrsh_r",
-            "x:": "ldr_r"
+            "SH": "ldrsh_r"
           },
           "desc": 9,
           "symbolsDesc": {

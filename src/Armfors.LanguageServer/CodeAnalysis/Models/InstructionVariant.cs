@@ -18,15 +18,20 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
 
     private ImmutableList<OperandDescriptor>? _operandDescriptors;
 
-    public ImmutableList<OperandDescriptor> Operands => _operandDescriptors ??= this.ParseOperands();
+    internal InstructionVariantModel Model { get; }
 
-    private readonly InstructionVariantModel _model;
+    public ImmutableList<OperandDescriptor> Operands =>
+        _operandDescriptors ??= _provider.GetOperands(this).ToImmutableList();
+
+    private readonly InstructionProvider _provider;
 
     private readonly int _hashCode;
 
-    internal InstructionVariant(string mnemonic, bool hasOperands, InstructionVariantModel model)
+    internal InstructionVariant(string mnemonic, bool hasOperands, InstructionVariantModel model,
+        InstructionProvider provider)
     {
-        _model = model;
+        this.Model = model;
+        _provider = provider;
 
         this.Mnemonic = mnemonic;
         this.VariantFlags = (InstructionVariantFlag)model.Flags;
@@ -50,12 +55,6 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
         _hashCode = hashCode.ToHashCode();
     }
 
-    private ImmutableList<OperandDescriptor> ParseOperands()
-    {
-        // TODO
-        return ImmutableList<OperandDescriptor>.Empty;
-    }
-
     public bool Equals(InstructionVariant? other)
     {
         if (ReferenceEquals(null, other))
@@ -65,7 +64,7 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
 
         return this.Mnemonic == other.Mnemonic &&
                this.VariantFlags == other.VariantFlags &&
-               _model.Definition.SequenceEqual(other._model.Definition);
+               this.Model.Definition.SequenceEqual(other.Model.Definition);
     }
 
     public int CompareTo(InstructionVariant? other)
