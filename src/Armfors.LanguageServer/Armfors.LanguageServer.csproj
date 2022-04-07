@@ -24,8 +24,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="instruction_definitions.json">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <None Update="instruction_defs.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 

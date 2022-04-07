@@ -22,25 +22,39 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
 
     private readonly InstructionVariantModel _model;
 
+    private readonly int _hashCode;
+
     internal InstructionVariant(string mnemonic, bool hasOperands, InstructionVariantModel model)
     {
         _model = model;
-        
+
         this.Mnemonic = mnemonic;
-        this.VariantFlags = (InstructionVariantFlag) model.Flags;
+        this.VariantFlags = (InstructionVariantFlag)model.Flags;
         this.VariantPriority = model.Priority;
         this.HasOperands = hasOperands;
-        
+
         if (!hasOperands)
         {
             _operandDescriptors = ImmutableList<OperandDescriptor>.Empty;
         }
+
+        var hashCode = new HashCode();
+        hashCode.Add(this.Mnemonic);
+        hashCode.Add(this.VariantFlags);
+
+        foreach (var item in model.Definition)
+        {
+            hashCode.Add(item);
+        }
+
+        _hashCode = hashCode.ToHashCode();
     }
 
     private ImmutableList<OperandDescriptor> ParseOperands()
     {
+        // TODO
+        return ImmutableList<OperandDescriptor>.Empty;
     }
-    
 
     public bool Equals(InstructionVariant? other)
     {
@@ -51,7 +65,7 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
 
         return this.Mnemonic == other.Mnemonic &&
                this.VariantFlags == other.VariantFlags &&
-               _model.DefinitionLine.Equals(other._model.DefinitionLine, StringComparison.Ordinal);
+               _model.Definition.SequenceEqual(other._model.Definition);
     }
 
     public int CompareTo(InstructionVariant? other)
@@ -73,11 +87,11 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
         if (obj.GetType() != this.GetType())
             return false;
 
-        return this.Equals((InstructionVariant) obj);
+        return this.Equals((InstructionVariant)obj);
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(this.Mnemonic, this.VariantFlags, _model.DefinitionLine);
+        return _hashCode;
     }
 }
