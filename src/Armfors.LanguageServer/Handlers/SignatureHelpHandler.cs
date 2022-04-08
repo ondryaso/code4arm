@@ -50,7 +50,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
         }
 
         if (lineAnalysis.PreFinishState != LineAnalysisState.MnemonicLoaded
-            || lineAnalysis.Mnemonic is not {HasOperands: true})
+            || lineAnalysis.Mnemonic is not { HasOperands: true })
         {
             return null;
         }
@@ -59,7 +59,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
         var filterFlag = config.Flag;
 
         var allVariants = await _instructionProvider.GetVariants(lineAnalysis.Mnemonic.Mnemonic);
-        if (allVariants is not {Count: > 0})
+        if (allVariants is not { Count: > 0 })
             return null;
 
         allVariants.Sort();
@@ -73,7 +73,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             if (variant.Equals(lineAnalysis.Mnemonic) && !lineAnalysis.MissingOperands)
             {
                 var token = analyser.FindTokenAtPosition(prepPosition);
-                ret.Add(token is {Type: AnalysedTokenType.OperandToken}
+                ret.Add(token is { Type: AnalysedTokenType.OperandToken }
                     ? this.MakeSignatureInformation(variant, token.OperandToken!.Token)
                     : this.MakeSignatureInformation(variant));
 
@@ -112,14 +112,18 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             {
                 sb.Append(string.Format(operandDescriptor.TokenFormatting!, operandDescriptor.MatchGroupsTokenMappings
                     .SelectMany(t => t.Value)
-                    .Select(t => t.Value.SymbolicName as object).ToArray()));
+                    .Select(t => $"<{t.Value.SymbolicName}>" as object).ToArray()));
+            }
+            else if (operandDescriptor.Optional)
+            {
+                sb.Append('{');
             }
 
             foreach (var tokenMapping in operandDescriptor.MatchGroupsTokenMappings.SelectMany(t => t.Value))
             {
                 if (!hasCustomFormatting)
                 {
-                    sb.Append(tokenMapping.Value.SymbolicName);
+                    sb.Append($"<{tokenMapping.Value.SymbolicName}>");
                     sb.Append(' ');
                 }
 
@@ -130,7 +134,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
 
                 paramInfo.Add(new ParameterInformation()
                 {
-                    Label = new ParameterInformationLabel(tokenMapping.Value.SymbolicName),
+                    Label = new ParameterInformationLabel($"<{tokenMapping.Value.SymbolicName}>"),
                     Documentation =
                         _instructionDocumentationProvider.InstructionOperandEntry(variant,
                             tokenMapping.Value.SymbolicName)
@@ -144,8 +148,15 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
 
             if (i != variant.Operands.Count - 1)
             {
-                sb.Append(", ");
+                sb.Append(',');
             }
+
+            if (operandDescriptor.Optional && !hasCustomFormatting)
+            {
+                sb.Append('}');
+            }
+
+            sb.Append(' ');
         }
 
         var si = new SignatureInformation()
