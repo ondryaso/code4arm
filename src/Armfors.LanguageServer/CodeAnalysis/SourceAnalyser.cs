@@ -545,6 +545,7 @@ public class SourceAnalyser : ISourceAnalyser
                     else if (!IsValidSymbolChar(c, true))
                     {
                         this.FinishCurrentLine(linePos, LineAnalysisState.SyntaxError);
+                        return;
                     }
                     else if (c == '.')
                     {
@@ -885,7 +886,7 @@ public class SourceAnalyser : ISourceAnalyser
 
         this.ResetCurrentLineFlags();
 
-        if (_ctx.CurrentLineText[linePos] == '"')
+        if (_ctx.CurrentLineText[linePos - 1] == '"')
         {
             if (_ctx.InsideString)
             {
