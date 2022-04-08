@@ -13,9 +13,9 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 public class BasicOperandAnalyser : IOperandAnalyser
 {
-    private readonly OperandDescriptor _descriptor;
+    private readonly BasicOperandDescriptor _descriptor;
 
-    internal BasicOperandAnalyser(OperandDescriptor descriptor)
+    internal BasicOperandAnalyser(BasicOperandDescriptor descriptor)
     {
         _descriptor = descriptor;
     }

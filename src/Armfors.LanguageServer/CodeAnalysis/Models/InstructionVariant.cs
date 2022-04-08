@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Collections.Immutable;
+using Armfors.LanguageServer.CodeAnalysis.Models.Abstractions;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
@@ -16,11 +17,11 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
     public bool IsVector { get; init; }
     public InstructionSize? ForcedSize { get; init; }
 
-    private ImmutableList<OperandDescriptor>? _operandDescriptors;
+    private ImmutableList<IOperandDescriptor>? _operandDescriptors;
 
     internal InstructionVariantModel Model { get; }
 
-    public ImmutableList<OperandDescriptor> Operands =>
+    public ImmutableList<IOperandDescriptor> Operands =>
         _operandDescriptors ??= _provider.GetOperands(this).ToImmutableList();
 
     private readonly InstructionProvider _provider;
@@ -40,7 +41,7 @@ public class InstructionVariant : IEquatable<InstructionVariant>, IComparable<In
 
         if (!hasOperands)
         {
-            _operandDescriptors = ImmutableList<OperandDescriptor>.Empty;
+            _operandDescriptors = ImmutableList<IOperandDescriptor>.Empty;
         }
 
         var hashCode = new HashCode();

@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
+using Armfors.LanguageServer.CodeAnalysis.Models.Abstractions;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
 
@@ -13,18 +14,18 @@ namespace Armfors.LanguageServer.CodeAnalysis.Models;
 /// An operand descriptor defines a regular expression that can be used to match the operand in a source text.
 /// The descriptor may describe an atomic expression, such as a label, or a composed expression that must appear
 /// whole in the text to be a valid operand, such as a post-index addressing expression. Operand descriptors thus
-/// define a collection of <see cref="OperandToken"/> descriptors that further specify these atomic parts of an
+/// define a collection of <see cref="OperandTokenDescriptor"/> descriptors that further specify these atomic parts of an
 /// operand. It is stored in the <see cref="MatchGroupsTokenMappings"/> dictionary where keys are indexes to the
 /// descriptor's regex match groups. If a descriptor describes a sole atomic expression, its <see cref="SingleToken"/>
 /// is populated instead of the dictionary. 
 /// </remarks>
-public class OperandDescriptor
+public class BasicOperandDescriptor : IOperandDescriptor
 {
     public bool Optional { get; }
 
     public OperandType Type { get; }
 
-    public OperandToken? SingleToken =>
+    public OperandTokenDescriptor? SingleToken =>
         _singleToken ? this.MatchGroupsTokenMappings[0][this.SingleTokenMatchGroup] : null;
 
     public int SingleTokenMatchGroup { get; }
@@ -39,16 +40,43 @@ public class OperandDescriptor
 
     private readonly bool _singleToken;
 
-    public ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>> MatchGroupsTokenMappings { get; }
+    public ImmutableDictionary<int, ImmutableDictionary<int, OperandTokenDescriptor>> MatchGroupsTokenMappings { get; }
 
     public InstructionVariant Mnemonic { get; }
 
     private readonly List<Regex> _regexes;
     public IEnumerable<Regex> Regexes => _regexes;
 
-    public string? TokenFormatting { get; init; }
+    public bool HasCustomSignatureFormatting => this.CustomSignatureFormatting != null;
 
-    private OperandDescriptor(InstructionVariant mnemonic, OperandType type)
+    public string? GetCustomSignatureFormatting()
+    {
+        if (this.CustomSignatureFormatting == null)
+            return null;
+
+        return string.Format(this.CustomSignatureFormatting!,
+            this.GetTokenDescriptors().Select(t => $"<{t.SymbolicName}>" as object).ToArray());
+    }
+
+    public string? GetCustomSignatureFormatting(AnalysedLine lineAnalysis, AnalysedOperand analysedOperand)
+    {
+        return this.GetCustomSignatureFormatting();
+    }
+
+    public string? CustomSignatureFormatting { get; init; }
+
+    public IEnumerable<OperandTokenDescriptor> GetTokenDescriptors()
+    {
+        return this.MatchGroupsTokenMappings.SelectMany(t => t.Value.Values);
+    }
+
+    public IEnumerable<OperandTokenDescriptor> GetTokenDescriptors(AnalysedLine lineAnalysis,
+        AnalysedOperand analysedOperand)
+    {
+        return this.GetTokenDescriptors();
+    }
+
+    private BasicOperandDescriptor(InstructionVariant mnemonic, OperandType type)
     {
         this.Type = type;
         this.Mnemonic = mnemonic;
@@ -58,34 +86,37 @@ public class OperandDescriptor
 
         if (type == OperandType.ImmediateAddressing)
         {
-            this.TokenFormatting = "[ {0} {{, {1}}} ]";
+            this.CustomSignatureFormatting = "[ {0} {{, {1}}} ]";
         }
         else if (type == OperandType.RegisterAddressing)
         {
-            this.TokenFormatting = "[ {0},  {1} ]";
+            this.CustomSignatureFormatting = "[ {0},  {1} ]";
         }
         else if (type == OperandType.RRX)
         {
-            this.TokenFormatting = "RRX";
+            this.CustomSignatureFormatting = "RRX";
         }
     }
 
-    public OperandDescriptor(InstructionVariant mnemonic, string literal) : this(mnemonic, OperandType.Literal)
+    public BasicOperandDescriptor(InstructionVariant mnemonic, string literal) : this(mnemonic, OperandType.Literal)
     {
         this.Optional = false;
-        this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>.Empty;
+        this.MatchGroupsTokenMappings =
+            ImmutableDictionary<int, ImmutableDictionary<int, OperandTokenDescriptor>>.Empty;
         _regexes = new List<Regex> { new("\\G" + literal, RegexOptions.Compiled) };
     }
 
-    public OperandDescriptor(InstructionVariant mnemonic, string regex, OperandType type, bool optional = false) :
+    public BasicOperandDescriptor(InstructionVariant mnemonic, string regex, OperandType type, bool optional = false) :
         this(mnemonic, type)
     {
         this.Optional = optional;
-        this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>.Empty;
+        this.MatchGroupsTokenMappings =
+            ImmutableDictionary<int, ImmutableDictionary<int, OperandTokenDescriptor>>.Empty;
         _regexes = new List<Regex> { new(regex, RegexOptions.Compiled) };
     }
 
-    public OperandDescriptor(InstructionVariant mnemonic, string regex, OperandType type, OperandTokenType tokenType,
+    public BasicOperandDescriptor(InstructionVariant mnemonic, string regex, OperandType type,
+        OperandTokenType tokenType,
         string tokenName, int singleTokenMatchGroup = 1, bool optional = false) : this(mnemonic, type)
     {
         this.Optional = optional;
@@ -93,15 +124,16 @@ public class OperandDescriptor
         _singleToken = true;
         this.SingleTokenMatchGroup = singleTokenMatchGroup;
 
-        this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>>.Empty
-            .Add(0, ImmutableDictionary<int, OperandToken>.Empty.Add(singleTokenMatchGroup,
-                new OperandToken(tokenType, tokenName)));
+        this.MatchGroupsTokenMappings = ImmutableDictionary<int, ImmutableDictionary<int, OperandTokenDescriptor>>.Empty
+            .Add(0, ImmutableDictionary<int, OperandTokenDescriptor>.Empty.Add(singleTokenMatchGroup,
+                new OperandTokenDescriptor(tokenType, tokenName)));
 
         _regexes = new List<Regex> { new(regex, RegexOptions.Compiled) };
     }
 
-    public OperandDescriptor(InstructionVariant mnemonic, IEnumerable<string> matches, OperandType type, bool optional,
-        params (int RegexIndex, int MatchGroup, OperandToken Token)[] tokens) : this(mnemonic, type)
+    public BasicOperandDescriptor(InstructionVariant mnemonic, IEnumerable<string> matches, OperandType type,
+        bool optional,
+        params (int RegexIndex, int MatchGroup, OperandTokenDescriptor Token)[] tokens) : this(mnemonic, type)
     {
         this.Optional = optional;
 
@@ -113,14 +145,16 @@ public class OperandDescriptor
         _regexes = matches.Select(m => new Regex(m, RegexOptions.Compiled)).ToList();
     }
 
-    public OperandDescriptor(InstructionVariant mnemonic, string regex, OperandType type, bool optional,
-        params (int RegexIndex, int MatchGroup, OperandToken Token)[] tokens) : this(mnemonic, new[] { regex }, type,
+    public BasicOperandDescriptor(InstructionVariant mnemonic, string regex, OperandType type, bool optional,
+        params (int RegexIndex, int MatchGroup, OperandTokenDescriptor Token)[] tokens) : this(mnemonic,
+        new[] { regex }, type,
         optional, tokens)
     {
     }
 
-    public OperandDescriptor(InstructionVariant mnemonic, IEnumerable<string> matches, OperandType type, bool optional,
-        ImmutableDictionary<int, ImmutableDictionary<int, OperandToken>> tokenMappings) : this(mnemonic, type)
+    public BasicOperandDescriptor(InstructionVariant mnemonic, IEnumerable<string> matches, OperandType type,
+        bool optional,
+        ImmutableDictionary<int, ImmutableDictionary<int, OperandTokenDescriptor>> tokenMappings) : this(mnemonic, type)
     {
         this.Optional = optional;
 

@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using Armfors.LanguageServer.CodeAnalysis.Abstractions;
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.CodeAnalysis.Models.Abstractions;
 using Armfors.LanguageServer.Extensions;
 using Armfors.LanguageServer.Services.Abstractions;
 using Newtonsoft.Json;
@@ -274,21 +275,21 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         _allVariants!.Add(variant);
     }
 
-    public IEnumerable<OperandDescriptor> GetOperands(InstructionVariant instructionVariant)
+    public IEnumerable<IOperandDescriptor> GetOperands(InstructionVariant instructionVariant)
     {
         if (!instructionVariant.HasOperands)
-            return Enumerable.Empty<OperandDescriptor>();
+            return Enumerable.Empty<IOperandDescriptor>();
 
         var operandDefinitions = instructionVariant.Model.Definition[1..];
 
-        var ret = new List<OperandDescriptor>(operandDefinitions.Length);
+        var ret = new List<IOperandDescriptor>(operandDefinitions.Length);
 
         foreach (var operandDefinition in operandDefinitions)
         {
             var matches = _symbolRegex.Matches(operandDefinition);
             if (matches.Count == 0)
             {
-                ret.Add(new OperandDescriptor(instructionVariant, operandDefinition));
+                ret.Add(new BasicOperandDescriptor(instructionVariant, operandDefinition));
                 continue;
             }
 
@@ -309,9 +310,9 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     {
         public readonly int Index;
         public readonly string Regex;
-        public readonly ImmutableDictionary<int, OperandToken> Tokens;
+        public readonly ImmutableDictionary<int, OperandTokenDescriptor> Tokens;
 
-        public OperandRegexPart(int index, string regex, ImmutableDictionary<int, OperandToken> tokens)
+        public OperandRegexPart(int index, string regex, ImmutableDictionary<int, OperandTokenDescriptor> tokens)
         {
             Index = index;
             Regex = regex;
@@ -356,7 +357,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     private const string RegListRegex =
         @"\G(?<hasMore>{)?((?<match>(?<rs>R(?:1[543210]|[9876543210])|LR|PC|SP)(?:\s?(?<hasMore>\-)\s?(?<re>R(?:1[543210]|[9876543210])|LR|PC|SP))*)(?(?=[\w,])(?<hasMore>,)\s?))*(?(hasMore)})";
 
-    private OperandDescriptor MakeSingleSymbolOperand(InstructionVariant mnemonic, Match match)
+    private IOperandDescriptor MakeSingleSymbolOperand(InstructionVariant mnemonic, Match match)
     {
         var symbol = match.Groups["symbol"].Value;
         var optional = match.Groups["optional"].Length == 1;
@@ -393,7 +394,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         }
     }
 
-    private OperandDescriptor MakeRegisterOperand(Match registerMatch, InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeRegisterOperand(Match registerMatch, InstructionVariant mnemonic, bool optional)
     {
         var mask = RegisterExtensions.All;
         if (registerMatch.Groups["reg"].Success)
@@ -418,39 +419,40 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             }
         }
 
-        var descriptor = new OperandDescriptor(mnemonic, $@"\G{RegisterTargetRegex}",
+        var descriptor = new BasicOperandDescriptor(mnemonic, $@"\G{RegisterTargetRegex}",
             OperandType.Register, optional,
             (0, 1,
-                new OperandToken(OperandTokenType.Register, registerMatch.Groups["name"].Value)
+                new OperandTokenDescriptor(OperandTokenType.Register, registerMatch.Groups["name"].Value)
                     { RegisterMask = mask }));
 
         return descriptor;
     }
 
-    private OperandDescriptor MakeImmediateOperand(Match immediateMatch, InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeImmediateOperand(Match immediateMatch, InstructionVariant mnemonic,
+        bool optional)
     {
         const string regex = $@"\G{ImmTargetRegex}";
 
         if (immediateMatch.Groups[1].Length > 0)
         {
-            return new OperandDescriptor(mnemonic, regex, OperandType.ImmediateConstant,
+            return new BasicOperandDescriptor(mnemonic, regex, OperandType.ImmediateConstant,
                 OperandTokenType.ImmediateConstant,
                 "const", optional: optional);
         }
 
         var size = int.Parse(immediateMatch.Groups[2].Value);
         var isDiv4 = immediateMatch.Groups[3].Length > 0;
-        var token = new OperandToken(OperandTokenType.Immediate, "imm" + size)
+        var token = new OperandTokenDescriptor(OperandTokenType.Immediate, "imm" + size)
         {
             ImmediateSize = size,
             IsImmediateDiv4 = isDiv4
         };
 
-        return new OperandDescriptor(mnemonic, regex, isDiv4 ? OperandType.ImmediateDiv4 : OperandType.Immediate,
+        return new BasicOperandDescriptor(mnemonic, regex, isDiv4 ? OperandType.ImmediateDiv4 : OperandType.Immediate,
             optional, (0, 1, token));
     }
 
-    private OperandDescriptor MakeShiftOperand(Match shiftMatch, InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeShiftOperand(Match shiftMatch, InstructionVariant mnemonic, bool optional)
     {
         var isImmediateShift = shiftMatch.Groups["shtype"].Value == "I";
         ShiftType[]? mask = null;
@@ -473,63 +475,65 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
 
         if (isImmediateShift)
         {
-            return new OperandDescriptor(mnemonic, new[] { @"\G(LS[RL]|ASR|ROR)", " #?([+-]?[0-9]+)" },
+            return new BasicOperandDescriptor(mnemonic, new[] { @"\G(LS[RL]|ASR|ROR)", " #?([+-]?[0-9]+)" },
                 OperandType.Shift,
-                optional, (0, 1, new OperandToken(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
-                (1, 1, new OperandToken(OperandTokenType.ImmediateShift, "imm")));
+                optional, (0, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
+                (1, 1, new OperandTokenDescriptor(OperandTokenType.ImmediateShift, "imm")));
         }
         else
         {
-            return new OperandDescriptor(mnemonic, new[] { @"\G(LS[RL]|ASR|ROR)", $@"\G {RegisterTargetRegex}" },
+            return new BasicOperandDescriptor(mnemonic, new[] { @"\G(LS[RL]|ASR|ROR)", $@"\G {RegisterTargetRegex}" },
                 OperandType.Shift,
-                optional, (0, 1, new OperandToken(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
-                (1, 1, new OperandToken(OperandTokenType.Register, "Rs")));
+                optional, (0, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
+                (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rs")));
         }
     }
 
-    private OperandDescriptor MakeImmediateAddressingOperand(string symbol, InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeImmediateAddressingOperand(string symbol, InstructionVariant mnemonic,
+        bool optional)
     {
         return Dummy(mnemonic);
     }
 
-    private OperandDescriptor MakeRegisterAddressingOperand(string symbol, InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeRegisterAddressingOperand(string symbol, InstructionVariant mnemonic,
+        bool optional)
     {
         return Dummy(mnemonic);
     }
 
-    private OperandDescriptor MakeLabelOperand(InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeLabelOperand(InstructionVariant mnemonic, bool optional)
     {
-        return new OperandDescriptor(mnemonic, $@"\G{LabelTargetRegex}", OperandType.Label, OperandTokenType.Label,
+        return new BasicOperandDescriptor(mnemonic, $@"\G{LabelTargetRegex}", OperandType.Label, OperandTokenType.Label,
             "label", 1, optional);
     }
 
-    private OperandDescriptor MakeRegisterListOperand(Match registerListMatch, InstructionVariant mnemonic,
+    private BasicOperandDescriptor MakeRegisterListOperand(Match registerListMatch, InstructionVariant mnemonic,
         bool optional)
     {
-        return new OperandDescriptor(mnemonic, RegListRegex, OperandType.RegisterList, optional);
+        return new BasicOperandDescriptor(mnemonic, RegListRegex, OperandType.RegisterList, optional);
     }
 
-    private OperandDescriptor MakeRrxOperand(InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeRrxOperand(InstructionVariant mnemonic, bool optional)
     {
-        return new OperandDescriptor(mnemonic, @"\GRRX", OperandType.RRX, optional);
+        return new BasicOperandDescriptor(mnemonic, @"\GRRX", OperandType.RRX, optional);
     }
 
-    private OperandDescriptor MakeSRegisterOperand(Match registerMatch, InstructionVariant mnemonic, bool optional)
-    {
-        return Dummy(mnemonic);
-    }
-
-    private OperandDescriptor MakeQRegisterOperand(Match registerMatch, InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeSRegisterOperand(Match registerMatch, InstructionVariant mnemonic, bool optional)
     {
         return Dummy(mnemonic);
     }
 
-    private static OperandDescriptor Dummy(InstructionVariant mnemonic)
+    private BasicOperandDescriptor MakeQRegisterOperand(Match registerMatch, InstructionVariant mnemonic, bool optional)
     {
-        return new OperandDescriptor(mnemonic, "x");
+        return Dummy(mnemonic);
     }
 
-    private OperandDescriptor MakeComposedOperand(InstructionVariant instructionVariant, MatchCollection matches,
+    private static BasicOperandDescriptor Dummy(InstructionVariant mnemonic)
+    {
+        return new BasicOperandDescriptor(mnemonic, "x");
+    }
+
+    private BasicOperandDescriptor MakeComposedOperand(InstructionVariant instructionVariant, MatchCollection matches,
         string operandDefinition)
     {
         OperandType? operandType = null;
@@ -562,11 +566,11 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             if (nextStart != endPos)
             {
                 regexParts.Add(new OperandRegexPart(regexIndex++, "\\G" + operandDefinition[endPos..nextStart],
-                    ImmutableDictionary<int, OperandToken>.Empty));
+                    ImmutableDictionary<int, OperandTokenDescriptor>.Empty));
             }
         }
 
-        var newOperand = new OperandDescriptor(instructionVariant, regexParts.Select(r => r.Regex),
+        var newOperand = new BasicOperandDescriptor(instructionVariant, regexParts.Select(r => r.Regex),
             operandType ?? OperandType.Literal, operandOptional,
             regexParts.ToImmutableDictionary(k => k.Index, k => k.Tokens));
 
@@ -622,10 +626,13 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             .ToList());
     }
 
-    public IOperandAnalyser For(OperandDescriptor descriptor)
+    public IOperandAnalyser For(IOperandDescriptor descriptor)
     {
         // TODO: Cache
-        return new BasicOperandAnalyser(descriptor);
+        if (descriptor is BasicOperandDescriptor basicOperandDescriptor)
+            return new BasicOperandAnalyser(basicOperandDescriptor);
+        else
+            throw new NotImplementedException();
     }
 
     public IInstructionValidator? For(InstructionVariant instructionVariant)

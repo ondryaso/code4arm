@@ -9,7 +9,7 @@ namespace Armfors.LanguageServer.CodeAnalysis.Models;
 /// </summary>
 /// <param name="Type">The <see cref="OperandTokenType"/> type of this token.</param>
 /// <param name="SymbolicName">The name of the token shown in signature help.</param>
-public record OperandToken(OperandTokenType Type, string SymbolicName)
+public record OperandTokenDescriptor(OperandTokenType Type, string SymbolicName)
 {
     /// <summary>
     /// Allowed general-purpose registers for tokens of type <see cref="OperandTokenType.Register"/>. 

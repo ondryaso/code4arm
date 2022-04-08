@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using Armfors.LanguageServer.CodeAnalysis.Models;
+using Armfors.LanguageServer.CodeAnalysis.Models.Abstractions;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Abstractions;
 
@@ -34,5 +35,5 @@ public interface IInstructionProvider
     Task<List<InstructionVariant>?> GetVariants(string mnemonic,
         InstructionVariantFlag exclude = InstructionVariantFlag.NoFlags);
 
-    IEnumerable<OperandDescriptor> GetOperands(InstructionVariant variant);
+    IEnumerable<IOperandDescriptor> GetOperands(InstructionVariant variant);
 }

@@ -249,7 +249,8 @@ public class CompletionHandler : CompletionHandlerBase
         return new CompletionList(ret, true);
     }
 
-    private (OperandToken? TokenDescriptor, Range? TargetRange) DetermineTokenAtPosition(AnalysedLine lineAnalysis,
+    private (OperandTokenDescriptor? TokenDescriptor, Range? TargetRange) DetermineTokenAtPosition(
+        AnalysedLine lineAnalysis,
         Position position)
     {
         var mnemonic = lineAnalysis.Mnemonic;
@@ -263,10 +264,12 @@ public class CompletionHandler : CompletionHandlerBase
             return (null, null);
 
         var analysedOperands = lineAnalysis.Operands;
-        if (analysedOperands is null or {Count: 0})
+        if (analysedOperands is null or { Count: 0 })
         {
             var firstOp = mnemonic.Operands[0];
-            return (SingleOrFirstTokenDescriptor(firstOp), lineAnalysis.AnalysedRange.Trail(0));
+            var firstDescriptor = firstOp.GetTokenDescriptors().FirstOrDefault();
+
+            return (firstDescriptor, lineAnalysis.AnalysedRange.Trail(0));
         }
 
         AnalysedOperand? cursorIn = null;
@@ -284,13 +287,18 @@ public class CompletionHandler : CompletionHandlerBase
             if (cursorIn.Descriptor == null)
                 return (null, null);
             if (cursorIn.Tokens == null && cursorIn.Descriptor.Type == OperandType.Shift)
-                return (cursorIn.Descriptor.MatchGroupsTokenMappings[0].First().Value, cursorIn.ErrorRange);
-            if (cursorIn.Tokens is null or {Count: 0})
-                return (SingleOrFirstTokenDescriptor(cursorIn.Descriptor),
+                return (cursorIn.Descriptor.GetTokenDescriptors().FirstOrDefault(), cursorIn.ErrorRange);
+
+            if (cursorIn.Tokens is null or { Count: 0 })
+            {
+                var firstDescriptor = cursorIn.Descriptor.GetTokenDescriptors().FirstOrDefault();
+
+                return (firstDescriptor,
                     cursorIn.Descriptor.IsSingleToken
                         ? cursorIn.Range
                         : new Range(lineAnalysis.LineIndex, position.Character - 1, lineAnalysis.LineIndex,
                             position.Character));
+            }
 
             foreach (var token in cursorIn.Tokens)
             {
@@ -298,10 +306,10 @@ public class CompletionHandler : CompletionHandlerBase
                 {
                     if (cursorIn.Descriptor.IsSingleToken && cursorIn.ErrorRange != null)
                     {
-                        return (token.Token, cursorIn.Range + cursorIn.ErrorRange);
+                        return (token.TokenDescriptor, cursorIn.Range + cursorIn.ErrorRange);
                     }
 
-                    return (token.Token,
+                    return (token.TokenDescriptor,
                         new Range(token.Range.Start.Line, token.Range.Start.Character, token.Range.End.Line,
                             token.Range.End.Character));
                 }
@@ -310,11 +318,6 @@ public class CompletionHandler : CompletionHandlerBase
 
         return (null, null);
     }
-
-    private static OperandToken? SingleOrFirstTokenDescriptor(OperandDescriptor descriptor) =>
-        descriptor.IsSingleToken
-            ? descriptor.SingleToken
-            : descriptor.MatchGroupsTokenMappings?.FirstOrDefault().Value.FirstOrDefault().Value;
 
     private IEnumerable<CompletionItem> MakeCompletionItemsForRegister(Range range, Register mask)
     {
@@ -441,7 +444,7 @@ public class CompletionHandler : CompletionHandlerBase
             DocumentSelector = Constants.ArmUalDocumentSelector,
             ResolveProvider = false, // we will see
             WorkDoneProgress = false,
-            TriggerCharacters = new[] {" ", ",", ".", "[", "{", "-"}
+            TriggerCharacters = new[] { " ", ",", ".", "[", "{", "-" }
         };
     }
 }

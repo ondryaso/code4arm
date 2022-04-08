@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Runtime.InteropServices;
+using Armfors.LanguageServer.CodeAnalysis.Models.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Armfors.LanguageServer.CodeAnalysis.Models;
@@ -95,16 +96,16 @@ public readonly struct AnalysedOperandTokenData
     }
 }
 
-public record AnalysedOperandToken(OperandToken Token, OperandTokenResult Result, Range Range, string Text,
+public record AnalysedOperandToken(OperandTokenDescriptor TokenDescriptor, OperandTokenResult Result, Range Range, string Text,
     AnalysedOperandTokenData Data = default, DiagnosticSeverity Severity = DiagnosticSeverity.Error)
 {
     public OperandTokenResult Result { get; set; } = Result;
-    public OperandTokenType Type => this.Token.Type;
+    public OperandTokenType Type => this.TokenDescriptor.Type;
     public DiagnosticSeverity Severity { get; set; } = Severity;
     public AnalysedOperandTokenData Data { get; set; } = Data;
 }
 
-public record AnalysedOperand(int Index, OperandDescriptor? Descriptor, Range Range, OperandResult Result,
+public record AnalysedOperand(int Index, IOperandDescriptor? Descriptor, Range Range, OperandResult Result,
     Range? ErrorRange = null, List<AnalysedOperandToken>? Tokens = null);
 
 public record struct OperandMatchSet();

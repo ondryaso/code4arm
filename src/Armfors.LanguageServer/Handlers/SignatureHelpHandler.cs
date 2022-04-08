@@ -74,7 +74,8 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             {
                 var token = analyser.FindTokenAtPosition(prepPosition);
                 ret.Add(token is { Type: AnalysedTokenType.OperandToken }
-                    ? this.MakeSignatureInformation(variant, token.OperandToken!.Token)
+                    ? this.MakeSignatureInformation(variant, lineAnalysis, token.Operand,
+                        token.OperandToken!.TokenDescriptor)
                     : this.MakeSignatureInformation(variant));
 
                 currentVariant = i;
@@ -95,11 +96,13 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
         };
     }
 
-    private SignatureInformation MakeSignatureInformation(InstructionVariant variant, OperandToken? toTag = null)
+    private SignatureInformation MakeSignatureInformation(InstructionVariant variant, AnalysedLine? line = null,
+        AnalysedOperand? operand = null, OperandTokenDescriptor? toTag = null)
     {
         var paramInfo = new List<ParameterInformation>();
         int? active = null;
         var sb = new StringBuilder();
+        var forCurrent = line != null && operand != null;
 
         sb.Append(variant.Mnemonic);
         sb.Append(' ');
@@ -107,37 +110,41 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
         for (var i = 0; i < variant.Operands.Count; i++)
         {
             var operandDescriptor = variant.Operands[i];
-            var hasCustomFormatting = operandDescriptor.TokenFormatting != null;
+            var hasCustomFormatting = operandDescriptor.HasCustomSignatureFormatting;
             if (hasCustomFormatting)
             {
-                sb.Append(string.Format(operandDescriptor.TokenFormatting!, operandDescriptor.MatchGroupsTokenMappings
-                    .SelectMany(t => t.Value)
-                    .Select(t => $"<{t.Value.SymbolicName}>" as object).ToArray()));
+                sb.Append(forCurrent
+                    ? operandDescriptor.GetCustomSignatureFormatting(line!, operand!)
+                    : operandDescriptor.GetCustomSignatureFormatting());
             }
             else if (operandDescriptor.Optional)
             {
                 sb.Append('{');
             }
 
-            foreach (var tokenMapping in operandDescriptor.MatchGroupsTokenMappings.SelectMany(t => t.Value))
+            var descriptors = forCurrent
+                ? operandDescriptor.GetTokenDescriptors(line!, operand!)
+                : operandDescriptor.GetTokenDescriptors();
+
+            foreach (var tokenMapping in descriptors)
             {
                 if (!hasCustomFormatting)
                 {
-                    sb.Append($"<{tokenMapping.Value.SymbolicName}>");
+                    sb.Append($"<{tokenMapping.SymbolicName}>");
                     sb.Append(' ');
                 }
 
-                if (toTag == tokenMapping.Value)
+                if (toTag == tokenMapping)
                 {
                     active = paramInfo.Count;
                 }
 
                 paramInfo.Add(new ParameterInformation()
                 {
-                    Label = new ParameterInformationLabel($"<{tokenMapping.Value.SymbolicName}>"),
+                    Label = new ParameterInformationLabel($"<{tokenMapping.SymbolicName}>"),
                     Documentation =
                         _instructionDocumentationProvider.InstructionOperandEntry(variant,
-                            tokenMapping.Value.SymbolicName)
+                            tokenMapping.SymbolicName)
                 });
             }
 
