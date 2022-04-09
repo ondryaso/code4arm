@@ -29,7 +29,7 @@ public class BasicOperandAnalyser : IOperandAnalyser
         var hasErrors = false;
         var position = operandLineRange.Start.Character;
 
-        for (var mi = 0; mi < matches.Count; mi++)
+        for ( var mi = 0; mi < matches.Count; mi++)
         {
             var match = matches[mi];
 
@@ -44,6 +44,9 @@ public class BasicOperandAnalyser : IOperandAnalyser
                 {
                     var range = new Range(operandLineRange.Start.Line, position,
                         operandLineRange.Start.Line, operandPartPositionInLine + operandLine.Length - 1);
+
+                    if (resultTokens.Count > 0)
+                        resultTokens[^1].Range.End.Character = range.End.Character;
 
                     return new AnalysedOperand(operandIndex, _descriptor, operandLineRange,
                         OperandResult.SyntaxError, range, resultTokens);
@@ -69,7 +72,7 @@ public class BasicOperandAnalyser : IOperandAnalyser
 
             foreach (var (groupIndex, token) in mappings)
             {
-                if (!match.Success)
+                if (!match.Success || match.Length == 0 || (match.Length == 1 && match.Value[0] == ' '))
                 {
                     var range = new Range(operandLineRange.Start.Line, position,
                         operandLineRange.Start.Line, position + 1);
@@ -83,10 +86,13 @@ public class BasicOperandAnalyser : IOperandAnalyser
 
                     position = range.End.Character;
 
-                    resultTokens.Add(new AnalysedOperandToken(token, OperandTokenResult.SyntaxError, range,
-                        string.Empty));
+                    if (!match.Success)
+                    {
+                        resultTokens.Add(new AnalysedOperandToken(token, OperandTokenResult.SyntaxError, range,
+                            string.Empty));
 
-                    hasErrors = true;
+                        hasErrors = true;
+                    }
 
                     //mi = matches.Count;  // Ends the outer cycle
                     break;

@@ -109,6 +109,9 @@ public static class TokenAnalyser
     public static AnalysedOperandToken CheckImmediateShift(OperandTokenDescriptor tokenDescriptor, Range tokenRange, Group tokenMatch,
         ShiftType shiftType)
     {
+        if (string.IsNullOrEmpty(tokenMatch.Value))
+            return new AnalysedOperandToken(tokenDescriptor, OperandTokenResult.SyntaxError, tokenRange, tokenMatch.Value);
+        
         var number = int.Parse(tokenMatch.Value);
 
         var valid = shiftType switch
@@ -133,12 +136,6 @@ public static class TokenAnalyser
 
         if (!tokenDescriptor.RegisterMask.HasFlag(register))
         {
-            if (descriptor.Type == OperandType.Register)
-            {
-                return new AnalysedOperandToken(tokenDescriptor, OperandTokenResult.InvalidRegister, tokenRange,
-                    tokenMatch.Value, register);
-            }
-
             if (descriptor.Type == OperandType.RegisterList)
             {
                 return new AnalysedOperandToken(tokenDescriptor,
@@ -147,6 +144,9 @@ public static class TokenAnalyser
                         : OperandTokenResult.InvalidRegisterListEntry, tokenRange, tokenMatch.Value,
                     register);
             }
+            
+            return new AnalysedOperandToken(tokenDescriptor, OperandTokenResult.InvalidRegister, tokenRange,
+                tokenMatch.Value, register);
         }
 
         return new AnalysedOperandToken(tokenDescriptor, OperandTokenResult.Valid, tokenRange, tokenMatch.Value, register);

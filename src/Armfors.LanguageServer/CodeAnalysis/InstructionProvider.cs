@@ -103,7 +103,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         // TODO: handle failures
     }
 
-    private Regex _symbolRegex = new(@"<(?<optional>\??)(?<symbol>\w*?)>", RegexOptions.Compiled);
+    private Regex _symbolRegex = new(@"<(?<optional>\??)(?<symbol>[\w!]*?)>", RegexOptions.Compiled);
 
     // Start with a <
     // Match O:... (group var is the whole thing, then there are the parts in varA, varB, varC)
@@ -148,9 +148,9 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 var copyPre = variantModel.CloneForDefinitionVariant();
                 var copyPost = variantModel.CloneForDefinitionVariant();
 
-                copyOffset.Definition[i] = "AIo";
-                copyPre.Definition[i] = "AIp";
-                copyPost.Definition[i] = "AI!";
+                copyOffset.Definition[i] = "<AIo>";
+                copyPre.Definition[i] = "<AIp>";
+                copyPost.Definition[i] = "<AI!>";
 
                 this.ExpandDefinition(mnemonic, definitionModel, copyOffset);
                 this.ExpandDefinition(mnemonic, definitionModel, copyPre);
@@ -165,9 +165,9 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 var copyPre = variantModel.CloneForDefinitionVariant();
                 var copyPost = variantModel.CloneForDefinitionVariant();
 
-                copyOffset.Definition[i] = "ARo";
-                copyPre.Definition[i] = "ARp";
-                copyPost.Definition[i] = "AR!";
+                copyOffset.Definition[i] = "<ARo>";
+                copyPre.Definition[i] = "<ARp>";
+                copyPost.Definition[i] = "<AR!>";
 
                 this.ExpandDefinition(mnemonic, definitionModel, copyOffset);
                 this.ExpandDefinition(mnemonic, definitionModel, copyPre);
@@ -350,8 +350,8 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         @"^reglist(?::(?<reverse>!)?(?:(?<reg>1[543210]|[9876543210]|\+PC|PC|LR)(?(?=.)\||))+)?$",
         RegexOptions.Compiled);
 
-    private const string ImmTargetRegex = "#?([+-]?[0-9]+)";
-    private const string RegisterTargetRegex = "(R(?:1[543210]|[9876543210])|LR|PC|SP)";
+    private const string ImmTargetRegex = @"#?([+\-]?[0-9]+)";
+    private const string RegisterTargetRegex = @"(R(?:1[543210]|[9876543210])|LR|PC|SP)";
     private const string LabelTargetRegex = @"(?:\""(?<1>[\w.$ ]+)\""|(?<1>[\w.$]+))";
 
     private const string RegListRegex =
@@ -477,14 +477,16 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         {
             return new BasicOperandDescriptor(mnemonic, new[] { @"\G(LS[RL]|ASR|ROR)", " #?([+-]?[0-9]+)" },
                 OperandType.Shift,
-                optional, (0, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
+                optional,
+                (0, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
                 (1, 1, new OperandTokenDescriptor(OperandTokenType.ImmediateShift, "imm")));
         }
         else
         {
             return new BasicOperandDescriptor(mnemonic, new[] { @"\G(LS[RL]|ASR|ROR)", $@"\G {RegisterTargetRegex}" },
                 OperandType.Shift,
-                optional, (0, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
+                optional,
+                (0, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift") { AllowedShiftTypes = mask }),
                 (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rs")));
         }
     }
@@ -492,13 +494,86 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     private BasicOperandDescriptor MakeImmediateAddressingOperand(string symbol, InstructionVariant mnemonic,
         bool optional)
     {
-        return Dummy(mnemonic);
+        if (symbol == "AIo")
+        {
+            // Offset
+            return new BasicOperandDescriptor(mnemonic,
+                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?(, ?{ImmTargetRegex})?", "\\G ?\\]" },
+                OperandType.ImmediateOffset, optional,
+                (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
+                (2, 2, new OperandTokenDescriptor(OperandTokenType.Immediate, "imm") { ImmediateSize = 12 }));
+        }
+
+        if (symbol == "AI!")
+        {
+            // Pre-indexed
+            return new BasicOperandDescriptor(mnemonic,
+                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?{ImmTargetRegex}", "\\G ?\\]!" },
+                OperandType.ImmediatePreIndexed, optional,
+                (1, 1,
+                    new OperandTokenDescriptor(OperandTokenType.Register, "Rn")
+                        { RegisterMask = RegisterExtensions.WithoutPC }),
+                (2, 1, new OperandTokenDescriptor(OperandTokenType.Immediate, "imm") { ImmediateSize = 12 }));
+        }
+
+        if (symbol == "AIp")
+        {
+            // Post-indexed
+            return new BasicOperandDescriptor(mnemonic,
+                new[]
+                {
+                    "\\[", $"\\G ?{RegisterTargetRegex}", "\\G ?\\]", $"\\G ?, ?{ImmTargetRegex}",
+                },
+                OperandType.ImmediatePostIndexed, optional,
+                (1, 1,
+                    new OperandTokenDescriptor(OperandTokenType.Register, "Rn")
+                        { RegisterMask = RegisterExtensions.WithoutPC }),
+                (3, 1, new OperandTokenDescriptor(OperandTokenType.Immediate, "imm") { ImmediateSize = 12 }));
+        }
+
+        throw new Exception($"Invalid addressing operand <{symbol}>.");
     }
 
     private BasicOperandDescriptor MakeRegisterAddressingOperand(string symbol, InstructionVariant mnemonic,
         bool optional)
     {
-        return Dummy(mnemonic);
+        if (symbol == "ARo")
+        {
+            // Offset
+            return new BasicOperandDescriptor(mnemonic,
+                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?[+-]?{RegisterTargetRegex}", @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?", "\\G ?\\]" },
+                OperandType.RegisterOffset, optional,
+                (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
+                (2, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rm")),
+                (3, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift")),
+                (3, 2, new OperandTokenDescriptor(OperandTokenType.ImmediateShift, "imm")));
+        }
+
+        if (symbol == "AR!")
+        {
+            // Pre-indexed
+            return new BasicOperandDescriptor(mnemonic,
+                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?[+-]?{RegisterTargetRegex}", @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?", "\\G ?\\]!" },
+                OperandType.RegisterPreIndexed, optional,
+                (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
+                (2, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rm")),
+                (3, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift")),
+                (3, 2, new OperandTokenDescriptor(OperandTokenType.ImmediateShift, "imm")));
+        }
+
+        if (symbol == "ARp")
+        {
+            // Post-indexed
+            return new BasicOperandDescriptor(mnemonic,
+                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", "\\G ?\\]", $"\\G ?, ?[+-]?{RegisterTargetRegex}", @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?" },
+                OperandType.RegisterPostIndexed, optional,
+                (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
+                (3, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rm")),
+                (4, 1, new OperandTokenDescriptor(OperandTokenType.ShiftType, "shift")),
+                (4, 2, new OperandTokenDescriptor(OperandTokenType.ImmediateShift, "imm")));
+        }
+
+        throw new Exception($"Invalid addressing operand <{symbol}>.");
     }
 
     private BasicOperandDescriptor MakeLabelOperand(InstructionVariant mnemonic, bool optional)
@@ -510,6 +585,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     private BasicOperandDescriptor MakeRegisterListOperand(Match registerListMatch, InstructionVariant mnemonic,
         bool optional)
     {
+        // TODO: This will be a special operand descriptor type
         return new BasicOperandDescriptor(mnemonic, RegListRegex, OperandType.RegisterList, optional);
     }
 

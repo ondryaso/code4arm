@@ -117,7 +117,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
                     ? operandDescriptor.GetCustomSignatureFormatting(line!, operand!)
                     : operandDescriptor.GetCustomSignatureFormatting());
             }
-            else if (operandDescriptor.Optional)
+            else if (operandDescriptor.Optional && i == 0)
             {
                 sb.Append('{');
             }
@@ -155,6 +155,11 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
 
             if (i != variant.Operands.Count - 1)
             {
+                if (variant.Operands[i + 1].Optional)
+                {
+                    sb.Append('{');
+                }
+
                 sb.Append(',');
             }
 

@@ -84,18 +84,17 @@ public class BasicOperandDescriptor : IOperandDescriptor
         _regexes = null!;
         this.MatchGroupsTokenMappings = null!;
 
-        if (type == OperandType.ImmediateAddressing)
+        this.CustomSignatureFormatting = type switch
         {
-            this.CustomSignatureFormatting = "[ {0} {{, {1}}} ]";
-        }
-        else if (type == OperandType.RegisterAddressing)
-        {
-            this.CustomSignatureFormatting = "[ {0},  {1} ]";
-        }
-        else if (type == OperandType.RRX)
-        {
-            this.CustomSignatureFormatting = "RRX";
-        }
+            OperandType.ImmediateOffset => "[ {0} {{, {1}}} ]",
+            OperandType.ImmediatePreIndexed => "[ {0}, {1} ]!",
+            OperandType.ImmediatePostIndexed => "[ {0} ], {1}",
+            OperandType.RegisterOffset => "[ {0}, {{+/-}}{1}{{, {2} {3}}} ]",
+            OperandType.RegisterPreIndexed => "[ {0}, {{+/-}}{1}{{, {2} {3}}} ]!",
+            OperandType.RegisterPostIndexed => "[ {0} ], {{+/-}}{1}{{, {2} {3} }}",
+            OperandType.RRX => "RRX",
+            _ => this.CustomSignatureFormatting
+        };
     }
 
     public BasicOperandDescriptor(InstructionVariant mnemonic, string literal) : this(mnemonic, OperandType.Literal)

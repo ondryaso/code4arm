@@ -1267,7 +1267,7 @@ public class SourceAnalyser : ISourceAnalyser
                         }
                     }
 
-                    if (currentPos == 0 || match.Index != 0)
+                    if (currentPos == initPos || match.Index != 0) 
                     {
                         currentPos = match.Index + match.Length;
                     }

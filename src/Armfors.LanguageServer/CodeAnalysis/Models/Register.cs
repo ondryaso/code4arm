@@ -34,7 +34,7 @@ public static class RegisterExtensions
     public const Register General = (Register)((1 << 13) - 1);
 
     // ReSharper disable once InconsistentNaming
-    public const Register WithoutPC = (Register)((1 << 14) - 1);
+    public const Register WithoutPC = (Register)((1 << 15) - 1);
 
     /// <summary>
     /// Determines whether a <see cref="Register"/> bitfield value only marks a single register.

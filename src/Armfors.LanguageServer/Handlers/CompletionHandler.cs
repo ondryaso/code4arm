@@ -244,6 +244,17 @@ public class CompletionHandler : CompletionHandlerBase
                     ret.AddRange(this.MakeCompletionItemsForLabel(originalRange, text, analyser));
                 }
             }
+
+            if (ret.Count == 0)
+            {
+                var existingChar = new Range(prepPosition.Line, prepPosition.Character - 1, prepPosition.Line,
+                    prepPosition.Character);
+                if (source[existingChar] == "R")
+                {
+                    ret.AddRange(this.MakeCompletionItemsForRegister(
+                        source.GetOriginalRange(existingChar), RegisterExtensions.All));
+                }
+            }
         }
 
         return new CompletionList(ret, true);
@@ -275,7 +286,7 @@ public class CompletionHandler : CompletionHandlerBase
         AnalysedOperand? cursorIn = null;
         foreach (var analysedOperand in analysedOperands)
         {
-            if (analysedOperand.Range.Contains(position))
+            if (analysedOperand.Range.Contains(position) || (analysedOperand.ErrorRange?.Contains(position) ?? false))
             {
                 cursorIn = analysedOperand;
                 break;
@@ -298,6 +309,18 @@ public class CompletionHandler : CompletionHandlerBase
                         ? cursorIn.Range
                         : new Range(lineAnalysis.LineIndex, position.Character - 1, lineAnalysis.LineIndex,
                             position.Character));
+            }
+
+            if (cursorIn.Descriptor.Type is OperandType.RegisterOffset or OperandType.RegisterPreIndexed)
+            {
+                if (cursorIn.Tokens.Count == 2 && cursorIn.Tokens[1].Result == OperandTokenResult.Valid)
+                {
+                    if (position.Character > cursorIn.Tokens[1].Range.End.Character)
+                    {
+                        return ((cursorIn.Descriptor as BasicOperandDescriptor)!.MatchGroupsTokenMappings[3][1],
+                            cursorIn.ErrorRange);
+                    }
+                }
             }
 
             foreach (var token in cursorIn.Tokens)
