@@ -24,7 +24,9 @@ module internal MockBinding =
     let mutable hook_add_noarg = fun(eng, hh, callbackType, callback, userData, hookBegin, hookEnd) -> 0
     let mutable hook_add_arg0 = fun(eng, hh, callbackType, callback, userData, hookBegin, hookEnd, arg0) -> 0
     let mutable hook_add_arg0_arg1 = fun(eng, hh, callbackType, callback, userData, hookBegin, hookEnd, arg0, arg1) -> 0
-
+    let mutable ctl_arg0int = fun(eng, controlType, arg0) -> 0
+    let mutable ctl_arg0ptr = fun(eng, controlType, arg0) -> 0
+    
     let instance =
         {new IBinding with
             member thi.Version(major, minor) = version(major, minor)
@@ -47,5 +49,6 @@ module internal MockBinding =
             member thi.HookAddNoarg(eng, hh, callbackType, callback, userData, hookBegin, hookEnd) = hook_add_noarg(eng, hh, callbackType, callback, userData, hookBegin, hookEnd)
             member thi.HookAddArg0(eng, hh, callbackType, callback, userData, hookBegin, hookEnd, arg0) = hook_add_arg0(eng, hh, callbackType, callback, userData, hookBegin, hookEnd, arg0)
             member thi.HookAddArg0Arg1(eng, hh, callbackType, callback, userData, hookBegin, hookEnd, arg0, arg1) = hook_add_arg0_arg1(eng, hh, callbackType, callback, userData, hookBegin, hookEnd, arg0, arg1)
+            member thi.ControlArg0Int(eng, controlType, arg0) = ctl_arg0int(eng, controlType, arg0)
+            member thi.ControlArg0IntPtr(eng, controlType, arg0) = ctl_arg0ptr(eng, controlType, arg0)
         }
-    

@@ -313,6 +313,15 @@ and Unicorn(arch: Int32, mode: Int32, binding: IBinding) =
 
     member this.AddSyscallHook(callback: SyscallHook) =
         this.AddSyscallHook(callback, null)
+        
+    member this.SetControl(controlType: Int32, value: Int32) =
+        match binding.ControlArg0Int(_eng.[0], ((0x44 <<< 24) ||| controlType), value) |> this.CheckResult with 
+        | Some e -> raise e | None -> ()
+        
+    member this.GetControl(controlType: Int32) =
+        let out = new IntPtr()
+        match binding.ControlArg0IntPtr(_eng.[0], ((0x84 <<< 24) ||| controlType), out) |> this.CheckResult with 
+        | Some e -> raise e | None -> out.ToInt32()
     
     member this.Version() =
         let (major, minor) = (new UIntPtr(), new UIntPtr())

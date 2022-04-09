@@ -15,7 +15,7 @@ type IBinding =
         abstract MemRead : UIntPtr * UInt64 * Byte array * UIntPtr -> Int32
         abstract MemWrite : UIntPtr * UInt64 * Byte array * UIntPtr -> Int32
         abstract EmuStart : UIntPtr * UInt64 * UInt64 * UInt64 * UInt64 -> Int32
-        abstract EmuStop : UIntPtr -> Int32        
+        abstract EmuStop : UIntPtr -> Int32
         abstract HookDel : UIntPtr * UIntPtr -> Int32
         abstract MemMap : UIntPtr * UInt64 * UIntPtr * UInt32 -> Int32
         abstract MemMapPtr : UIntPtr * UInt64 * UIntPtr * UInt32 * UIntPtr -> Int32
@@ -23,6 +23,10 @@ type IBinding =
         abstract MemProtect : UIntPtr * UInt64 * UIntPtr * UInt32 -> Int32
         abstract HookAddNoarg : UIntPtr * UIntPtr * Int32 * UIntPtr * IntPtr * UInt64 * UInt64 -> Int32
         abstract HookAddArg0 : UIntPtr * UIntPtr * Int32 * UIntPtr * IntPtr * UInt64 * UInt64 * Int32 -> Int32
-        abstract HookAddArg0Arg1 : UIntPtr * UIntPtr * Int32 * UIntPtr * IntPtr * UInt64 * UInt64 * UInt64 * UInt64 -> Int32
-    end
 
+        abstract HookAddArg0Arg1 :
+            UIntPtr * UIntPtr * Int32 * UIntPtr * IntPtr * UInt64 * UInt64 * UInt64 * UInt64 -> Int32
+
+        abstract ControlArg0Int : UIntPtr * Int32 * Int32 -> Int32
+        abstract ControlArg0IntPtr : UIntPtr * Int32 * IntPtr -> Int32
+    end
