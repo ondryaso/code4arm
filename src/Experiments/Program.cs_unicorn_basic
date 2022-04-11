@@ -1,0 +1,39 @@
+// Program.cs
+// Author: Ondřej Ondryáš
+
+using System.Runtime.InteropServices;
+using UnicornManaged;
+using UnicornManaged.Const;
+
+namespace Experiments;
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        var unicorn = new Unicorn(Common.UC_ARCH_ARM, Common.UC_MODE_ARM | Common.UC_MODE_BIG_ENDIAN);
+        //unicorn.SetControl(Common.UC_CTL_CPU_MODEL, Arm.UC_CPU_ARM_MAX);
+
+        unicorn.MemMap(0, 4096, Common.UC_PROT_ALL);
+        unicorn.MemWrite(0, new byte[] { 0xe3, 0xa0, 0x0a, 0x01, 0xe5, 0x90, 0x0, 0x0 });
+
+        var ptr = Marshal.AllocHGlobal(4096);
+        var test = new byte[] { 0, 0, 0, 69 };
+        Marshal.Copy(test, 0, ptr, 4);
+
+        unicorn.MemMapPtr(4096, 4096, Common.UC_PROT_ALL, ptr);
+
+        unicorn.RegWrite(Arm.UC_ARM_REG_R0, 0);
+        unicorn.EmuStart(0, 8, 0, 0);
+
+        var val = unicorn.RegRead(Arm.UC_ARM_REG_R0);
+        
+        unicorn.MemUnmap(4096, 4096);
+        unicorn.MemUnmap(0, 4096);
+        
+        unicorn.Close();
+        unicorn.Dispose();
+
+        Marshal.FreeHGlobal(ptr);
+    }
+}
