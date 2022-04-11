@@ -24,6 +24,8 @@ public class MemorySegment
     public bool IsFromElf { get; }
     public ELF<uint>? Elf { get; }
     public Segment<uint>? ElfSegment { get; }
+    
+    public MemorySegmentPermissions Permissions { get; }
 
     private static uint AlignStartAddress(uint address)
         => (address / 4096) * 4096;
@@ -46,26 +48,30 @@ public class MemorySegment
         this.IsFromElf = true;
         this.Elf = elf;
         this.ElfSegment = elf.Segments[segmentIndex];
-
+        this.Permissions = this.ElfSegment.Flags.ToLocal();
+        
         this.HasData = true;
         this.IsDirect = false;
         _data = null;
     }
 
-    public MemorySegment(SafeHandle handle, uint startAddress, uint size)
+    public MemorySegment(SafeHandle handle, uint startAddress, uint size, MemorySegmentPermissions permissions)
         : this(startAddress, size)
     {
         this.IsFromElf = false;
-
+        this.Permissions = permissions;
+        
         this.HasData = false;
         this.IsDirect = true;
         this.DirectHandle = handle;
     }
 
-    public MemorySegment(byte[] data, uint startAddress)
+    public MemorySegment(byte[] data, uint startAddress, MemorySegmentPermissions permissions)
         : this(startAddress, (uint)data.Length)
     {
         this.IsFromElf = false;
+        this.Permissions = permissions;
+
         this.HasData = true;
         this.IsDirect = false;
         _data = data;

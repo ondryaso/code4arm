@@ -35,7 +35,7 @@ public interface IAsmFile
     int Version { get; }
 
     /// <summary>
-    /// The workspace this file belongs to.
+    /// The project this file belongs to.
     /// </summary>
-    IWorkspace? Workspace { get; }
+    IAsmProject? Project { get; }
 }
