@@ -3,6 +3,9 @@
 
 namespace Code4Arm.ExecutionCore.Files.Abstractions;
 
+/// <summary>
+/// An abstraction over a set of assembly source files that are assembled and linked together.
+/// </summary>
 public interface IAsmProject
 {
     /// <summary>
