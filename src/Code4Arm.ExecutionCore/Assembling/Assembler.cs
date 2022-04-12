@@ -173,12 +173,19 @@ public class Assembler : IDisposable
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(_linkerOptions.Value.LinkerScript))
+        {
+            // Main linker script (if configured)
+            ldStartInfo.ArgumentList.Add("-T");
+            ldStartInfo.ArgumentList.Add(_linkerOptions.Value.LinkerScript);
+        }
+
         ldStartInfo.ArgumentList.Add("-o"); // Output file
         ldStartInfo.ArgumentList.Add(outputFile);
         ldStartInfo.ArgumentList.Add("-z"); // Page size
         ldStartInfo.ArgumentList.Add("common-page-size=4096");
 
-        if (_linkerScriptPath != null) // Linker script (if we have one)
+        if (_linkerScriptPath != null) // Linker script for function simulators (if we have one)
         {
             ldStartInfo.ArgumentList.Add(_linkerScriptPath);
         }
@@ -275,6 +282,13 @@ public class Assembler : IDisposable
                 address);
 
             _functionSimulators.Add(new BoundFunctionSimulator(functionSimulator, address));
+            
+            if (address >= _linkerOptions.Value.TrampolineEndAddress)
+            {
+                _logger.LogError("Too many function simulators for the configured trampoline memory.");
+                break;
+            }
+            
             address += 4;
         }
 

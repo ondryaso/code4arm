@@ -22,4 +22,10 @@
       <Folder Include="Execution\SyscallSimulators" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="linker_script.x">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
