@@ -26,6 +26,11 @@ public class MemorySegment
     public Segment<uint>? ElfSegment { get; }
     
     public MemorySegmentPermissions Permissions { get; }
+    
+    public bool HasBssSection { get; init; }
+    public uint BssStart { get; init; }
+    public uint BssEnd { get; init; }
+    public bool IsTrampoline { get; init; }
 
     private static uint AlignStartAddress(uint address)
         => (address / 4096) * 4096;
@@ -33,13 +38,16 @@ public class MemorySegment
     private static uint AlignSize(uint size, uint memoryStartAddress, uint contentsStartAddress)
         => (((size + (contentsStartAddress - memoryStartAddress)) / 4096) + 1) * 4096;
 
-    private MemorySegment(uint contentsStartAddress, uint contentsSize)
+    public MemorySegment(uint contentsStartAddress, uint contentsSize)
     {
         this.ContentsStartAddress = contentsStartAddress;
         this.ContentsSize = contentsSize;
 
         this.StartAddress = AlignStartAddress(this.ContentsStartAddress);
         this.Size = AlignSize(this.ContentsSize, this.StartAddress, this.ContentsStartAddress);
+
+        this.HasData = false;
+        this.IsDirect = false;
     }
 
     public MemorySegment(ELF<uint> elf, int segmentIndex)
@@ -49,10 +57,9 @@ public class MemorySegment
         this.Elf = elf;
         this.ElfSegment = elf.Segments[segmentIndex];
         this.Permissions = this.ElfSegment.Flags.ToLocal();
-        
+
         this.HasData = true;
         this.IsDirect = false;
-        _data = null;
     }
 
     public MemorySegment(SafeHandle handle, uint startAddress, uint size, MemorySegmentPermissions permissions)
@@ -63,6 +70,7 @@ public class MemorySegment
         
         this.HasData = false;
         this.IsDirect = true;
+        
         this.DirectHandle = handle;
     }
 
@@ -74,6 +82,7 @@ public class MemorySegment
 
         this.HasData = true;
         this.IsDirect = false;
+        
         _data = data;
     }
 
