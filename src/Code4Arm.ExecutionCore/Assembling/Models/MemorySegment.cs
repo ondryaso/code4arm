@@ -17,16 +17,17 @@ public class MemorySegment
 
     public uint StartAddress { get; }
     public uint Size { get; }
+    public uint EndAddress { get; }
 
     public uint ContentsStartAddress { get; }
     public uint ContentsSize { get; }
+    public uint ContentsEndAddress { get; }
 
     public bool IsFromElf { get; }
     public ELF<uint>? Elf { get; }
     public Segment<uint>? ElfSegment { get; }
-    
-    public MemorySegmentPermissions Permissions { get; }
-    
+
+    public MemorySegmentPermissions Permissions { get; init; }
     public bool HasBssSection { get; init; }
     public uint BssStart { get; init; }
     public uint BssEnd { get; init; }
@@ -42,9 +43,11 @@ public class MemorySegment
     {
         this.ContentsStartAddress = contentsStartAddress;
         this.ContentsSize = contentsSize;
+        this.ContentsEndAddress = contentsStartAddress + contentsSize;
 
         this.StartAddress = AlignStartAddress(this.ContentsStartAddress);
         this.Size = AlignSize(this.ContentsSize, this.StartAddress, this.ContentsStartAddress);
+        this.EndAddress = this.StartAddress + this.Size;
 
         this.HasData = false;
         this.IsDirect = false;
@@ -67,10 +70,10 @@ public class MemorySegment
     {
         this.IsFromElf = false;
         this.Permissions = permissions;
-        
+
         this.HasData = false;
         this.IsDirect = true;
-        
+
         this.DirectHandle = handle;
     }
 
@@ -82,7 +85,7 @@ public class MemorySegment
 
         this.HasData = true;
         this.IsDirect = false;
-        
+
         _data = data;
     }
 

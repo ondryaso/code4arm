@@ -24,9 +24,13 @@ public class Executable : IDisposable
     /// The address of the _start symbol. If no such symbol is defined, points to the start of the .text section.
     /// </summary>
     public uint EntryPoint { get; private set; }
-
     public uint LastInstructionAddress { get; private set; }
     public bool StartSymbolDefined { get; private set; }
+    
+    public uint TextSectionStartAddress { get; private set; }
+    public uint TextSectionEndAddress { get; private set; }
+
+    public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators => _functionSimulators;
 
     internal Executable(IAsmProject project, string filePath, ELF<uint> elf, List<AssembledObject> sourceObjects,
         IEnumerable<BoundFunctionSimulator>? functionSimulators, ILogger<Executable> logger)
@@ -99,7 +103,7 @@ public class Executable : IDisposable
             var trampolineStart = _functionSimulators.First().Key;
             var trampolineEnd = _functionSimulators.Last().Key + 4;
             var memorySegment = new MemorySegment(trampolineStart, trampolineEnd - trampolineStart)
-                { IsTrampoline = true };
+                { IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute};
 
             _segments.Add(memorySegment);
         }
@@ -127,6 +131,9 @@ public class Executable : IDisposable
         {
             throw new Exception($"ELF of project {this.Project.Name} doesn't contain a text section.");
         }
+
+        this.TextSectionStartAddress = textSection.LoadAddress;
+        this.TextSectionEndAddress = textSection.LoadAddress + textSection.Size;
 
         var startSymbol = symbolTable.Entries.FirstOrDefault(e => e.Name == "_start");
         if (startSymbol != null)

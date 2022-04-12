@@ -11,7 +11,7 @@ public class AssembledObject : IDisposable
     private readonly ILogger<AssembledObject> _logger;
     internal string ObjectFilePath { get; }
     internal string AssemblerOutput { get; }
-    internal string AssemblerErrors { get; }
+    public string AssemblerErrors { get; }
 
     public IAsmFile SourceFile { get; }
     public int SourceVersion { get; }
