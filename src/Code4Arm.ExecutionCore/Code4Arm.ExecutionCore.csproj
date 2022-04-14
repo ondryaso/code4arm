@@ -23,7 +23,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="linker_script.x">
+      <None Update="SupportFiles\linker_script.x">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="SupportFiles\init.s">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="SupportFiles\source_header.s">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>

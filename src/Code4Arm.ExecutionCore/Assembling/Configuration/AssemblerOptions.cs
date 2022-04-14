@@ -8,7 +8,8 @@ namespace Code4Arm.ExecutionCore.Assembling.Configuration;
 public class AssemblerOptions
 {
     public string GasPath { get; set; } = "as"; // TODO
-    public string[]? GasOptions { get; set; }
+    public string[]? GasOptions { get; set; } = new[] {"-march=armv8.6-a+fp16"};
+    public string? SourceHeaderPath { get; set; } = Path.Combine("SupportFiles", "source_header.s");
     public int TimeoutMs { get; } = 5000;
 }
 

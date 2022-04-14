@@ -8,6 +8,7 @@ using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using ELFSharp.ELF;
+using ELFSharp.ELF.Sections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -70,6 +71,12 @@ public class Assembler : IDisposable
         gasStartInfo.ArgumentList.Add("-alscn");
         gasStartInfo.ArgumentList.Add("-o");
         gasStartInfo.ArgumentList.Add(outputFile);
+
+        if (!string.IsNullOrWhiteSpace(_assemblerOptions.Value.SourceHeaderPath))
+        {
+            gasStartInfo.ArgumentList.Add(_assemblerOptions.Value.SourceHeaderPath);
+        }
+
         gasStartInfo.ArgumentList.Add(location.FileSystemPath);
 
         using var gasProcess = Process.Start(gasStartInfo);
@@ -154,6 +161,54 @@ public class Assembler : IDisposable
 
             _logger.LogTrace("Not linking – invalid object file(s).");
             return new MakeResult(asmProject, MakeResultState.InvalidObjects, null, validObjects, invalidObjects, null);
+        }
+
+        // Look for _start in assembled objects. If not found, insert our own init file.
+        if (!string.IsNullOrWhiteSpace(_linkerOptions.Value.InitFilePath))
+        {
+            var hasStartSymbol = false;
+
+            foreach (var assembledObject in validObjects)
+            {
+                if (ELFReader.TryLoad<uint>(assembledObject.ObjectFilePath, out var elf))
+                {
+                    var symTabSection = elf.Sections.FirstOrDefault(s => s.Type == SectionType.SymbolTable);
+                    if (symTabSection is not SymbolTable<uint> symbolTable)
+                    {
+                        _logger.LogTrace("Cannot find symbol table in assembled object file {FileName}.",
+                            assembledObject.SourceFile.Name);
+
+                        continue;
+                    }
+
+                    if (symbolTable.Entries.Any(e => e.Name == "_start"))
+                    {
+                        hasStartSymbol = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Cannot read successfully assembled object file {FileName}.",
+                        assembledObject.SourceFile.Name);
+                }
+            }
+
+            if (!hasStartSymbol)
+            {
+                var initFileSource = new InitFile(_linkerOptions.Value.InitFilePath);
+                var assembled = await this.AssembleFile(initFileSource);
+                
+                if (assembled.AssemblySuccessful)
+                {
+                    validObjects.Add(assembled);
+                }
+                else
+                {
+                    invalidObjects ??= new List<AssembledObject>();
+                    invalidObjects.Add(assembled);
+                }
+            }
         }
 
         // Link
@@ -282,13 +337,13 @@ public class Assembler : IDisposable
                 address);
 
             _functionSimulators.Add(new BoundFunctionSimulator(functionSimulator, address));
-            
+
             if (address >= _linkerOptions.Value.TrampolineEndAddress)
             {
                 _logger.LogError("Too many function simulators for the configured trampoline memory.");
                 break;
             }
-            
+
             address += 4;
         }
 
@@ -311,7 +366,7 @@ public class Assembler : IDisposable
             }
         }
 
-        if (_functionSimulators is null or { Count: 0 })
+        if (_functionSimulators is null or {Count: 0})
         {
             _linkerScriptPath = null;
             return;
@@ -342,5 +397,35 @@ public class Assembler : IDisposable
 
             _linkerScriptPath = null;
         }
+    }
+
+    private class InitFile : IAsmFile
+    {
+        private readonly string _path;
+
+        private class InitFileLocated : ILocatedFile
+        {
+            public void Dispose()
+            {
+            }
+
+            public string FileSystemPath { get; init; }
+            public int Version => 1;
+            public IAsmFile File { get; init; }
+        }
+
+        public Task<ILocatedFile> LocateAsync()
+        {
+            return Task.FromResult(new InitFileLocated() {File = this, FileSystemPath = _path} as ILocatedFile);
+        }
+
+        public InitFile(string path)
+        {
+            _path = path;
+        }
+
+        public string Name => "__ProgramEntryModule";
+        public int Version => 1;
+        public IAsmProject? Project => null;
     }
 }
