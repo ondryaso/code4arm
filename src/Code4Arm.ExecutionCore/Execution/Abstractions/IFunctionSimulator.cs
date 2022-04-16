@@ -1,12 +1,12 @@
 // IFunctionSimulator.cs
 // Author: Ondřej Ondryáš
 
-using UnicornManaged;
+using Code4Arm.Unicorn.Abstractions;
 
 namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 
 public interface IFunctionSimulator
 {
     string Name { get; }
-    void Run(Unicorn engine);
+    void Run(IUnicorn engine);
 }

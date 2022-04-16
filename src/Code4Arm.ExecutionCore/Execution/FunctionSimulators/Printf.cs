@@ -3,8 +3,8 @@
 
 using System.Text;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
-using UnicornManaged;
-using UnicornManaged.Const;
+using Code4Arm.Unicorn.Abstractions;
+using Code4Arm.Unicorn.Constants;
 
 namespace Code4Arm.ExecutionCore.Execution.FunctionSimulators;
 
@@ -12,11 +12,11 @@ public class Printf : IFunctionSimulator
 {
     public string Name => "printf";
 
-    public void Run(Unicorn engine)
+    public void Run(IUnicorn engine)
     {
         // TODO: use emulated memory accessor
 
-        var address = engine.RegRead(Arm.UC_ARM_REG_R0);
+        var address = engine.RegRead<uint>(Arm.Register.R0);
         var sb = new StringBuilder();
 
         var buf = new byte[16];
@@ -33,7 +33,7 @@ public class Printf : IFunctionSimulator
             if (end != buf.Length)
                 break;
 
-            address += buf.Length;
+            address += (uint) buf.Length;
         }
 
         Console.WriteLine($"EMULATOR OUTPUT: {sb}");

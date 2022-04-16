@@ -1,17 +1,20 @@
-﻿using Code4Arm.ExecutionCore.Assembling;
+﻿using System.Runtime.InteropServices;
+using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
 using Code4Arm.ExecutionCore.Files.Abstractions;
+using Code4Arm.Unicorn;
+using Code4Arm.Unicorn.Abstractions;
+using Code4Arm.Unicorn.Abstractions.Enums;
+using Code4Arm.Unicorn.Constants;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using Moq;
-using UnicornManaged;
-using UnicornManaged.Const;
+using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 namespace CoreExperiments;
 
@@ -58,7 +61,8 @@ public class Program
 
     private static void Emulate(Executable exe)
     {
-        var unicorn = new Unicorn(Common.UC_ARCH_ARM, Common.UC_MODE_ARM | Common.UC_MODE_LITTLE_ENDIAN);
+        using IUnicorn unicorn =
+            new Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
 
         byte[]? codeBytes = null;
         int s = 0;
@@ -102,30 +106,34 @@ public class Program
 
         // Add stack
         var stackMemoryStart = 0xe0000000;
-        var stackSize = 2 * 4096;
-        var stackPtrInitialValue = stackMemoryStart + stackSize;
-        unicorn.MemMap(stackMemoryStart, stackSize, Common.UC_PROT_READ | Common.UC_PROT_WRITE);
-        unicorn.RegWrite(Arm.UC_ARM_REG_SP, stackPtrInitialValue);
+        nuint stackSize = 2 * 4096;
+        var stackPtrInitialValue = (uint) (stackMemoryStart + stackSize);
+        unicorn.MemMap(stackMemoryStart, stackSize, MemoryPermissions.Read | MemoryPermissions.Write);
+        unicorn.RegWrite(Arm.Register.SP, stackPtrInitialValue);
 
         // Hooks
+        ulong pc = exe.EntryPoint;
         var shouldStop = false;
-        unicorn.AddInterruptHook((engine, interrupt, _) =>
+
+        unicorn.AddInterruptHook((engine, interrupt) =>
         {
             Console.WriteLine($"Interrupt {interrupt}.");
             engine.EmuStop();
             shouldStop = true;
-        });
+        }, 0, ulong.MaxValue);
 
-        unicorn.AddEventMemHook(((engine, memType, address, size, _, _) =>
+        unicorn.MemMap(0xfe000000, 4096, (engine, offset, size) => 69,
+            (engine, offset, size, value) => Console.WriteLine($"MMIO write on {offset}: {value}"));
+
+        unicorn.AddInvalidMemoryAccessHook((engine, type, address, size, value) =>
         {
             Console.WriteLine($"Invalid memory operation on {address}.");
             return false;
-        }), Common.UC_HOOK_MEM_INVALID);
-
-        long pc = exe.EntryPoint;
+        }, MemoryHookType.FetchUnmapped, 0, ulong.MaxValue);
+        
         var i = 0;
 
-        unicorn.AddCodeHook((engine, start, size, _) =>
+        unicorn.AddCodeHook((engine, start, size) =>
         {
             var instr = (int) (start - exe.TextSectionStartAddress) / 4;
             if (disAsm != null && disAsm.Length > instr && instr >= 0)
@@ -152,10 +160,10 @@ public class Program
             while (!shouldStop)
             {
                 unicorn.EmuStart(pc, long.MaxValue, 0, 1);
-                pc = unicorn.RegRead(Arm.UC_ARM_REG_PC);
+                pc = unicorn.RegRead<uint>(Arm.Register.PC);
             }
         }
-        catch (UnicornEngineException e)
+        catch (UnicornException e)
         {
             Console.WriteLine(e.Message);
         }
@@ -170,7 +178,6 @@ public class Program
         unicorn.MemUnmap(stackMemoryStart, stackSize);
 
         // Close Unicorn
-        unicorn.Close();
         unicorn.Dispose();
     }
 

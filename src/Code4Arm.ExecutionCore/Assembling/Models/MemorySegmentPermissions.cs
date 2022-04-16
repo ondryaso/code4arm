@@ -2,8 +2,8 @@
 // Author: Ondřej Ondryáš
 
 using System.Runtime.CompilerServices;
+using Code4Arm.Unicorn.Abstractions.Enums;
 using ELFSharp.ELF.Segments;
-using UnicornManaged.Const;
 
 namespace Code4Arm.ExecutionCore.Assembling.Models;
 
@@ -19,9 +19,9 @@ public enum MemorySegmentPermissions
 public static class MemorySegmentPermissionsExtensions
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int ToUnicorn(this MemorySegmentPermissions permissions)
+    public static MemoryPermissions ToUnicorn(this MemorySegmentPermissions permissions)
     {
-        return (int)permissions;
+        return (MemoryPermissions) permissions;
     }
 
     private static readonly MemorySegmentPermissions[] Lut = new[]
@@ -38,6 +38,6 @@ public static class MemorySegmentPermissionsExtensions
 
     public static MemorySegmentPermissions ToLocal(this SegmentFlags elfSegmentFlags)
     {
-        return Lut[(int)elfSegmentFlags];
+        return Lut[(int) elfSegmentFlags];
     }
 }
