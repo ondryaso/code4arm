@@ -127,16 +127,16 @@ internal static class Native
     public static extern int uc_context_save(UIntPtr uc, UIntPtr context);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
-    public static extern int uc_context_reg_write(UIntPtr context, int regId, byte[] value);
+    public static extern unsafe int uc_context_reg_write(UIntPtr context, int regId, void* value);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
-    public static extern int uc_context_reg_read(UIntPtr context, int regId, byte[] value);
+    public static extern unsafe int uc_context_reg_read(UIntPtr context, int regId, void* value);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
-    public static extern int uc_context_reg_write_batch(UIntPtr context, int[] regs, byte[][] vals, int count);
+    public static extern unsafe int uc_context_reg_write_batch(UIntPtr context, int* regs, void** values, int count);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
-    public static extern int uc_context_reg_read_batch(UIntPtr context, int[] regs, byte[][] vals, int count);
+    public static extern unsafe int uc_context_reg_read_batch(UIntPtr context, int* regs, void** values, int count);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern int uc_context_restore(UIntPtr eng, UIntPtr context);

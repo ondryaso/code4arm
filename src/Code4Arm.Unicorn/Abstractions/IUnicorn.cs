@@ -90,47 +90,10 @@ public interface IUnicorn : IUnicornContext
 
 public interface IUnicornContext : IDisposable
 {
-    void RegWrite(int registerId, uint value);
-    void RegWrite(int registerId, ulong value);
-
-    void RegWrite(int registerId, int value)
-    {
-        unchecked
-        {
-            this.RegWrite(registerId, (uint) value);
-        }
-    }
-
-    void RegWrite(int registerId, long value)
-    {
-        unchecked
-        {
-            this.RegWrite(registerId, (ulong) value);
-        }
-    }
-
-    uint RegReadUInt32(int registerId);
-    ulong RegReadUInt64(int registerId);
-
-    int RegReadInt32(int registerId)
-    {
-        unchecked
-        {
-            return (int) this.RegReadUInt32(registerId);
-        }
-    }
-
-    long RegReadInt64(int registerId)
-    {
-        unchecked
-        {
-            return (long) this.RegReadUInt64(registerId);
-        }
-    }
-
+    void RegWrite<T>(int registerId, T value) where T : unmanaged;
+    T RegRead<T>(int registerId) where T : unmanaged;
     void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged;
     void RegBatchWrite<T>(int[] registerIds, Span<T> values) where T : unmanaged;
     void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged;
-
     T[] RegBatchRead<T>(int[] registerIds) where T : unmanaged;
 }

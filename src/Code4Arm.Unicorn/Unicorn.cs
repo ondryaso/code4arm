@@ -14,6 +14,7 @@ public class Unicorn : IUnicorn
 
     private readonly Dictionary<Delegate, nuint> _hookIdsForDelegates = new();
     private readonly List<Delegate> _managedHooks = new();
+    private readonly List<UnicornContext> _contexts = new();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int MakeReadControlType(int numberOfArgs, int controlType)
@@ -35,7 +36,7 @@ public class Unicorn : IUnicorn
         _engine = ptr;
     }
 
-    private void CheckResult(int result)
+    internal void CheckResult(int result)
     {
         if (result == UniConst.Err.Ok) return;
         var resultMessagePtr = Native.uc_strerror(result);
@@ -44,13 +45,13 @@ public class Unicorn : IUnicorn
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EnsureEngine()
+    internal void EnsureEngine()
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(Unicorn));
     }
 
-    public void RegWrite(int registerId, uint value)
+    public void RegWrite<T>(int registerId, T value) where T : unmanaged
     {
         this.EnsureEngine();
         int result;
@@ -63,39 +64,11 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
-    public void RegWrite(int registerId, ulong value)
+    public T RegRead<T>(int registerId) where T : unmanaged
     {
         this.EnsureEngine();
         int result;
-
-        unsafe
-        {
-            result = Native.uc_reg_write(_engine, registerId, &value);
-        }
-
-        this.CheckResult(result);
-    }
-
-    public uint RegReadUInt32(int registerId)
-    {
-        this.EnsureEngine();
-        int result;
-        uint value = 0;
-
-        unsafe
-        {
-            result = Native.uc_reg_read(_engine, registerId, &value);
-        }
-
-        this.CheckResult(result);
-        return value;
-    }
-
-    public ulong RegReadUInt64(int registerId)
-    {
-        this.EnsureEngine();
-        int result;
-        uint value = 0;
+        T value;
 
         unsafe
         {
@@ -610,24 +583,51 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
-    public IUnicornContext MakeEmptyContext()
+    public unsafe IUnicornContext MakeEmptyContext()
     {
-        throw new NotImplementedException();
+        this.EnsureEngine();
+        UIntPtr ptr = new();
+        var result = Native.uc_context_alloc(_engine, &ptr);
+        this.CheckResult(result);
+
+        var contextObj = new UnicornContext(this, ptr);
+        _contexts.Add(contextObj);
+        return contextObj;
     }
 
     public IUnicornContext SaveContext()
     {
-        throw new NotImplementedException();
+        var context = this.MakeEmptyContext();
+        this.SaveContext(context);
+        return context;
+    }
+
+    private UnicornContext CheckContext(IUnicornContext context)
+    {
+        if (context is not UnicornContext contextObj || contextObj.Unicorn != this)
+            throw new InvalidOperationException("Only contexts created from this Unicorn instance may be used.");
+
+        if (contextObj.Disposed)
+            throw new ObjectDisposedException(nameof(UnicornContext),
+                "This Unicorn context has already been disposed.");
+
+        return contextObj;
     }
 
     public void SaveContext(IUnicornContext context)
     {
-        throw new NotImplementedException();
+        this.EnsureEngine();
+        var contextObj = this.CheckContext(context);
+        var result = Native.uc_context_save(_engine, contextObj.Context);
+        this.CheckResult(result);
     }
 
     public void RestoreContext(IUnicornContext context)
     {
-        throw new NotImplementedException();
+        this.EnsureEngine();
+        var contextObj = this.CheckContext(context);
+        var result = Native.uc_context_restore(_engine, contextObj.Context);
+        this.CheckResult(result);
     }
 
     public void Dispose()
@@ -643,7 +643,13 @@ public class Unicorn : IUnicorn
 
         if (disposing)
         {
+            // Dispose managed objects
             // Intentionally left blank
+
+            foreach (var context in _contexts)
+            {
+                context.Dispose();
+            }
         }
 
         if (_engine != UIntPtr.Zero)
@@ -659,6 +665,190 @@ public class Unicorn : IUnicorn
     }
 
     ~Unicorn()
+    {
+        this.Dispose(false);
+    }
+}
+
+internal class UnicornContext : IUnicornContext
+{
+    public Unicorn Unicorn { get; }
+    public UIntPtr Context { get; }
+    internal bool Disposed;
+
+    public UnicornContext(Unicorn unicorn, UIntPtr contextPtr)
+    {
+        this.Unicorn = unicorn;
+        this.Context = contextPtr;
+    }
+
+    private void EnsureNotDisposed()
+    {
+        this.Unicorn.EnsureEngine();
+
+        if (Disposed)
+            throw new ObjectDisposedException(nameof(UnicornContext),
+                "This Unicorn context has already been disposed.");
+    }
+
+    public void RegWrite<T>(int registerId, T value) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+        int result;
+
+        unsafe
+        {
+            result = Native.uc_context_reg_write(this.Context, registerId, &value);
+        }
+
+        this.Unicorn.CheckResult(result);
+    }
+
+    public T RegRead<T>(int registerId) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+        int result;
+        T value;
+
+        unsafe
+        {
+            result = Native.uc_context_reg_read(this.Context, registerId, &value);
+        }
+
+        this.Unicorn.CheckResult(result);
+        return value;
+    }
+
+    public unsafe void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+
+        var valuesArray = stackalloc T[registerIds.Length];
+        var pointersToValues = stackalloc void*[registerIds.Length];
+
+        var i = 0;
+        foreach (var value in values)
+        {
+            valuesArray[i] = value;
+            pointersToValues[i] = &valuesArray[i++];
+
+            if (i == registerIds.Length)
+                break;
+        }
+
+        if (i != registerIds.Length)
+            throw new ArgumentException($"Expected {registerIds.Length} values, got {i}.", nameof(values));
+
+        int result;
+        fixed (int* regIdsPtr = &registerIds[0])
+        {
+            result = Native.uc_context_reg_write_batch(this.Context, regIdsPtr, pointersToValues, registerIds.Length);
+        }
+
+        this.Unicorn.CheckResult(result);
+    }
+
+    public unsafe void RegBatchWrite<T>(int[] registerIds, Span<T> values) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+
+        if (values.Length != registerIds.Length)
+            throw new ArgumentException($"Expected {registerIds.Length} values, got {values.Length}.", nameof(values));
+
+        var pointersToValues = stackalloc void*[registerIds.Length];
+        int result;
+
+        fixed (T* valuesPinned = values)
+        {
+            for (var i = 0; i < registerIds.Length; i++)
+            {
+                pointersToValues[i] = &valuesPinned[i];
+            }
+
+            fixed (int* regIdsPtr = &registerIds[0])
+            {
+                result = Native.uc_context_reg_write_batch(this.Context, regIdsPtr, pointersToValues,
+                    registerIds.Length);
+            }
+        }
+
+        this.Unicorn.CheckResult(result);
+    }
+
+    public unsafe void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+
+        var pointersToValues = stackalloc void*[registerIds.Length];
+        int result;
+
+        fixed (T* targetPinned = target)
+        {
+            for (var i = 0; i < target.Length; i++)
+            {
+                pointersToValues[i] = &targetPinned[i];
+            }
+
+            fixed (int* regIdsPinned = &registerIds[0])
+            {
+                result = Native.uc_context_reg_read_batch(this.Context, regIdsPinned, pointersToValues,
+                    registerIds.Length);
+            }
+        }
+
+        this.Unicorn.CheckResult(result);
+    }
+
+    public unsafe T[] RegBatchRead<T>(int[] registerIds) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+
+        var pointersToValues = stackalloc void*[registerIds.Length];
+        var retArray = new T[registerIds.Length];
+        int result;
+
+        fixed (T* targetPinned = retArray)
+        {
+            for (var i = 0; i < registerIds.Length; i++)
+            {
+                pointersToValues[i] = &targetPinned[i];
+            }
+
+            fixed (int* regIdsPinned = &registerIds[0])
+            {
+                result = Native.uc_context_reg_read_batch(this.Context, regIdsPinned, pointersToValues,
+                    registerIds.Length);
+            }
+        }
+
+        this.Unicorn.CheckResult(result);
+        return retArray;
+    }
+
+    public void Dispose()
+    {
+        this.Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (Disposed)
+            return;
+
+        if (disposing)
+        {
+            // Dispose managed objects
+            // Intentionally left blank
+        }
+
+        _ = Native.uc_context_free(this.Context);
+        // Best effort: If closing failed, we can't really do anything about it
+
+        Disposed = true;
+    }
+
+    ~UnicornContext()
     {
         this.Dispose(false);
     }
