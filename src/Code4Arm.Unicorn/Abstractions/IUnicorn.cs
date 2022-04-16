@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Code4Arm.Unicorn.Abstractions.Enums;
+﻿using Code4Arm.Unicorn.Abstractions.Enums;
 using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 // ReSharper disable InconsistentNaming
