@@ -29,5 +29,5 @@ public delegate void MemoryHookCallback(IUnicorn engine, MemoryAccessType memory
     ulong address, int size, long value);
 
 // uc_cb_eventmem_t
-public delegate void InvalidMemoryAccessCallback(IUnicorn engine, MemoryAccessType memoryAccessType,
+public delegate bool InvalidMemoryAccessCallback(IUnicorn engine, MemoryAccessType memoryAccessType,
     ulong address, int size, long value);

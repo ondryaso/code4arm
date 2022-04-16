@@ -66,9 +66,10 @@ public interface IUnicorn : IUnicornContext
 
     void AddInvalidInstructionHook(InvalidInstructionHookCallback callback, ulong startAddress, ulong endAddress);
 
-    void AddMemoryHook(MemoryHookCallback callback, ulong startAddress, ulong endAddress);
+    void AddMemoryHook(MemoryHookCallback callback, MemoryHookType hookType, ulong startAddress, ulong endAddress);
 
-    void AddInvalidMemoryAccessHook(InvalidMemoryAccessCallback callback, ulong startAddress, ulong endAddress);
+    void AddInvalidMemoryAccessHook(InvalidMemoryAccessCallback callback, MemoryHookType hookType, ulong startAddress,
+        ulong endAddress);
 
     void RemoveHook(CodeHookCallback callback);
     void RemoveHook(InterruptHookCallback callback);

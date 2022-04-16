@@ -107,8 +107,8 @@ internal static class Native
     public static extern int uc_mem_map_ptr(UIntPtr eng, ulong address, nuint size, uint perm, IntPtr ptr);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
-    public static extern int uc_mmio_map(UIntPtr eng, ulong address, nuint size, UIntPtr readCallback,
-        IntPtr userDataRead, UIntPtr writeCallback, IntPtr userDataWrite);
+    public static extern int uc_mmio_map(UIntPtr eng, ulong address, nuint size, IntPtr readCallback,
+        IntPtr userDataRead, IntPtr writeCallback, IntPtr userDataWrite);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern int uc_mem_unmap(UIntPtr eng, ulong address, nuint size);
@@ -179,5 +179,5 @@ public delegate void MemoryHookNativeCallback(UIntPtr engine, int type, ulong ad
 
 // typedef bool (*uc_cb_eventmem_t)(uc_engine *uc, uc_mem_type type, uint64_t address, int size, int64_t value, void *user_data);
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-public delegate void InvalidMemoryAccessNativeCallback(UIntPtr engine, int type, ulong address, int size, long value,
+public delegate bool InvalidMemoryAccessNativeCallback(UIntPtr engine, int type, ulong address, int size, long value,
     IntPtr userData);
