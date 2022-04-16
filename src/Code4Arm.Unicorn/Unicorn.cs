@@ -583,6 +583,13 @@ public class Unicorn : IUnicorn
             callback, startAddress, endAddress);
     }
 
+    public void AddBlockHook(CodeHookCallback callback, ulong startAddress, ulong endAddress)
+    {
+        _codeHookNativeDelegate ??= this.CodeHookHandler;
+        this.AddHook(UniConst.Hook.Block, _codeHookNativeDelegate,
+            callback, startAddress, endAddress);
+    }
+
     public void AddInterruptHook(InterruptHookCallback callback, ulong startAddress, ulong endAddress)
     {
         _interruptNativeDelegate ??= this.InterruptHookHandler;

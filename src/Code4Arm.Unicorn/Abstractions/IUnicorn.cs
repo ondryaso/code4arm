@@ -62,6 +62,8 @@ public interface IUnicorn : IUnicornContext
 
     void AddCodeHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
 
+    void AddBlockHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
+
     void AddInterruptHook(InterruptHookCallback callback, ulong startAddress, ulong endAddress);
 
     void AddInvalidInstructionHook(InvalidInstructionHookCallback callback, ulong startAddress, ulong endAddress);
