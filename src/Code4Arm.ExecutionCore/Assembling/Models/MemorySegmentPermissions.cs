@@ -18,13 +18,7 @@ public enum MemorySegmentPermissions
 
 public static class MemorySegmentPermissionsExtensions
 {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MemoryPermissions ToUnicorn(this MemorySegmentPermissions permissions)
-    {
-        return (MemoryPermissions) permissions;
-    }
-
-    private static readonly MemorySegmentPermissions[] Lut = new[]
+    private static readonly MemorySegmentPermissions[] Lut =
     {
         MemorySegmentPermissions.None,
         MemorySegmentPermissions.Execute,
@@ -36,8 +30,9 @@ public static class MemorySegmentPermissionsExtensions
         MemorySegmentPermissions.Read | MemorySegmentPermissions.Write | MemorySegmentPermissions.Execute
     };
 
-    public static MemorySegmentPermissions ToLocal(this SegmentFlags elfSegmentFlags)
-    {
-        return Lut[(int) elfSegmentFlags];
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MemoryPermissions ToUnicorn(this MemorySegmentPermissions permissions) =>
+        (MemoryPermissions)permissions;
+
+    public static MemorySegmentPermissions ToLocal(this SegmentFlags elfSegmentFlags) => Lut[(int)elfSegmentFlags];
 }

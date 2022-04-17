@@ -26,14 +26,17 @@ public class Printf : IFunctionSimulator
 
             var end = buf.Length;
             for (var i = 0; i < buf.Length; i++)
+            {
                 if (buf[i] == 0)
                     end = i;
+            }
 
             sb.Append(Encoding.UTF8.GetString(buf, 0, end));
+
             if (end != buf.Length)
                 break;
 
-            address += (uint) buf.Length;
+            address += (uint)buf.Length;
         }
 
         Console.WriteLine($"EMULATOR OUTPUT: {sb}");

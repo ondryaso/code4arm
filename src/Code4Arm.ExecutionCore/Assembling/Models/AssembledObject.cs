@@ -9,6 +9,8 @@ namespace Code4Arm.ExecutionCore.Assembling.Models;
 public class AssembledObject : IDisposable
 {
     private readonly ILogger<AssembledObject> _logger;
+    private bool _fileDeleted;
+
     internal string ObjectFilePath { get; }
     internal string AssemblerOutput { get; }
     public string AssemblerErrors { get; }
@@ -17,18 +19,16 @@ public class AssembledObject : IDisposable
     public int SourceVersion { get; }
     public bool AssemblySuccessful { get; }
 
-    private bool _fileDeleted;
-
     internal AssembledObject(IAsmFile sourceFile, int sourceVersion, string objectFilePath, string gasOut,
         string gasErr, bool successful, ILogger<AssembledObject> logger)
     {
         _logger = logger;
-        this.AssemblySuccessful = successful;
-        this.SourceFile = sourceFile;
-        this.SourceVersion = sourceVersion;
-        this.ObjectFilePath = objectFilePath;
-        this.AssemblerOutput = gasOut;
-        this.AssemblerErrors = gasErr;
+        AssemblySuccessful = successful;
+        SourceFile = sourceFile;
+        SourceVersion = sourceVersion;
+        ObjectFilePath = objectFilePath;
+        AssemblerOutput = gasOut;
+        AssemblerErrors = gasErr;
     }
 
     internal void DeleteFile()
@@ -39,13 +39,14 @@ public class AssembledObject : IDisposable
 
             try
             {
-                _logger.LogTrace("Deleting temporary object file for {AsmSourceName}.", this.SourceFile.Name);
-                File.Delete(this.ObjectFilePath);
+                _logger.LogTrace("Deleting temporary object file for {AsmSourceName}.", SourceFile.Name);
+                File.Delete(ObjectFilePath);
             }
             catch (Exception e)
             {
-                _logger.LogWarning(e, "Cannot delete temporary object file {ObjectFilePath} for source {AsmSourceName}.",
-                    this.ObjectFilePath, this.SourceFile.Name);
+                _logger.LogWarning(e,
+                    "Cannot delete temporary object file {ObjectFilePath} for source {AsmSourceName}.",
+                    ObjectFilePath, SourceFile.Name);
             }
         }
     }

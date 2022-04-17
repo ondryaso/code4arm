@@ -7,6 +7,6 @@ public class UnicornException : Exception
     internal UnicornException(int errorId, string message)
         : base(message)
     {
-        this.ErrorId = errorId;
+        ErrorId = errorId;
     }
 }

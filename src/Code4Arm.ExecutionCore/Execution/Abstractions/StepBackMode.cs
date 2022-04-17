@@ -19,7 +19,7 @@ public enum StepBackMode
     /// Step back can only be done once.
     /// </summary>
     LastStepOnly,
-    
+
     /// <summary>
     /// The context is saved after each executed instruction.
     /// </summary>

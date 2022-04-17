@@ -1,5 +1,4 @@
 ﻿using Code4Arm.Unicorn.Abstractions.Enums;
-using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 // ReSharper disable InconsistentNaming
 
@@ -9,12 +8,6 @@ public interface IUnicorn : IUnicornContext
 {
     // uc_version
     (uint Major, uint Minor) Version { get; }
-
-    // uc_arch_supported
-    bool IsArchSupported(Architecture architecture);
-
-    // uc_query
-    ulong Query(QueryType type);
 
     // uc_ctl, UC_CTL_UC_MODE, read
     int CurrentMode { get; }
@@ -28,9 +21,6 @@ public interface IUnicorn : IUnicornContext
     // uc_ctl, UC_CTL_UC_TIMEOUT, read
     ulong CurrentTimeout { get; }
 
-    // uc_ctl, UC_CTL_UC_USE_EXITS, write
-    void EnableMultipleExits();
-
     // uc_ctl, UC_CTL_UC_EXITS_CNT, read
     nuint CurrentNumberOfExits { get; }
 
@@ -40,6 +30,15 @@ public interface IUnicorn : IUnicornContext
     // uc_ctl, UC_CTL_CPU_MODEL, read/write
     // TODO: what are the possible values for this?
     int CpuModel { get; set; }
+
+    // uc_arch_supported
+    bool IsArchSupported(Architecture architecture);
+
+    // uc_query
+    ulong Query(QueryType type);
+
+    // uc_ctl, UC_CTL_UC_USE_EXITS, write
+    void EnableMultipleExits();
 
     // Missing: uc_ctl, UC_CTL_TB_REQUEST_CACHE, read 
     // Missing: uc_ctl, UC_CTL_TB_REMOVE_CACHE, write

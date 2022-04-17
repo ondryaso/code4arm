@@ -11,13 +11,21 @@ namespace Code4Arm.Unicorn;
 
 public class Unicorn : IUnicorn
 {
-    private bool _disposed;
-    private UIntPtr _engine;
+    private readonly List<UnicornContext> _contexts = new();
 
     private readonly Dictionary<Delegate, nuint> _hookIdsForDelegates = new();
     private readonly List<Delegate> _managedHooks = new();
     private readonly Dictionary<Delegate, IntPtr> _nativeHooks = new(8);
-    private readonly List<UnicornContext> _contexts = new();
+    private bool _disposed;
+    private UIntPtr _engine;
+
+    public unsafe Unicorn(Architecture architecture, EngineMode mode)
+    {
+        var ptr = new UIntPtr();
+        var result = Native.uc_open((int)architecture, (int)mode, &ptr);
+        this.CheckResult(result);
+        _engine = ptr;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int MakeReadControlType(int numberOfArgs, int controlType)
@@ -27,14 +35,6 @@ public class Unicorn : IUnicorn
     private static int MakeWriteControlType(int numberOfArgs, int controlType)
         => controlType | (numberOfArgs << 26) | (1 << 30);
 
-    public unsafe Unicorn(Architecture architecture, EngineMode mode)
-    {
-        var ptr = new UIntPtr();
-        var result = Native.uc_open((int) architecture, (int) mode, &ptr);
-        this.CheckResult(result);
-        _engine = ptr;
-    }
-
     #region Helpers
 
     internal void CheckResult(int result)
@@ -42,6 +42,7 @@ public class Unicorn : IUnicorn
         if (result == UniConst.Err.Ok) return;
         var resultMessagePtr = Native.uc_strerror(result);
         var resultMessage = Marshal.PtrToStringAnsi(resultMessagePtr);
+
         throw new UnicornException(result, $"[{result}] {resultMessage}");
     }
 
@@ -70,21 +71,20 @@ public class Unicorn : IUnicorn
             Native.uc_version(&major, &minor);
 #pragma warning restore CA1806
             _version = (major, minor);
+
             return _version.Value;
         }
     }
 
-    public bool IsArchSupported(Architecture architecture)
-    {
-        return Native.uc_arch_supported((int) architecture);
-    }
+    public bool IsArchSupported(Architecture architecture) => Native.uc_arch_supported((int)architecture);
 
     public unsafe ulong Query(QueryType type)
     {
         this.EnsureEngine();
         nuint value = 0;
-        var result = Native.uc_query(_engine, (int) type, &value);
+        var result = Native.uc_query(_engine, (int)type, &value);
         this.CheckResult(result);
+
         return value;
     }
 
@@ -117,6 +117,7 @@ public class Unicorn : IUnicorn
         }
 
         this.CheckResult(result);
+
         return value;
     }
 
@@ -220,6 +221,7 @@ public class Unicorn : IUnicorn
         }
 
         this.CheckResult(result);
+
         return retArray;
     }
 
@@ -235,6 +237,7 @@ public class Unicorn : IUnicorn
             var value = 0;
             var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.Mode), &value);
             this.CheckResult(result);
+
             return value;
         }
     }
@@ -247,6 +250,7 @@ public class Unicorn : IUnicorn
             var value = 0u;
             var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.PageSize), &value);
             this.CheckResult(result);
+
             return value;
         }
         set
@@ -265,6 +269,7 @@ public class Unicorn : IUnicorn
             var value = 0;
             var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.Arch), &value);
             this.CheckResult(result);
+
             return value;
         }
     }
@@ -277,6 +282,7 @@ public class Unicorn : IUnicorn
             var value = 0ul;
             var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.Timeout), &value);
             this.CheckResult(result);
+
             return value;
         }
     }
@@ -296,6 +302,7 @@ public class Unicorn : IUnicorn
             nuint value = 0;
             var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.ExitsCnt), &value);
             this.CheckResult(result);
+
             return value;
         }
     }
@@ -304,7 +311,7 @@ public class Unicorn : IUnicorn
     {
         get
         {
-            var currentCount = this.CurrentNumberOfExits;
+            var currentCount = CurrentNumberOfExits;
             var exits = new ulong[currentCount];
 
             int result;
@@ -314,6 +321,7 @@ public class Unicorn : IUnicorn
             }
 
             this.CheckResult(result);
+
             return exits;
         }
 
@@ -325,7 +333,7 @@ public class Unicorn : IUnicorn
             fixed (ulong* exitsPinned = value)
             {
                 result = Native.uc_ctl(_engine, MakeReadControlType(2, UniConst.Ctl.Exits), exitsPinned,
-                    (nuint) value.Length);
+                    (nuint)value.Length);
             }
 
             this.CheckResult(result);
@@ -340,6 +348,7 @@ public class Unicorn : IUnicorn
             var value = 0;
             var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.CpuModel), &value);
             this.CheckResult(result);
+
             return value;
         }
         set
@@ -357,17 +366,15 @@ public class Unicorn : IUnicorn
     public void MemWrite(ulong address, byte[] bytes)
     {
         this.EnsureEngine();
-        var result = Native.uc_mem_write(_engine, address, bytes, (nuint) bytes.Length);
+        var result = Native.uc_mem_write(_engine, address, bytes, (nuint)bytes.Length);
         this.CheckResult(result);
     }
 
     public void MemWrite(ulong address, byte[] bytes, nuint size)
     {
-        if (size > (nuint) bytes.Length)
-        {
+        if (size > (nuint)bytes.Length)
             throw new ArgumentOutOfRangeException(nameof(size),
                 $"{nameof(size)} cannot be more than the length of {nameof(bytes)}.");
-        }
 
         this.EnsureEngine();
         var result = Native.uc_mem_write(_engine, address, bytes, size);
@@ -381,7 +388,7 @@ public class Unicorn : IUnicorn
         int result;
         fixed (byte* bytesFixed = bytes)
         {
-            result = Native.uc_mem_write(_engine, address, bytesFixed, (nuint) bytes.Length);
+            result = Native.uc_mem_write(_engine, address, bytesFixed, (nuint)bytes.Length);
         }
 
         this.CheckResult(result);
@@ -389,11 +396,9 @@ public class Unicorn : IUnicorn
 
     public unsafe void MemWrite(ulong address, Span<byte> bytes, nuint size)
     {
-        if (size > (nuint) bytes.Length)
-        {
+        if (size > (nuint)bytes.Length)
             throw new ArgumentOutOfRangeException(nameof(size),
                 $"{nameof(size)} cannot be more than the length of {nameof(bytes)}.");
-        }
 
         this.EnsureEngine();
 
@@ -412,21 +417,20 @@ public class Unicorn : IUnicorn
         var ret = new byte[size];
         var result = Native.uc_mem_read(_engine, address, ret, size);
         this.CheckResult(result);
+
         return ret;
     }
 
     public void MemRead(ulong address, byte[] target)
     {
-        this.MemRead(address, target, (nuint) target.Length);
+        this.MemRead(address, target, (nuint)target.Length);
     }
 
     public void MemRead(ulong address, byte[] target, nuint size)
     {
-        if (size > (nuint) target.Length)
-        {
+        if (size > (nuint)target.Length)
             throw new ArgumentOutOfRangeException(nameof(size),
                 $"{nameof(size)} cannot be more than the length of {nameof(target)}.");
-        }
 
         this.EnsureEngine();
         var result = Native.uc_mem_read(_engine, address, target, size);
@@ -435,16 +439,14 @@ public class Unicorn : IUnicorn
 
     public void MemRead(ulong address, Span<byte> target)
     {
-        this.MemRead(address, target, (nuint) target.Length);
+        this.MemRead(address, target, (nuint)target.Length);
     }
 
     public unsafe void MemRead(ulong address, Span<byte> target, nuint size)
     {
-        if (size > (nuint) target.Length)
-        {
+        if (size > (nuint)target.Length)
             throw new ArgumentOutOfRangeException(nameof(size),
                 $"{nameof(size)} cannot be more than the length of {nameof(target)}.");
-        }
 
         this.EnsureEngine();
         int result;
@@ -463,7 +465,7 @@ public class Unicorn : IUnicorn
     public void EmuStart(ulong start, ulong until = 0, ulong timeout = 0, ulong count = 0)
     {
         this.EnsureEngine();
-        var result = Native.uc_emu_start(_engine, start, until, timeout, (nuint) count);
+        var result = Native.uc_emu_start(_engine, start, until, timeout, (nuint)count);
         this.CheckResult(result);
     }
 
@@ -514,8 +516,9 @@ public class Unicorn : IUnicorn
     {
         var targetId = userData.ToInt32();
         var target = _managedHooks[targetId] as InvalidInstructionHookCallback;
+
         return target?.Invoke(this) ??
-               throw new InvalidOperationException("Invalid instruction hook callback not found.");
+            throw new InvalidOperationException("Invalid instruction hook callback not found.");
     }
 
     private void MemoryHookHandler(UIntPtr engine, int type, ulong address, int size, long value,
@@ -523,7 +526,7 @@ public class Unicorn : IUnicorn
     {
         var targetId = userData.ToInt32();
         var target = _managedHooks[targetId] as MemoryHookCallback;
-        target?.Invoke(this, (MemoryAccessType) type, address, size, value);
+        target?.Invoke(this, (MemoryAccessType)type, address, size, value);
     }
 
     private bool InvalidMemoryAccessHookHandler(UIntPtr engine, int type, ulong address, int size, long value,
@@ -531,14 +534,16 @@ public class Unicorn : IUnicorn
     {
         var targetId = userData.ToInt32();
         var target = _managedHooks[targetId] as InvalidMemoryAccessCallback;
-        return target?.Invoke(this, (MemoryAccessType) type, address, size, value) ??
-               throw new InvalidOperationException("Invalid memory access hook callback not found.");
+
+        return target?.Invoke(this, (MemoryAccessType)type, address, size, value) ??
+            throw new InvalidOperationException("Invalid memory access hook callback not found.");
     }
 
     private ulong MMIOReadHandler(UIntPtr engine, ulong offset, uint size, IntPtr userData)
     {
         var targetId = userData.ToInt32();
         var target = _managedHooks[targetId] as MMIOReadCallback;
+
         return target?.Invoke(this, offset, size) ?? throw new InvalidOperationException();
     }
 
@@ -608,14 +613,14 @@ public class Unicorn : IUnicorn
         ulong endAddress)
     {
         _memoryNativeDelegate = this.MemoryHookHandler;
-        this.AddHook((int) hookType, _memoryNativeDelegate, callback, startAddress, endAddress);
+        this.AddHook((int)hookType, _memoryNativeDelegate, callback, startAddress, endAddress);
     }
 
     public void AddInvalidMemoryAccessHook(InvalidMemoryAccessCallback callback, MemoryHookType hookType,
         ulong startAddress, ulong endAddress)
     {
         _invalidAccessNativeDelegate = this.InvalidMemoryAccessHookHandler;
-        this.AddHook((int) hookType, _invalidAccessNativeDelegate, callback, startAddress, endAddress);
+        this.AddHook((int)hookType, _invalidAccessNativeDelegate, callback, startAddress, endAddress);
     }
 
     #endregion
@@ -635,27 +640,27 @@ public class Unicorn : IUnicorn
 
     public void RemoveHook(CodeHookCallback callback)
     {
-        this.RemoveHook((Delegate) callback);
+        this.RemoveHook((Delegate)callback);
     }
 
     public void RemoveHook(InterruptHookCallback callback)
     {
-        this.RemoveHook((Delegate) callback);
+        this.RemoveHook((Delegate)callback);
     }
 
     public void RemoveHook(InvalidInstructionHookCallback callback)
     {
-        this.RemoveHook((Delegate) callback);
+        this.RemoveHook((Delegate)callback);
     }
 
     public void RemoveHook(MemoryHookCallback callback)
     {
-        this.RemoveHook((Delegate) callback);
+        this.RemoveHook((Delegate)callback);
     }
 
     public void RemoveHook(InvalidMemoryAccessCallback callback)
     {
-        this.RemoveHook((Delegate) callback);
+        this.RemoveHook((Delegate)callback);
     }
 
     #endregion
@@ -665,24 +670,24 @@ public class Unicorn : IUnicorn
     public void MemMap(ulong address, nuint size, MemoryPermissions permissions)
     {
         this.EnsureEngine();
-        var result = Native.uc_mem_map(_engine, address, size, (uint) permissions);
+        var result = Native.uc_mem_map(_engine, address, size, (uint)permissions);
         this.CheckResult(result);
     }
 
     public void MemMap(ulong address, nuint size, MemoryPermissions permissions, IntPtr memoryPointer)
     {
         this.EnsureEngine();
-        var result = Native.uc_mem_map_ptr(_engine, address, size, (uint) permissions, memoryPointer);
+        var result = Native.uc_mem_map_ptr(_engine, address, size, (uint)permissions, memoryPointer);
         this.CheckResult(result);
     }
 
     public void MemMap(ulong address, nuint size, MMIOReadCallback? readCallback, MMIOWriteCallback? writeCallback)
     {
         this.EnsureEngine();
-        
+
         IntPtr readPtr, writePtr, userDataRead, userDataWrite;
         var nextId = _managedHooks.Count;
-        
+
         if (readCallback == null)
         {
             readPtr = IntPtr.Zero;
@@ -692,10 +697,8 @@ public class Unicorn : IUnicorn
         {
             _mmioReadNativeDelegate ??= this.MMIOReadHandler;
             if (!_nativeHooks.TryGetValue(_mmioReadNativeDelegate, out readPtr))
-            {
                 readPtr = Marshal.GetFunctionPointerForDelegate(_mmioReadNativeDelegate);
-            }
-            
+
             _managedHooks.Add(readCallback);
             userDataRead = new IntPtr(nextId++);
         }
@@ -704,19 +707,17 @@ public class Unicorn : IUnicorn
         {
             writePtr = IntPtr.Zero;
             userDataWrite = IntPtr.Zero;
-        } 
+        }
         else
         {
             _mmioWriteNativeDelegate ??= this.MMIOWriteHandler;
             if (!_nativeHooks.TryGetValue(_mmioWriteNativeDelegate, out writePtr))
-            {
                 writePtr = Marshal.GetFunctionPointerForDelegate(_mmioWriteNativeDelegate);
-            }
-            
+
             _managedHooks.Add(writeCallback);
             userDataWrite = new IntPtr(nextId);
         }
-        
+
         var result = Native.uc_mmio_map(_engine, address, size, readPtr, userDataRead,
             writePtr, userDataWrite);
 
@@ -743,6 +744,7 @@ public class Unicorn : IUnicorn
 
         var contextObj = new UnicornContext(this, ptr);
         _contexts.Add(contextObj);
+
         return contextObj;
     }
 
@@ -750,12 +752,13 @@ public class Unicorn : IUnicorn
     {
         var context = this.MakeEmptyContext();
         this.SaveContext(context);
+
         return context;
     }
 
     private UnicornContext CheckContext(IUnicornContext context)
     {
-        if (context is not UnicornContext contextObj || contextObj.Unicorn != this)
+        if (context is not UnicornContext contextObj || (contextObj.Unicorn != this))
             throw new InvalidOperationException("Only contexts created from this Unicorn instance may be used.");
 
         if (contextObj.Disposed)
@@ -831,23 +834,15 @@ public class Unicorn : IUnicorn
 
 internal class UnicornContext : IUnicornContext
 {
+    internal bool Disposed;
+
     public Unicorn Unicorn { get; }
     public UIntPtr Context { get; }
-    internal bool Disposed;
 
     public UnicornContext(Unicorn unicorn, UIntPtr contextPtr)
     {
-        this.Unicorn = unicorn;
-        this.Context = contextPtr;
-    }
-
-    private void EnsureNotDisposed()
-    {
-        this.Unicorn.EnsureEngine();
-
-        if (Disposed)
-            throw new ObjectDisposedException(nameof(UnicornContext),
-                "This Unicorn context has already been disposed.");
+        Unicorn = unicorn;
+        Context = contextPtr;
     }
 
     public void RegWrite<T>(int registerId, T value) where T : unmanaged
@@ -857,10 +852,10 @@ internal class UnicornContext : IUnicornContext
 
         unsafe
         {
-            result = Native.uc_context_reg_write(this.Context, registerId, &value);
+            result = Native.uc_context_reg_write(Context, registerId, &value);
         }
 
-        this.Unicorn.CheckResult(result);
+        Unicorn.CheckResult(result);
     }
 
     public T RegRead<T>(int registerId) where T : unmanaged
@@ -871,10 +866,11 @@ internal class UnicornContext : IUnicornContext
 
         unsafe
         {
-            result = Native.uc_context_reg_read(this.Context, registerId, &value);
+            result = Native.uc_context_reg_read(Context, registerId, &value);
         }
 
-        this.Unicorn.CheckResult(result);
+        Unicorn.CheckResult(result);
+
         return value;
     }
 
@@ -901,10 +897,10 @@ internal class UnicornContext : IUnicornContext
         int result;
         fixed (int* regIdsPtr = registerIds)
         {
-            result = Native.uc_context_reg_write_batch(this.Context, regIdsPtr, pointersToValues, registerIds.Length);
+            result = Native.uc_context_reg_write_batch(Context, regIdsPtr, pointersToValues, registerIds.Length);
         }
 
-        this.Unicorn.CheckResult(result);
+        Unicorn.CheckResult(result);
     }
 
     public unsafe void RegBatchWrite<T>(int[] registerIds, Span<T> values) where T : unmanaged
@@ -926,12 +922,12 @@ internal class UnicornContext : IUnicornContext
 
             fixed (int* regIdsPtr = registerIds)
             {
-                result = Native.uc_context_reg_write_batch(this.Context, regIdsPtr, pointersToValues,
+                result = Native.uc_context_reg_write_batch(Context, regIdsPtr, pointersToValues,
                     registerIds.Length);
             }
         }
 
-        this.Unicorn.CheckResult(result);
+        Unicorn.CheckResult(result);
     }
 
     public unsafe void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged
@@ -950,12 +946,12 @@ internal class UnicornContext : IUnicornContext
 
             fixed (int* regIdsPinned = registerIds)
             {
-                result = Native.uc_context_reg_read_batch(this.Context, regIdsPinned, pointersToValues,
+                result = Native.uc_context_reg_read_batch(Context, regIdsPinned, pointersToValues,
                     registerIds.Length);
             }
         }
 
-        this.Unicorn.CheckResult(result);
+        Unicorn.CheckResult(result);
     }
 
     public unsafe T[] RegBatchRead<T>(int[] registerIds) where T : unmanaged
@@ -975,13 +971,23 @@ internal class UnicornContext : IUnicornContext
 
             fixed (int* regIdsPinned = registerIds)
             {
-                result = Native.uc_context_reg_read_batch(this.Context, regIdsPinned, pointersToValues,
+                result = Native.uc_context_reg_read_batch(Context, regIdsPinned, pointersToValues,
                     registerIds.Length);
             }
         }
 
-        this.Unicorn.CheckResult(result);
+        Unicorn.CheckResult(result);
+
         return retArray;
+    }
+
+    private void EnsureNotDisposed()
+    {
+        Unicorn.EnsureEngine();
+
+        if (Disposed)
+            throw new ObjectDisposedException(nameof(UnicornContext),
+                "This Unicorn context has already been disposed.");
     }
 
     #region Disposal
@@ -1003,7 +1009,7 @@ internal class UnicornContext : IUnicornContext
             // Intentionally left blank
         }
 
-        _ = Native.uc_context_free(this.Context);
+        _ = Native.uc_context_free(Context);
         // Best effort: If closing failed, we can't really do anything about it
 
         Disposed = true;

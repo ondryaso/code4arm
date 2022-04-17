@@ -10,13 +10,12 @@ namespace Code4Arm.ExecutionCore.Assembling.Models;
 
 public class Executable : IDisposable
 {
-    private List<AssembledObject> _sourceObjects;
+    private readonly ELF<uint> _elf;
     private readonly ILogger<Executable> _logger;
-    private List<MemorySegment> _segments;
-    private Dictionary<uint, BoundFunctionSimulator>? _functionSimulators;
+    private readonly List<MemorySegment> _segments;
 
     private string? _filePath;
-    private ELF<uint> _elf;
+    private List<AssembledObject> _sourceObjects;
     public IReadOnlyList<MemorySegment> Segments => _segments;
     public IAsmProject Project { get; }
 
@@ -24,18 +23,19 @@ public class Executable : IDisposable
     /// The address of the _start symbol. If no such symbol is defined, points to the start of the .text section.
     /// </summary>
     public uint EntryPoint { get; private set; }
+
     public uint LastInstructionAddress { get; private set; }
     public bool StartSymbolDefined { get; private set; }
-    
+
     public uint TextSectionStartAddress { get; private set; }
     public uint TextSectionEndAddress { get; private set; }
 
-    public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators => _functionSimulators;
+    public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators { get; }
 
     internal Executable(IAsmProject project, string filePath, ELF<uint> elf, List<AssembledObject> sourceObjects,
         IEnumerable<BoundFunctionSimulator>? functionSimulators, ILogger<Executable> logger)
     {
-        this.Project = project;
+        Project = project;
 
         _filePath = filePath;
         _elf = elf;
@@ -45,12 +45,12 @@ public class Executable : IDisposable
 
         if (functionSimulators != null)
         {
-            _functionSimulators = functionSimulators
-                .OrderBy(f => f.Address)
-                .ToDictionary(f => f.Address, f => f);
+            FunctionSimulators = functionSimulators
+                                 .OrderBy(f => f.Address)
+                                 .ToDictionary(f => f.Address, f => f);
 
-            if (_functionSimulators.Count == 0)
-                _functionSimulators = null;
+            if (FunctionSimulators.Count == 0)
+                FunctionSimulators = null;
         }
 
         this.MakeSegments();
@@ -78,15 +78,13 @@ public class Executable : IDisposable
             var segmentBssEnd = 0u;
 
             if (hasBss)
-            {
-                if ((bssStart >= segStart && bssStart < segEnd) || (bssEnd > segStart && bssEnd < segEnd)
-                                                                || (bssStart < segStart && bssEnd > segEnd))
+                if (((bssStart >= segStart) && (bssStart < segEnd)) || ((bssEnd > segStart) && (bssEnd < segEnd))
+                    || ((bssStart < segStart) && (bssEnd > segEnd)))
                 {
                     segmentHasBss = true;
                     segmentBssStart = Math.Max(bssStart, segStart);
                     segmentBssEnd = Math.Min(bssEnd, segEnd);
                 }
-            }
 
             var memorySegment = new MemorySegment(_elf, i)
             {
@@ -98,12 +96,12 @@ public class Executable : IDisposable
             _segments.Add(memorySegment);
         }
 
-        if (_functionSimulators != null)
+        if (FunctionSimulators != null)
         {
-            var trampolineStart = _functionSimulators.First().Key;
-            var trampolineEnd = _functionSimulators.Last().Key + 4;
+            var trampolineStart = FunctionSimulators.First().Key;
+            var trampolineEnd = FunctionSimulators.Last().Key + 4;
             var memorySegment = new MemorySegment(trampolineStart, trampolineEnd - trampolineStart)
-                { IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute};
+                { IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute };
 
             _segments.Add(memorySegment);
         }
@@ -122,32 +120,29 @@ public class Executable : IDisposable
     private void DetermineCodeRange()
     {
         var symbolTableSection = _elf.Sections.FirstOrDefault(s => s.Type == SectionType.SymbolTable);
+
         if (symbolTableSection is not SymbolTable<uint> symbolTable)
-        {
-            throw new Exception($"ELF of project {this.Project.Name} doesn't contain a symbol table.");
-        }
+            throw new Exception($"ELF of project {Project.Name} doesn't contain a symbol table.");
 
         if (!_elf.TryGetSection(".text", out var textSection))
-        {
-            throw new Exception($"ELF of project {this.Project.Name} doesn't contain a text section.");
-        }
+            throw new Exception($"ELF of project {Project.Name} doesn't contain a text section.");
 
-        this.TextSectionStartAddress = textSection.LoadAddress;
-        this.TextSectionEndAddress = textSection.LoadAddress + textSection.Size;
+        TextSectionStartAddress = textSection.LoadAddress;
+        TextSectionEndAddress = textSection.LoadAddress + textSection.Size;
 
         var startSymbol = symbolTable.Entries.FirstOrDefault(e => e.Name == "_start");
         if (startSymbol != null)
         {
-            this.StartSymbolDefined = true;
-            this.EntryPoint = startSymbol.Value;
+            StartSymbolDefined = true;
+            EntryPoint = startSymbol.Value;
         }
         else
         {
-            _logger.LogTrace("ELF of project {Name} doesn't define the _start symbol.", this.Project.Name);
-            this.EntryPoint = textSection.LoadAddress;
+            _logger.LogTrace("ELF of project {Name} doesn't define the _start symbol.", Project.Name);
+            EntryPoint = textSection.LoadAddress;
         }
 
-        var textSectionEnd = textSection.LoadAddress + textSection.Size - 4;
+        var textSectionEnd = (textSection.LoadAddress + textSection.Size) - 4;
         var symbolsOrdered = symbolTable.Entries.OrderBy(s => s.Value);
         var firstASymbol = 0u;
 
@@ -155,6 +150,7 @@ public class Executable : IDisposable
         {
             if (symbol.Value < textSection.LoadAddress)
                 continue;
+
             if (symbol.Value > textSectionEnd)
                 break;
 
@@ -164,8 +160,8 @@ public class Executable : IDisposable
                 {
                     firstASymbol = symbol.Value;
 
-                    if (!this.StartSymbolDefined)
-                        this.EntryPoint = firstASymbol;
+                    if (!StartSymbolDefined)
+                        EntryPoint = firstASymbol;
                 }
             }
             else if (symbol.Name.StartsWith("$d"))
@@ -173,12 +169,13 @@ public class Executable : IDisposable
                 if (firstASymbol != 0u)
                 {
                     textSectionEnd = symbol.Value - 4;
+
                     break;
                 }
             }
         }
 
-        this.LastInstructionAddress = textSectionEnd;
+        LastInstructionAddress = textSectionEnd;
     }
 
     /// <summary>

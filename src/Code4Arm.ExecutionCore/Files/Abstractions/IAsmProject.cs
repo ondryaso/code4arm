@@ -12,7 +12,7 @@ public interface IAsmProject
     /// Returns an user-friendly identifier of this project.
     /// </summary>
     string Name { get; }
-    
+
     /// <summary>
     /// Returns an enumerable of project files in linking order.
     /// </summary>

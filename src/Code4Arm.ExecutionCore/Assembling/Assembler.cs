@@ -16,13 +16,15 @@ namespace Code4Arm.ExecutionCore.Assembling;
 
 public class Assembler : IDisposable
 {
+    private static readonly Regex FileNameRegex = new(@"^(?:.*?):\s*", RegexOptions.Multiline | RegexOptions.Compiled);
+
     private readonly IOptionsSnapshot<AssemblerOptions> _assemblerOptions;
     private readonly IOptionsSnapshot<LinkerOptions> _linkerOptions;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<Assembler> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
-    private string? _linkerScriptPath = null;
-    private List<BoundFunctionSimulator>? _functionSimulators = null;
+    private List<BoundFunctionSimulator>? _functionSimulators;
+    private string? _linkerScriptPath;
 
     public Assembler(IOptionsSnapshot<AssemblerOptions> assemblerOptions, IOptionsSnapshot<LinkerOptions> linkerOptions,
         ILoggerFactory loggerFactory)
@@ -33,8 +35,6 @@ public class Assembler : IDisposable
         _logger = loggerFactory.CreateLogger<Assembler>();
     }
 
-    private static readonly Regex FileNameRegex = new(@"^(?:.*?):\s*", RegexOptions.Multiline | RegexOptions.Compiled);
-
     /// <summary>
     /// Assembles a given file using GAS and returns a descriptor object wrapping the resulting object file and the
     /// assembly listing.
@@ -42,7 +42,7 @@ public class Assembler : IDisposable
     /// <remarks>
     /// The output object file is saved to a temporary location. The returned <see cref="AssembledObject"/> deletes
     /// the file when disposed.<br/>
-    /// The execution time of GAS is limited by the configured <see cref="AssemblerOptions.TimeoutMs"/>. 
+    /// The execution time of GAS is limited by the configured <see cref="AssemblerOptions.TimeoutMs"/>.
     /// </remarks>
     /// <param name="file">The assembly source file.</param>
     /// <returns>An <see cref="AssembledObject"/> descriptor object of the assembled object file.</returns>
@@ -61,21 +61,17 @@ public class Assembler : IDisposable
 
         var outputFile = Path.GetTempFileName();
         if (_assemblerOptions.Value.GasOptions != null)
-        {
             foreach (var gasOption in _assemblerOptions.Value.GasOptions)
             {
                 gasStartInfo.ArgumentList.Add(gasOption);
             }
-        }
 
         gasStartInfo.ArgumentList.Add("-alscn");
         gasStartInfo.ArgumentList.Add("-o");
         gasStartInfo.ArgumentList.Add(outputFile);
 
         if (!string.IsNullOrWhiteSpace(_assemblerOptions.Value.SourceHeaderPath))
-        {
             gasStartInfo.ArgumentList.Add(_assemblerOptions.Value.SourceHeaderPath);
-        }
 
         gasStartInfo.ArgumentList.Add(location.FileSystemPath);
 
@@ -83,6 +79,7 @@ public class Assembler : IDisposable
         if (gasProcess == null)
         {
             _logger.LogError("Error starting GAS process.");
+
             throw new Exception("Error starting GAS process.");
         }
 
@@ -95,6 +92,7 @@ public class Assembler : IDisposable
         catch (TaskCanceledException e)
         {
             _logger.LogWarning("GAS process timed out for file {Name}.", file.Name);
+
             throw new Exception("GAS process timed out.", e);
         }
 
@@ -117,21 +115,23 @@ public class Assembler : IDisposable
 
     /// <summary>
     /// Assembles all files in a given <see cref="IAsmProject"/> and links them, resulting in an ELF executable binary.
-    /// When successful, reads the binary and creates an <see cref="Executable"/>. 
+    /// When successful, reads the binary and creates an <see cref="Executable"/>.
     /// </summary>
     /// <remarks>
     /// The output object file is saved to a temporary location. The returned <see cref="Executable"/> deletes
     /// the file when disposed.<br/>
-    /// The execution time of LD is limited by the configured <see cref="LinkerOptions.TimeoutMs"/>. 
+    /// The execution time of LD is limited by the configured <see cref="LinkerOptions.TimeoutMs"/>.
     /// </remarks>
     /// <param name="asmProject">The <see cref="IAsmProject"/> to get source files from.</param>
-    /// <returns>A structure describing the process result.
+    /// <returns>
+    /// A structure describing the process result.
     /// When some of the files fail to assemble, <see cref="MakeResult.State"/> is set to
     /// <see cref="MakeResultState.InvalidObjects"/> and <see cref="MakeResult.InvalidObjects"/> is populated.
     /// When the files cannot be linked together, <see cref="MakeResult.State"/> is set to
     /// <see cref="MakeResultState.LinkingError"/> and <see cref="MakeResult.LinkerError"/> is populated.
     /// <see cref="MakeResult.Executable"/> is only populated when the process succeeds and
-    /// <see cref="MakeResult.State"/> is <see cref="MakeResultState.Successful"/>.</returns>
+    /// <see cref="MakeResult.State"/> is <see cref="MakeResultState.Successful"/>.
+    /// </returns>
     /// <exception cref="Exception">LD process couldn't be started or its execution timed out.</exception>
     public async Task<MakeResult> MakeProject(IAsmProject asmProject)
     {
@@ -160,6 +160,7 @@ public class Assembler : IDisposable
             CleanObjects(validObjects);
 
             _logger.LogTrace("Not linking – invalid object file(s).");
+
             return new MakeResult(asmProject, MakeResultState.InvalidObjects, null, validObjects, invalidObjects, null);
         }
 
@@ -184,6 +185,7 @@ public class Assembler : IDisposable
                     if (symbolTable.Entries.Any(e => e.Name == "_start"))
                     {
                         hasStartSymbol = true;
+
                         break;
                     }
                 }
@@ -198,7 +200,7 @@ public class Assembler : IDisposable
             {
                 var initFileSource = new InitFile(_linkerOptions.Value.InitFilePath);
                 var assembled = await this.AssembleFile(initFileSource);
-                
+
                 if (assembled.AssemblySuccessful)
                 {
                     validObjects.Add(assembled);
@@ -221,12 +223,10 @@ public class Assembler : IDisposable
         var outputFile = Path.GetTempFileName();
 
         if (_linkerOptions.Value.LdOptions != null) // Options to place BEFORE object files
-        {
             foreach (var ldOption in _linkerOptions.Value.LdOptions)
             {
                 ldStartInfo.ArgumentList.Add(ldOption);
             }
-        }
 
         if (!string.IsNullOrWhiteSpace(_linkerOptions.Value.LinkerScript))
         {
@@ -241,9 +241,7 @@ public class Assembler : IDisposable
         ldStartInfo.ArgumentList.Add("common-page-size=4096");
 
         if (_linkerScriptPath != null) // Linker script for function simulators (if we have one)
-        {
             ldStartInfo.ArgumentList.Add(_linkerScriptPath);
-        }
 
         foreach (var assembledObject in validObjects) // Object files
         {
@@ -251,12 +249,10 @@ public class Assembler : IDisposable
         }
 
         if (_linkerOptions.Value.LdTrailOptions != null) // Options to place AFTER object files
-        {
             foreach (var ldOption in _linkerOptions.Value.LdTrailOptions)
             {
                 ldStartInfo.ArgumentList.Add(ldOption);
             }
-        }
 
         _logger.LogTrace("Starting the linker.");
         using var ldProcess = Process.Start(ldStartInfo);
@@ -264,6 +260,7 @@ public class Assembler : IDisposable
         {
             CleanObjects(validObjects);
             _logger.LogError("Error starting LD process.");
+
             throw new Exception("Error starting LD process.");
         }
 
@@ -277,6 +274,7 @@ public class Assembler : IDisposable
         {
             CleanObjects(validObjects);
             _logger.LogWarning("LD process timed out for project {Name}.", asmProject.Name);
+
             throw new Exception("LD process timed out.", e);
         }
 
@@ -314,9 +312,7 @@ public class Assembler : IDisposable
     private Executable MakeExecutable(IAsmProject project, List<AssembledObject> assembledObjects, string elfPath)
     {
         if (!ELFReader.TryLoad(elfPath, out ELF<uint> elf))
-        {
             throw new Exception("Cannot load linked ELF file.");
-        }
 
         var exe = new Executable(project, elfPath, elf, assembledObjects, _functionSimulators,
             _loggerFactory.CreateLogger<Executable>());
@@ -341,6 +337,7 @@ public class Assembler : IDisposable
             if (address >= _linkerOptions.Value.TrampolineEndAddress)
             {
                 _logger.LogError("Too many function simulators for the configured trampoline memory.");
+
                 break;
             }
 
@@ -353,7 +350,6 @@ public class Assembler : IDisposable
     private void MakeLinkerScript()
     {
         if (_linkerScriptPath != null)
-        {
             try
             {
                 File.Delete(_linkerScriptPath);
@@ -364,11 +360,11 @@ public class Assembler : IDisposable
                     "Cannot delete temporary linker script file {FilePath}.",
                     _linkerScriptPath);
             }
-        }
 
-        if (_functionSimulators is null or {Count: 0})
+        if (_functionSimulators is null or { Count: 0 })
         {
             _linkerScriptPath = null;
+
             return;
         }
 
@@ -403,29 +399,27 @@ public class Assembler : IDisposable
     {
         private readonly string _path;
 
-        private class InitFileLocated : ILocatedFile
-        {
-            public void Dispose()
-            {
-            }
-
-            public string FileSystemPath { get; init; }
-            public int Version => 1;
-            public IAsmFile File { get; init; }
-        }
-
-        public Task<ILocatedFile> LocateAsync()
-        {
-            return Task.FromResult(new InitFileLocated() {File = this, FileSystemPath = _path} as ILocatedFile);
-        }
-
         public InitFile(string path)
         {
             _path = path;
         }
 
+        public Task<ILocatedFile> LocateAsync() =>
+            Task.FromResult(new InitFileLocated { File = this, FileSystemPath = _path } as ILocatedFile);
+
         public string Name => "__ProgramEntryModule";
         public int Version => 1;
         public IAsmProject? Project => null;
+
+        private class InitFileLocated : ILocatedFile
+        {
+            public string FileSystemPath { get; init; }
+            public int Version => 1;
+            public IAsmFile File { get; init; }
+
+            public void Dispose()
+            {
+            }
+        }
     }
 }

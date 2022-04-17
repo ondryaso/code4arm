@@ -19,28 +19,29 @@ public interface IExecution : IDisposable
     /// Controls whether writes to memory should be tracked when saving step contexts and reverted when stepping back.
     /// </summary>
     bool EnableStepBackMemoryCapture { get; set; }
-    
+
     /// <summary>
     /// Controls whether registers can be used in data breakpoints.
     /// </summary>
     bool EnableRegisterDataBreakpoints { get; set; }
+
+    ICodeStaticInfo CodeInfo { get; }
+    IExecutableInfo ExecutableInfo { get; }
+    ICodeExecutionInfo ExecutionInfo { get; }
+
+    IUnicorn Engine { get; }
+
+    Stream EmulatedInput { get; }
+    Stream EmulatedOutput { get; }
 
     void SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
     void SetBreakpoints(SetBreakpointsArguments arguments);
     void SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints);
     void SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
 
-    ICodeStaticInfo CodeInfo { get; }
-    IExecutableInfo ExecutableInfo { get; }
-    ICodeExecutionInfo ExecutionInfo { get; }
-    
-    IUnicorn Engine { get; }
-
-    Stream EmulatedInput { get; }
-    Stream EmulatedOutput { get; }
-
     // remaps memory
     void Launch(bool debug);
+
     // terminates and launches
     void Restart(bool debug);
     void GotoTarget(int targetId);

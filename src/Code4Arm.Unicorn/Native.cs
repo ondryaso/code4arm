@@ -23,31 +23,6 @@ internal static class Native
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern unsafe int uc_query(UIntPtr eng, int type, nuint* result);
 
-    #region uc_ctl overloads
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern int uc_ctl(UIntPtr eng, int control, int arg0);
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern int uc_ctl(UIntPtr eng, int control, uint arg0);
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern unsafe int uc_ctl(UIntPtr eng, int control, int* arg0);
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern unsafe int uc_ctl(UIntPtr eng, int control, uint* arg0);
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern unsafe int uc_ctl(UIntPtr eng, int control, ulong* arg0);
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern unsafe int uc_ctl(UIntPtr eng, int control, nuint* arg0);
-
-    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
-    public static extern unsafe int uc_ctl(UIntPtr eng, int control, ulong* arg0, nuint arg1);
-
-    #endregion
-
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern int uc_errno(UIntPtr eng);
 
@@ -145,6 +120,31 @@ internal static class Native
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern int uc_context_free(UIntPtr context);
+
+    #region uc_ctl overloads
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern int uc_ctl(UIntPtr eng, int control, int arg0);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern int uc_ctl(UIntPtr eng, int control, uint arg0);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern unsafe int uc_ctl(UIntPtr eng, int control, int* arg0);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern unsafe int uc_ctl(UIntPtr eng, int control, uint* arg0);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern unsafe int uc_ctl(UIntPtr eng, int control, ulong* arg0);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern unsafe int uc_ctl(UIntPtr eng, int control, nuint* arg0);
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern unsafe int uc_ctl(UIntPtr eng, int control, ulong* arg0, nuint arg1);
+
+    #endregion
 }
 
 // typedef void (*uc_cb_hookcode_t)(uc_engine *uc, uint64_t address, uint32_t size, void *user_data);
