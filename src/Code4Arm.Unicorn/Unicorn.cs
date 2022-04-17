@@ -141,7 +141,7 @@ public class Unicorn : IUnicorn
             throw new ArgumentException($"Expected {registerIds.Length} values, got {i}.", nameof(values));
 
         int result;
-        fixed (int* regIdsPtr = &registerIds[0])
+        fixed (int* regIdsPtr = registerIds)
         {
             result = Native.uc_reg_write_batch(_engine, regIdsPtr, pointersToValues, registerIds.Length);
         }
@@ -166,7 +166,7 @@ public class Unicorn : IUnicorn
                 pointersToValues[i] = &valuesPinned[i];
             }
 
-            fixed (int* regIdsPtr = &registerIds[0])
+            fixed (int* regIdsPtr = registerIds)
             {
                 result = Native.uc_reg_write_batch(_engine, regIdsPtr, pointersToValues, registerIds.Length);
             }
@@ -189,7 +189,7 @@ public class Unicorn : IUnicorn
                 pointersToValues[i] = &targetPinned[i];
             }
 
-            fixed (int* regIdsPinned = &registerIds[0])
+            fixed (int* regIdsPinned = registerIds)
             {
                 result = Native.uc_reg_read_batch(_engine, regIdsPinned, pointersToValues, registerIds.Length);
             }
@@ -213,7 +213,7 @@ public class Unicorn : IUnicorn
                 pointersToValues[i] = &targetPinned[i];
             }
 
-            fixed (int* regIdsPinned = &registerIds[0])
+            fixed (int* regIdsPinned = registerIds)
             {
                 result = Native.uc_reg_read_batch(_engine, regIdsPinned, pointersToValues, registerIds.Length);
             }
@@ -879,7 +879,7 @@ internal class UnicornContext : IUnicornContext
             throw new ArgumentException($"Expected {registerIds.Length} values, got {i}.", nameof(values));
 
         int result;
-        fixed (int* regIdsPtr = &registerIds[0])
+        fixed (int* regIdsPtr = registerIds)
         {
             result = Native.uc_context_reg_write_batch(this.Context, regIdsPtr, pointersToValues, registerIds.Length);
         }
@@ -904,7 +904,7 @@ internal class UnicornContext : IUnicornContext
                 pointersToValues[i] = &valuesPinned[i];
             }
 
-            fixed (int* regIdsPtr = &registerIds[0])
+            fixed (int* regIdsPtr = registerIds)
             {
                 result = Native.uc_context_reg_write_batch(this.Context, regIdsPtr, pointersToValues,
                     registerIds.Length);
@@ -928,7 +928,7 @@ internal class UnicornContext : IUnicornContext
                 pointersToValues[i] = &targetPinned[i];
             }
 
-            fixed (int* regIdsPinned = &registerIds[0])
+            fixed (int* regIdsPinned = registerIds)
             {
                 result = Native.uc_context_reg_read_batch(this.Context, regIdsPinned, pointersToValues,
                     registerIds.Length);
@@ -953,7 +953,7 @@ internal class UnicornContext : IUnicornContext
                 pointersToValues[i] = &targetPinned[i];
             }
 
-            fixed (int* regIdsPinned = &registerIds[0])
+            fixed (int* regIdsPinned = registerIds)
             {
                 result = Native.uc_context_reg_read_batch(this.Context, regIdsPinned, pointersToValues,
                     registerIds.Length);
