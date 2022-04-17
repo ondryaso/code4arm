@@ -45,8 +45,8 @@ public interface IUnicorn : IUnicornContext
 
     void MemWrite(ulong address, byte[] bytes);
     void MemWrite(ulong address, byte[] bytes, nuint size);
-    void MemWrite(ulong address, Span<byte> bytes);
-    void MemWrite(ulong address, Span<byte> bytes, nuint size);
+    void MemWrite(ulong address, ReadOnlySpan<byte> bytes);
+    void MemWrite(ulong address, ReadOnlySpan<byte> bytes, nuint size);
 
     byte[] MemRead(ulong address, nuint size);
     void MemRead(ulong address, byte[] target);
@@ -94,7 +94,7 @@ public interface IUnicornContext : IDisposable
     void RegWrite<T>(int registerId, T value) where T : unmanaged;
     T RegRead<T>(int registerId) where T : unmanaged;
     void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged;
-    void RegBatchWrite<T>(int[] registerIds, Span<T> values) where T : unmanaged;
+    void RegBatchWrite<T>(int[] registerIds, ReadOnlySpan<T> values) where T : unmanaged;
     void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged;
     T[] RegBatchRead<T>(int[] registerIds) where T : unmanaged;
 }

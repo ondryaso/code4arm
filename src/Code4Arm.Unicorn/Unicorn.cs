@@ -150,7 +150,7 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
-    public unsafe void RegBatchWrite<T>(int[] registerIds, Span<T> values) where T : unmanaged
+    public unsafe void RegBatchWrite<T>(int[] registerIds, ReadOnlySpan<T> values) where T : unmanaged
     {
         this.EnsureEngine();
 
@@ -381,7 +381,7 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
-    public unsafe void MemWrite(ulong address, Span<byte> bytes)
+    public unsafe void MemWrite(ulong address, ReadOnlySpan<byte> bytes)
     {
         this.EnsureEngine();
 
@@ -394,7 +394,7 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
-    public unsafe void MemWrite(ulong address, Span<byte> bytes, nuint size)
+    public unsafe void MemWrite(ulong address, ReadOnlySpan<byte> bytes, nuint size)
     {
         if (size > (nuint)bytes.Length)
             throw new ArgumentOutOfRangeException(nameof(size),
@@ -903,7 +903,7 @@ internal class UnicornContext : IUnicornContext
         Unicorn.CheckResult(result);
     }
 
-    public unsafe void RegBatchWrite<T>(int[] registerIds, Span<T> values) where T : unmanaged
+    public unsafe void RegBatchWrite<T>(int[] registerIds, ReadOnlySpan<T> values) where T : unmanaged
     {
         this.EnsureNotDisposed();
 
