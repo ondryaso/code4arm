@@ -7,7 +7,7 @@ using ELFSharp.ELF.Segments;
 
 namespace Code4Arm.ExecutionCore.Assembling.Models;
 
-public class MemorySegment
+public class MemorySegment : IDisposable
 {
     private readonly byte[]? _data;
 
@@ -31,7 +31,12 @@ public class MemorySegment
     public bool HasBssSection { get; init; }
     public uint BssStart { get; init; }
     public uint BssEnd { get; init; }
+
     public bool IsTrampoline { get; init; }
+    public bool IsStack { get; init; }
+
+    // ReSharper disable once InconsistentNaming
+    public bool IsMMIO { get; init; }
 
     public MemorySegment(uint contentsStartAddress, uint contentsSize)
     {
@@ -101,5 +106,23 @@ public class MemorySegment
             throw new Exception("Invalid segment state.");
 
         return ElfSegment.GetMemoryContents();
+    }
+
+    public bool ContainsAddress(uint address)
+    {
+        return address >= StartAddress && address < EndAddress;
+    }
+
+    public bool ContainsBlock(uint address, uint size)
+    {
+        var end = address + size;
+
+        return ((address >= StartAddress && address < EndAddress) || (end > StartAddress && end < EndAddress)
+            || (address < StartAddress && end > EndAddress));
+    }
+
+    public void Dispose()
+    {
+        DirectHandle?.Dispose();
     }
 }

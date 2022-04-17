@@ -1,6 +1,7 @@
 // Executable.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Code4Arm.ExecutionCore.Assembling.Models;
 
-public class Executable : IDisposable
+public class Executable : IExecutableInfo, IDisposable
 {
     private readonly ELF<uint> _elf;
     private readonly ILogger<Executable> _logger;
@@ -16,21 +17,7 @@ public class Executable : IDisposable
 
     private string? _filePath;
     private List<AssembledObject> _sourceObjects;
-    public IReadOnlyList<MemorySegment> Segments => _segments;
     public IAsmProject Project { get; }
-
-    /// <summary>
-    /// The address of the _start symbol. If no such symbol is defined, points to the start of the .text section.
-    /// </summary>
-    public uint EntryPoint { get; private set; }
-
-    public uint LastInstructionAddress { get; private set; }
-    public bool StartSymbolDefined { get; private set; }
-
-    public uint TextSectionStartAddress { get; private set; }
-    public uint TextSectionEndAddress { get; private set; }
-
-    public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators { get; }
 
     internal Executable(IAsmProject project, string filePath, ELF<uint> elf, List<AssembledObject> sourceObjects,
         IEnumerable<BoundFunctionSimulator>? functionSimulators, ILogger<Executable> logger)
@@ -57,6 +44,21 @@ public class Executable : IDisposable
         this.DetermineCodeRange();
     }
 
+    public IReadOnlyList<MemorySegment> Segments => _segments;
+
+    /// <summary>
+    /// The address of the _start symbol. If no such symbol is defined, points to the start of the .text section.
+    /// </summary>
+    public uint EntryPoint { get; private set; }
+
+    public uint LastInstructionAddress { get; private set; }
+    public bool StartSymbolDefined { get; private set; }
+
+    public uint TextSectionStartAddress { get; private set; }
+    public uint TextSectionEndAddress { get; private set; }
+
+    public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators { get; }
+
     /// <summary>
     /// Creates <see cref="MemorySegment"/> definitions based on the segments from the ELF.
     /// If function simulators are defined, creates a 'trampoline' memory segment spanning over their addresses.
@@ -65,7 +67,7 @@ public class Executable : IDisposable
     {
         var hasBss = _elf.TryGetSection(".bss", out var bssSection);
         var bssStart = bssSection?.LoadAddress ?? 0;
-        var bssEnd = (bssSection?.LoadAddress + bssSection?.Size) ?? 0;
+        var bssEnd = bssSection?.LoadAddress + bssSection?.Size ?? 0;
 
         for (var i = 0; i < _elf.Segments.Count; i++)
         {
@@ -78,8 +80,8 @@ public class Executable : IDisposable
             var segmentBssEnd = 0u;
 
             if (hasBss)
-                if (((bssStart >= segStart) && (bssStart < segEnd)) || ((bssEnd > segStart) && (bssEnd < segEnd))
-                    || ((bssStart < segStart) && (bssEnd > segEnd)))
+                if ((bssStart >= segStart && bssStart < segEnd) || (bssEnd > segStart && bssEnd < segEnd)
+                    || (bssStart < segStart && bssEnd > segEnd))
                 {
                     segmentHasBss = true;
                     segmentBssStart = Math.Max(bssStart, segStart);
@@ -142,7 +144,7 @@ public class Executable : IDisposable
             EntryPoint = textSection.LoadAddress;
         }
 
-        var textSectionEnd = (textSection.LoadAddress + textSection.Size) - 4;
+        var textSectionEnd = textSection.LoadAddress + textSection.Size - 4;
         var symbolsOrdered = symbolTable.Entries.OrderBy(s => s.Value);
         var firstASymbol = 0u;
 
