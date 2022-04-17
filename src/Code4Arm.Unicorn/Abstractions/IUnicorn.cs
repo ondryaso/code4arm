@@ -80,7 +80,7 @@ public interface IUnicorn : IUnicornContext
 
     void MemMap(ulong address, nuint size, MemoryPermissions permissions);
     void MemMap(ulong address, nuint size, MemoryPermissions permissions, IntPtr memoryPointer);
-    void MemMap(ulong address, nuint size, MMIOReadCallback readCallback, MMIOWriteCallback writeCallback);
+    void MemMap(ulong address, nuint size, MMIOReadCallback? readCallback, MMIOWriteCallback? writeCallback);
 
     void MemUnmap(ulong address, nuint size);
 

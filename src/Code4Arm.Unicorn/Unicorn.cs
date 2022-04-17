@@ -676,29 +676,49 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
-    public void MemMap(ulong address, nuint size, MMIOReadCallback readCallback, MMIOWriteCallback writeCallback)
+    public void MemMap(ulong address, nuint size, MMIOReadCallback? readCallback, MMIOWriteCallback? writeCallback)
     {
         this.EnsureEngine();
-
-        _mmioReadNativeDelegate ??= this.MMIOReadHandler;
-        _mmioWriteNativeDelegate ??= this.MMIOWriteHandler;
-
-        if (!_nativeHooks.TryGetValue(_mmioReadNativeDelegate, out var readPtr))
-        {
-            readPtr = Marshal.GetFunctionPointerForDelegate(_mmioReadNativeDelegate);
-        }
-
-        if (!_nativeHooks.TryGetValue(_mmioWriteNativeDelegate, out var writePtr))
-        {
-            writePtr = Marshal.GetFunctionPointerForDelegate(_mmioWriteNativeDelegate);
-        }
-
+        
+        IntPtr readPtr, writePtr, userDataRead, userDataWrite;
         var nextId = _managedHooks.Count;
-        _managedHooks.Add(readCallback);
-        _managedHooks.Add(writeCallback);
+        
+        if (readCallback == null)
+        {
+            readPtr = IntPtr.Zero;
+            userDataRead = IntPtr.Zero;
+        }
+        else
+        {
+            _mmioReadNativeDelegate ??= this.MMIOReadHandler;
+            if (!_nativeHooks.TryGetValue(_mmioReadNativeDelegate, out readPtr))
+            {
+                readPtr = Marshal.GetFunctionPointerForDelegate(_mmioReadNativeDelegate);
+            }
+            
+            _managedHooks.Add(readCallback);
+            userDataRead = new IntPtr(nextId++);
+        }
 
-        var result = Native.uc_mmio_map(_engine, address, size, readPtr, new IntPtr(nextId),
-            writePtr, new IntPtr(nextId + 1));
+        if (writeCallback == null)
+        {
+            writePtr = IntPtr.Zero;
+            userDataWrite = IntPtr.Zero;
+        } 
+        else
+        {
+            _mmioWriteNativeDelegate ??= this.MMIOWriteHandler;
+            if (!_nativeHooks.TryGetValue(_mmioWriteNativeDelegate, out writePtr))
+            {
+                writePtr = Marshal.GetFunctionPointerForDelegate(_mmioWriteNativeDelegate);
+            }
+            
+            _managedHooks.Add(writeCallback);
+            userDataWrite = new IntPtr(nextId);
+        }
+        
+        var result = Native.uc_mmio_map(_engine, address, size, readPtr, userDataRead,
+            writePtr, userDataWrite);
 
         this.CheckResult(result);
     }
