@@ -62,24 +62,23 @@ public interface IUnicorn : IUnicornContext
     nuint AddNativeHook(IntPtr callbackPointer, int type, ulong startAddress, ulong endAddress, nint userData = 0);
     nuint AddNativeHook(Delegate callback, int type, ulong startAddress, ulong endAddress, nint userData = 0);
 
-    void AddCodeHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
+    UnicornHookRegistration AddCodeHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
 
-    void AddBlockHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
+    UnicornHookRegistration AddBlockHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
 
-    void AddInterruptHook(InterruptHookCallback callback, ulong startAddress, ulong endAddress);
+    UnicornHookRegistration AddInterruptHook(InterruptHookCallback callback, ulong startAddress, ulong endAddress);
 
-    void AddInvalidInstructionHook(InvalidInstructionHookCallback callback, ulong startAddress, ulong endAddress);
-
-    void AddMemoryHook(MemoryHookCallback callback, MemoryHookType hookType, ulong startAddress, ulong endAddress);
-
-    void AddInvalidMemoryAccessHook(InvalidMemoryAccessCallback callback, MemoryHookType hookType, ulong startAddress,
+    UnicornHookRegistration AddInvalidInstructionHook(InvalidInstructionHookCallback callback, ulong startAddress,
         ulong endAddress);
 
-    void RemoveHook(CodeHookCallback callback);
-    void RemoveHook(InterruptHookCallback callback);
-    void RemoveHook(InvalidInstructionHookCallback callback);
-    void RemoveHook(MemoryHookCallback callback);
-    void RemoveHook(InvalidMemoryAccessCallback callback);
+    UnicornHookRegistration AddMemoryHook(MemoryHookCallback callback, MemoryHookType hookType, ulong startAddress,
+        ulong endAddress);
+
+    UnicornHookRegistration AddInvalidMemoryAccessHook(InvalidMemoryAccessCallback callback, MemoryHookType hookType,
+        ulong startAddress,
+        ulong endAddress);
+
+    void RemoveHook(UnicornHookRegistration registration);
     void RemoveNativeHook(nuint hookId);
 
     void MemMap(ulong address, nuint size, MemoryPermissions permissions);
