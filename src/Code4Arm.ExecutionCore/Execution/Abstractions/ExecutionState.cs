@@ -8,5 +8,8 @@ public enum ExecutionState
     Unloaded,
     Ready,
     Running,
-    Paused
+    Paused,
+    Finished,
+    TerminatedManually,
+    TerminatedException
 }

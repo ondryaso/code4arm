@@ -92,7 +92,7 @@ public class MemorySegment : IDisposable
         => (address / 4096) * 4096;
 
     private static uint AlignSize(uint size, uint memoryStartAddress, uint contentsStartAddress)
-        => (((size + (contentsStartAddress - memoryStartAddress)) / 4096) + 1) * 4096;
+        => (((size + (contentsStartAddress - memoryStartAddress)) / 4096) + ((size % 4096 == 0) ? 0u : 1u)) * 4096;
 
     public byte[] GetData()
     {

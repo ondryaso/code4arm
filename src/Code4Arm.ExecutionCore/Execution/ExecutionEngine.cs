@@ -3,7 +3,6 @@
 
 using System.Buffers;
 using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
@@ -27,7 +26,8 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
     private ExecutionOptions _options;
     private Random _rnd = new();
     private readonly ArrayPool<byte> _arrayPool;
-    private const int MaxArrayPoolSize = 1024 * 1024;
+    private const int MaxArrayPoolSize = 2 * 1024 * 1024;
+    private List<UnicornHookRegistration> _strictAccessHooks = new();
 
     public StepBackMode StepBackMode { get; set; }
     public bool EnableStepBackMemoryCapture { get; set; }
@@ -65,7 +65,7 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
     }
 
     private IUnicorn MakeUnicorn()
-        => new Unicorn.Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.V8 | EngineMode.LittleEndian);
+        => new Unicorn.Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
 
     private void MakeStackSegment()
     {
@@ -76,7 +76,7 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         var addressOpts = (int)stOpt & ((int)StackPlacementOptions.FixedAddress +
             (int)StackPlacementOptions.RandomizeAddress + (int)StackPlacementOptions.AlwaysKeepFirstAddress);
 
-        if (addressOpts != 0 && (addressOpts & (addressOpts - 1)) == 0) // Has more than one set bit (~ is power of 2)
+        if ((addressOpts & (addressOpts - 1)) != 0) // Has more than one set bit (~ is power of 2)
             throw new InvalidOperationException(
                 $"Invalid stack placement options: only one of {StackPlacementOptions.FixedAddress}, {StackPlacementOptions.RandomizeAddress} and {StackPlacementOptions.AlwaysKeepFirstAddress} can be used.");
 
@@ -170,7 +170,7 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         {
             this.ClearMemory(stackSegmentBegin, StackSize);
         }
-        
+
         _stackSegment.Dispose();
         _stackSegment = newStackSegment;
     }
@@ -191,7 +191,7 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
                 : (uint)initial;
             initial = 0;
 
-            stackSegmentBegin += (stackSegmentBegin % 4096);
+            stackSegmentBegin -= (stackSegmentBegin % 4096);
 
             if (_segments == null)
                 break;
@@ -218,33 +218,112 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         this.MakeStackSegment();
 
         if (_exe != null)
-        {
-            foreach (var segment in Segments)
-            {
-                if (segment.IsStack)
-                    continue;
-
-                Engine.MemUnmap(segment.StartAddress, segment.Size);
-            }
-
-            // TODO?
-            _segments?.Clear();
-        }
+            this.UnmapAllMemory();
 
         _exe = executable;
-        this.InitMemory(true);
+        this.MapMemoryFromExecutable();
+
+        this.InitMemoryFromExecutable();
     }
 
-    private void InitMemory(bool remap)
+    private void UnmapAllMemory()
+    {
+        if (_segments == null)
+            return;
+
+        foreach (var strictAccessHook in _strictAccessHooks)
+        {
+            strictAccessHook.RemoveHook();
+        }
+
+        foreach (var segment in _segments)
+        {
+            if (segment.IsStack)
+                continue;
+
+            if (segment.IsDirect && segment.DirectHandle != null)
+                segment.DirectHandle.DangerousRelease();
+
+            Engine.MemUnmap(segment.StartAddress, segment.Size);
+        }
+
+        // TODO?
+        _segments?.Clear();
+    }
+
+    private void MapMemoryFromExecutable()
+    {
+        if (_exe == null || _segments == null)
+            throw new InvalidOperationException("Cannot map memory before an executable is loaded.");
+
+        foreach (var segment in _exe.Segments)
+        {
+            if (segment.IsDirect && segment.DirectHandle != null)
+            {
+                var refAdded = false;
+                segment.DirectHandle.DangerousAddRef(ref refAdded);
+
+                if (!refAdded)
+                    throw new Exception("Cannot increase reference counter on a safe handle.");
+
+                Engine.MemMap(segment.StartAddress, segment.Size, segment.Permissions.ToUnicorn(),
+                    segment.DirectHandle.DangerousGetHandle());
+
+                _segments.Add(segment);
+
+                continue;
+            }
+
+            Engine.MemMap(segment.StartAddress, segment.Size, segment.Permissions.ToUnicorn());
+            _segments.Add(segment);
+
+            if (segment.IsTrampoline)
+            {
+                var jumpBackInstruction = new byte[] { 0x1e, 0xff, 0x2f, 0xe1 };
+                var span = jumpBackInstruction.AsSpan();
+
+                for (var address = segment.ContentsStartAddress; address < segment.ContentsEndAddress; address += 4)
+                {
+                    Engine.MemWrite(address, span);
+                }
+            }
+        }
+
+        if (_options.UseStrictMemoryAccess)
+        {
+            foreach (var segment in _segments)
+            {
+                if (segment.StartAddress != segment.ContentsStartAddress)
+                {
+                    _strictAccessHooks.Add(Engine.AddMemoryHook(this.StrictAccessHook,
+                        MemoryHookType.Read | MemoryHookType.Write | MemoryHookType.Fetch,
+                        segment.StartAddress, segment.ContentsStartAddress - 1));
+                }
+
+                if (segment.EndAddress != segment.ContentsEndAddress)
+                {
+                    _strictAccessHooks.Add(Engine.AddMemoryHook(this.StrictAccessHook,
+                        MemoryHookType.Read | MemoryHookType.Write | MemoryHookType.Fetch,
+                        segment.ContentsEndAddress, segment.EndAddress - 1));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Load data of segments from the executable.
+    /// </summary>
+    /// <remarks>
+    /// This is used just before emulation is started. It overwrites the current contents of virtual memory with data
+    /// from the executable and zeroes out BSS sections.
+    /// </remarks>
+    private void InitMemoryFromExecutable()
     {
         if (_exe == null)
             throw new InvalidOperationException("Cannot initialize memory before an executable is loaded.");
 
         foreach (var segment in _exe.Segments)
         {
-            if (remap)
-                Engine.MemMap(segment.StartAddress, segment.Size, segment.Permissions.ToUnicorn());
-
             if (segment.HasData)
             {
                 if (_options.RandomizeExtraAllocatedSpaceContents)
@@ -254,21 +333,16 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
 
                     if (segment.ContentsEndAddress != segment.EndAddress)
                         this.RandomizeMemory(segment.ContentsEndAddress,
-                            segment.EndAddress - segment.ContentsStartAddress);
+                            segment.EndAddress - segment.ContentsEndAddress);
+                }
+
+                if (segment.HasBssSection)
+                {
+                    this.ClearMemory(segment.BssStart, segment.BssEnd - segment.BssStart);
                 }
 
                 var data = segment.GetData();
                 Engine.MemWrite(segment.ContentsStartAddress, data);
-            }
-            else if (segment.IsTrampoline)
-            {
-                var jumpBackInstruction = new byte[] { 0x1e, 0xff, 0x2f, 0xe1 };
-                var span = jumpBackInstruction.AsSpan();
-
-                for (var address = segment.ContentsStartAddress; address < segment.ContentsEndAddress; address += 4)
-                {
-                    Engine.MemWrite(address, span);
-                }
             }
         }
     }
@@ -290,6 +364,14 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         Engine.MemWrite(start, data, size);
         if (rent)
             _arrayPool.Return(data);
+    }
+
+    private void StrictAccessHook(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
+        long value)
+    {
+        Console.WriteLine($"STRICT ACCESS HOOK AT {address:x8}");
+        Engine.EmuStop();
+        // TODO
     }
 
     public void SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints)
@@ -314,6 +396,8 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
 
     public Task Launch(bool debug, CancellationToken cancellationToken = default)
     {
+        this.InitMemoryFromExecutable();
+
         throw new NotImplementedException();
     }
 
@@ -355,7 +439,8 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
 
     public void Dispose()
     {
-        throw new NotImplementedException();
+        // TODO
+        Engine.Dispose();
     }
 
     public IEnumerable<DataBreakpointInfoResponse> GetDataBreakpointInfo(string name) =>
