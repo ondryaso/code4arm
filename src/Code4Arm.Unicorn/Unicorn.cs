@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
+using Code4Arm.Unicorn.Callbacks;
+using Code4Arm.Unicorn.Callbacks.Native;
 using Code4Arm.Unicorn.Constants;
 using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
@@ -13,9 +15,12 @@ public class Unicorn : IUnicorn
 {
     private readonly List<UnicornContext> _contexts = new();
 
+    // Collections that keep hook references (both native and managed – the delegates mustn't be deleted by GC)
     private readonly Dictionary<Delegate, nuint> _hookIdsForDelegates = new();
     private readonly List<Delegate> _managedHooks = new();
-    private readonly Dictionary<Delegate, IntPtr> _nativeHooks = new(8);
+    private readonly Dictionary<Delegate, IntPtr> _nativeHookFunctionPointers = new(8);
+    private readonly Dictionary<nuint, Delegate?> _customNativeHooks = new();
+
     private bool _disposed;
     private UIntPtr _engine;
 
@@ -563,10 +568,10 @@ public class Unicorn : IUnicorn
     {
         this.EnsureEngine();
 
-        if (!_nativeHooks.TryGetValue(nativeCallback, out var ptr))
+        if (!_nativeHookFunctionPointers.TryGetValue(nativeCallback, out var ptr))
         {
             ptr = Marshal.GetFunctionPointerForDelegate(nativeCallback);
-            _nativeHooks.Add(nativeCallback, ptr);
+            _nativeHookFunctionPointers.Add(nativeCallback, ptr);
         }
 
         nuint hookId = 0;
@@ -579,6 +584,40 @@ public class Unicorn : IUnicorn
             startAddress, endAddress);
 
         this.CheckResult(result);
+    }
+
+    public unsafe nuint AddNativeHook(IntPtr callbackPointer, int type, ulong startAddress, ulong endAddress,
+        nint userData = 0)
+    {
+        this.EnsureEngine();
+
+        nuint hookId = 0;
+        var result = Native.uc_hook_add(_engine, &hookId, type, callbackPointer, userData,
+            startAddress, endAddress);
+
+        this.CheckResult(result);
+
+        _customNativeHooks.Add(hookId, null);
+
+        return hookId;
+    }
+
+    public unsafe nuint AddNativeHook(Delegate callback, int type, ulong startAddress, ulong endAddress,
+        nint userData = 0)
+    {
+        this.EnsureEngine();
+
+        var ptr = Marshal.GetFunctionPointerForDelegate(callback);
+
+        nuint hookId = 0;
+        var result = Native.uc_hook_add(_engine, &hookId, type, ptr, userData,
+            startAddress, endAddress);
+
+        this.CheckResult(result);
+
+        _customNativeHooks.Add(hookId, callback);
+
+        return hookId;
     }
 
     public void AddCodeHook(CodeHookCallback callback, ulong startAddress, ulong endAddress)
@@ -635,6 +674,16 @@ public class Unicorn : IUnicorn
         this.EnsureEngine();
         var result = Native.uc_hook_del(_engine, hookId);
         _managedHooks.Remove(callback);
+        this.CheckResult(result);
+    }
+
+    public void RemoveNativeHook(nuint hookId)
+    {
+        if (!_customNativeHooks.Remove(hookId))
+            return;
+
+        this.EnsureEngine();
+        var result = Native.uc_hook_del(_engine, hookId);
         this.CheckResult(result);
     }
 
@@ -696,7 +745,7 @@ public class Unicorn : IUnicorn
         else
         {
             _mmioReadNativeDelegate ??= this.MMIOReadHandler;
-            if (!_nativeHooks.TryGetValue(_mmioReadNativeDelegate, out readPtr))
+            if (!_nativeHookFunctionPointers.TryGetValue(_mmioReadNativeDelegate, out readPtr))
                 readPtr = Marshal.GetFunctionPointerForDelegate(_mmioReadNativeDelegate);
 
             _managedHooks.Add(readCallback);
@@ -711,7 +760,7 @@ public class Unicorn : IUnicorn
         else
         {
             _mmioWriteNativeDelegate ??= this.MMIOWriteHandler;
-            if (!_nativeHooks.TryGetValue(_mmioWriteNativeDelegate, out writePtr))
+            if (!_nativeHookFunctionPointers.TryGetValue(_mmioWriteNativeDelegate, out writePtr))
                 writePtr = Marshal.GetFunctionPointerForDelegate(_mmioWriteNativeDelegate);
 
             _managedHooks.Add(writeCallback);
@@ -807,7 +856,7 @@ public class Unicorn : IUnicorn
             }
 
             _contexts.Clear();
-            _nativeHooks.Clear();
+            _nativeHookFunctionPointers.Clear();
             _managedHooks.Clear();
             _hookIdsForDelegates.Clear();
         }
@@ -825,197 +874,6 @@ public class Unicorn : IUnicorn
     }
 
     ~Unicorn()
-    {
-        this.Dispose(false);
-    }
-
-    #endregion
-}
-
-internal class UnicornContext : IUnicornContext
-{
-    internal bool Disposed;
-
-    public Unicorn Unicorn { get; }
-    public UIntPtr Context { get; }
-
-    public UnicornContext(Unicorn unicorn, UIntPtr contextPtr)
-    {
-        Unicorn = unicorn;
-        Context = contextPtr;
-    }
-
-    public void RegWrite<T>(int registerId, T value) where T : unmanaged
-    {
-        this.EnsureNotDisposed();
-        int result;
-
-        unsafe
-        {
-            result = Native.uc_context_reg_write(Context, registerId, &value);
-        }
-
-        Unicorn.CheckResult(result);
-    }
-
-    public T RegRead<T>(int registerId) where T : unmanaged
-    {
-        this.EnsureNotDisposed();
-        int result;
-        T value;
-
-        unsafe
-        {
-            result = Native.uc_context_reg_read(Context, registerId, &value);
-        }
-
-        Unicorn.CheckResult(result);
-
-        return value;
-    }
-
-    public unsafe void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged
-    {
-        this.EnsureNotDisposed();
-
-        var valuesArray = stackalloc T[registerIds.Length];
-        var pointersToValues = stackalloc void*[registerIds.Length];
-
-        var i = 0;
-        foreach (var value in values)
-        {
-            valuesArray[i] = value;
-            pointersToValues[i] = &valuesArray[i++];
-
-            if (i == registerIds.Length)
-                break;
-        }
-
-        if (i != registerIds.Length)
-            throw new ArgumentException($"Expected {registerIds.Length} values, got {i}.", nameof(values));
-
-        int result;
-        fixed (int* regIdsPtr = registerIds)
-        {
-            result = Native.uc_context_reg_write_batch(Context, regIdsPtr, pointersToValues, registerIds.Length);
-        }
-
-        Unicorn.CheckResult(result);
-    }
-
-    public unsafe void RegBatchWrite<T>(int[] registerIds, ReadOnlySpan<T> values) where T : unmanaged
-    {
-        this.EnsureNotDisposed();
-
-        if (values.Length != registerIds.Length)
-            throw new ArgumentException($"Expected {registerIds.Length} values, got {values.Length}.", nameof(values));
-
-        var pointersToValues = stackalloc void*[registerIds.Length];
-        int result;
-
-        fixed (T* valuesPinned = values)
-        {
-            for (var i = 0; i < registerIds.Length; i++)
-            {
-                pointersToValues[i] = &valuesPinned[i];
-            }
-
-            fixed (int* regIdsPtr = registerIds)
-            {
-                result = Native.uc_context_reg_write_batch(Context, regIdsPtr, pointersToValues,
-                    registerIds.Length);
-            }
-        }
-
-        Unicorn.CheckResult(result);
-    }
-
-    public unsafe void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged
-    {
-        this.EnsureNotDisposed();
-
-        var pointersToValues = stackalloc void*[registerIds.Length];
-        int result;
-
-        fixed (T* targetPinned = target)
-        {
-            for (var i = 0; i < target.Length; i++)
-            {
-                pointersToValues[i] = &targetPinned[i];
-            }
-
-            fixed (int* regIdsPinned = registerIds)
-            {
-                result = Native.uc_context_reg_read_batch(Context, regIdsPinned, pointersToValues,
-                    registerIds.Length);
-            }
-        }
-
-        Unicorn.CheckResult(result);
-    }
-
-    public unsafe T[] RegBatchRead<T>(int[] registerIds) where T : unmanaged
-    {
-        this.EnsureNotDisposed();
-
-        var pointersToValues = stackalloc void*[registerIds.Length];
-        var retArray = new T[registerIds.Length];
-        int result;
-
-        fixed (T* targetPinned = retArray)
-        {
-            for (var i = 0; i < registerIds.Length; i++)
-            {
-                pointersToValues[i] = &targetPinned[i];
-            }
-
-            fixed (int* regIdsPinned = registerIds)
-            {
-                result = Native.uc_context_reg_read_batch(Context, regIdsPinned, pointersToValues,
-                    registerIds.Length);
-            }
-        }
-
-        Unicorn.CheckResult(result);
-
-        return retArray;
-    }
-
-    private void EnsureNotDisposed()
-    {
-        Unicorn.EnsureEngine();
-
-        if (Disposed)
-            throw new ObjectDisposedException(nameof(UnicornContext),
-                "This Unicorn context has already been disposed.");
-    }
-
-    #region Disposal
-
-    public void Dispose()
-    {
-        this.Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (Disposed)
-            return;
-
-        if (disposing)
-        {
-            // Dispose managed objects
-            // Intentionally left blank
-        }
-
-        _ = Native.uc_context_free(Context);
-        // Best effort: If closing failed, we can't really do anything about it
-
-        Disposed = true;
-    }
-
-    ~UnicornContext()
     {
         this.Dispose(false);
     }

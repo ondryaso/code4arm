@@ -1,4 +1,5 @@
 ﻿using Code4Arm.Unicorn.Abstractions.Enums;
+using Code4Arm.Unicorn.Callbacks;
 
 // ReSharper disable InconsistentNaming
 
@@ -58,6 +59,9 @@ public interface IUnicorn : IUnicornContext
 
     void EmuStop();
 
+    nuint AddNativeHook(IntPtr callbackPointer, int type, ulong startAddress, ulong endAddress, nint userData = 0);
+    nuint AddNativeHook(Delegate callback, int type, ulong startAddress, ulong endAddress, nint userData = 0);
+
     void AddCodeHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
 
     void AddBlockHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
@@ -76,6 +80,7 @@ public interface IUnicorn : IUnicornContext
     void RemoveHook(InvalidInstructionHookCallback callback);
     void RemoveHook(MemoryHookCallback callback);
     void RemoveHook(InvalidMemoryAccessCallback callback);
+    void RemoveNativeHook(nuint hookId);
 
     void MemMap(ulong address, nuint size, MemoryPermissions permissions);
     void MemMap(ulong address, nuint size, MemoryPermissions permissions, IntPtr memoryPointer);
