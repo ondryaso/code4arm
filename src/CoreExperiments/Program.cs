@@ -2,6 +2,8 @@
 using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Execution;
+using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.Unicorn;
@@ -25,12 +27,12 @@ public class Program
         var asmOptions = MakeAssemblerOptions();
         var linkerOptions = MakeLinkerOptions();
         var loggerProvider = new ConsoleLoggerProvider(MakeLoggerOptions());
-        var loggerFactory = new LoggerFactory(new[] {loggerProvider});
+        var loggerFactory = new LoggerFactory(new[] { loggerProvider });
 
         var assembler = new Assembler(asmOptions, linkerOptions, loggerFactory);
-        assembler.UseFunctionSimulators(new[] {new Printf()});
+        assembler.UseFunctionSimulators(new[] { new Printf() });
 
-        var proj = new DummyAsmProject("project", new DummyAsmFile("prog.s"), new DummyAsmFile("prog_a.s"));
+        var proj = new DummyAsmProject("project", new DummyAsmFile("prog20a.s"), new DummyAsmFile("prog21b.s"));
         var res = await assembler.MakeProject(proj);
 
         if (res.State != MakeResultState.Successful)
@@ -61,55 +63,34 @@ public class Program
 
     private static void Emulate(Executable exe)
     {
-        using IUnicorn unicorn =
-            new Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
+        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true });
+        execution.LoadExecutable(exe);
 
-        byte[]? codeBytes = null;
-        int s = 0;
+        var unicorn = execution.Engine;
 
-        // Map ELF segments + trampoline
+        byte[] codeBytes = new byte[exe.TextSectionEndAddress - exe.TextSectionStartAddress];
+        unicorn.MemRead(exe.TextSectionStartAddress, codeBytes);
+        var s = 0;
+
+        // Get disassembly
         foreach (var seg in exe.Segments)
         {
-            unicorn.MemMap(seg.StartAddress, seg.Size, seg.Permissions.ToUnicorn());
-            if (seg.HasData)
+            if (exe.TextSectionStartAddress >= seg.ContentsStartAddress &&
+                exe.TextSectionStartAddress < seg.ContentsEndAddress)
             {
-                var data = seg.GetData();
+                s = (int)(exe.TextSectionStartAddress - seg.ContentsStartAddress);
 
-                if (exe.TextSectionStartAddress >= seg.ContentsStartAddress &&
-                    exe.TextSectionStartAddress < seg.ContentsEndAddress)
-                {
-                    var start = s = (int) (exe.TextSectionStartAddress - seg.ContentsStartAddress);
-                    var end = (int) (exe.LastInstructionAddress - seg.ContentsStartAddress);
-                    codeBytes = data[start..end];
-                }
-
-                unicorn.MemWrite(seg.ContentsStartAddress, seg.GetData());
-            }
-            else if (seg.IsTrampoline)
-            {
-                var jumpBackInstruction = new byte[] {0x1e, 0xff, 0x2f, 0xe1};
-                for (var address = seg.ContentsStartAddress; address < seg.ContentsEndAddress; address += 4)
-                {
-                    unicorn.MemWrite(address, jumpBackInstruction);
-                }
+                break;
             }
         }
 
         ArmInstruction[]? disAsm = null;
-        if (codeBytes != null)
-        {
-            using var cap = CapstoneDisassembler.CreateArmDisassembler(
-                ArmDisassembleMode.LittleEndian | ArmDisassembleMode.V8);
-            //disAsm = cap.Disassemble(codeBytes, exe.TextSectionStartAddress);
-            disAsm = cap.Disassemble(exe.Segments[0].GetData()[s..], exe.TextSectionStartAddress);
-        }
+        using var cap = CapstoneDisassembler.CreateArmDisassembler(
+            ArmDisassembleMode.LittleEndian | ArmDisassembleMode.V8);
+        //disAsm = cap.Disassemble(codeBytes, exe.TextSectionStartAddress);
+        disAsm = cap.Disassemble(exe.Segments[0].GetData()[s..], exe.TextSectionStartAddress);
 
-        // Add stack
-        var stackMemoryStart = 0xe0000000;
-        nuint stackSize = 2 * 4096;
-        var stackPtrInitialValue = (uint) (stackMemoryStart + stackSize);
-        unicorn.MemMap(stackMemoryStart, stackSize, MemoryPermissions.Read | MemoryPermissions.Write);
-        unicorn.RegWrite(Arm.Register.SP, stackPtrInitialValue);
+        execution.Engine.RegWrite(Arm.Register.SP, execution.StackTopAddress);
 
         // Hooks
         ulong pc = exe.EntryPoint;
@@ -128,67 +109,73 @@ public class Program
         unicorn.AddInvalidMemoryAccessHook((engine, type, address, size, value) =>
         {
             Console.WriteLine($"Invalid memory operation on {address}.");
+
             return false;
         }, MemoryHookType.FetchUnmapped, 0, ulong.MaxValue);
-        
+
         var i = 0;
 
-        unicorn.AddCodeHook((engine, start, size) =>
+        var codeHookRegistration = unicorn.AddCodeHook((engine, start, size) =>
         {
-            var instr = (int) (start - exe.TextSectionStartAddress) / 4;
+            var instr = (int)(start - exe.TextSectionStartAddress) / 4;
             if (disAsm != null && disAsm.Length > instr && instr >= 0)
             {
                 Console.WriteLine(
-                    $"{i++}: #{instr} [{(pc):X}]: {disAsm[instr].Mnemonic} {disAsm[instr].Operand}");
+                    $"{i++}: #{instr} [{(start):X}]: {disAsm[instr].Mnemonic} {disAsm[instr].Operand}");
             }
             else
             {
-                Console.WriteLine($"{i++}: #? [{pc:X}]");
+                Console.WriteLine($"{i++}: #? [{start:X}]");
             }
+        }, exe.TextSectionStartAddress, exe.TextSectionEndAddress);
 
-            if (exe.FunctionSimulators?.TryGetValue((uint) start, out var sim) ?? false)
+        var trampolineHookRegistration = unicorn.AddCodeHook((engine, start, size) =>
+        {
+            if (exe.FunctionSimulators?.TryGetValue((uint)start, out var sim) ?? false)
             {
                 sim.FunctionSimulator.Run(engine);
             }
-        }, 0, long.MaxValue);
+        }, 0xff000000, 0xffffffff);
 
         // Emulate
         try
         {
-            //unicorn.EmuStart(pc, int.MaxValue, 0, 0);
+            unicorn.EmuStart(pc, uint.MaxValue, 0, 0);
 
-            while (!shouldStop)
-            {
-                unicorn.EmuStart(pc, long.MaxValue, 0, 1);
-                pc = unicorn.RegRead<uint>(Arm.Register.PC);
-            }
+            /* while (!shouldStop)
+             {
+                 unicorn.EmuStart(pc, pc +4, 0, 0);
+                 pc = unicorn.RegRead<uint>(Arm.Register.PC);
+             }*/
         }
         catch (UnicornException e)
         {
             Console.WriteLine(e.Message);
         }
 
-        // Free mapped ELF segments
-        foreach (var seg in exe.Segments)
-        {
-            unicorn.MemUnmap(seg.StartAddress, seg.Size);
-        }
-
-        // Free stack
-        unicorn.MemUnmap(stackMemoryStart, stackSize);
-
-        // Close Unicorn
-        unicorn.Dispose();
+        execution.Dispose();
     }
+
+    private static readonly string ToolchainBin = Environment.OSVersion.Platform == PlatformID.Unix
+        ? "/home/ondryaso/Projects/bp/gcc-arm-none-linux-gnueabihf/bin/"
+        : @"C:\Users\ondry\Projects\bp-utils\gcc-arm-none-linux-gnueabihf\bin\";
+
+    private static readonly string BinExt = Environment.OSVersion.Platform == PlatformID.Unix
+        ? string.Empty
+        : ".exe";
+
+    public static readonly string Src = Environment.OSVersion.Platform == PlatformID.Unix
+        ? "/home/ondryaso/Projects/bp/testasm/"
+        : @"C:\Users\ondry\Projects\bp-test-vs-env\";
 
     private static IOptionsSnapshot<AssemblerOptions> MakeAssemblerOptions()
     {
         var mock = new Mock<IOptionsSnapshot<AssemblerOptions>>();
         mock.Setup(a => a.Value).Returns(new AssemblerOptions()
         {
-            GasPath =
-                @"C:\Users\ondry\Projects\bp-utils\gcc-arm-none-linux-gnueabihf\bin\arm-none-linux-gnueabihf-as.exe"
+            GasPath = ToolchainBin + "arm-none-linux-gnueabihf-as" + BinExt
         });
+
         return mock.Object;
     }
 
@@ -197,9 +184,9 @@ public class Program
         var mock = new Mock<IOptionsSnapshot<LinkerOptions>>();
         mock.Setup(a => a.Value).Returns(new LinkerOptions()
         {
-            LdPath =
-                @"C:\Users\ondry\Projects\bp-utils\gcc-arm-none-linux-gnueabihf\bin\arm-none-linux-gnueabihf-ld.exe"
+            LdPath = ToolchainBin + "arm-none-linux-gnueabihf-ld" + BinExt
         });
+
         return mock.Object;
     }
 
@@ -207,6 +194,7 @@ public class Program
     {
         var mock = new Mock<IOptionsMonitor<ConsoleLoggerOptions>>();
         mock.Setup(a => a.CurrentValue).Returns(new ConsoleLoggerOptions() { });
+
         return mock.Object;
     }
 }
@@ -219,14 +207,15 @@ public class DummyAsmFile : IAsmFile
         {
         }
 
-        public string FileSystemPath => @"C:\Users\ondry\Projects\bp-test-vs-env\" + this.File.Name;
+        public string FileSystemPath => Program.Src + this.File.Name;
+
         public int Version => this.File.Version;
         public IAsmFile File { get; init; } = null!;
     }
 
     public Task<ILocatedFile> LocateAsync()
     {
-        return Task.FromResult((ILocatedFile) new DummyLocatedFile {File = this});
+        return Task.FromResult((ILocatedFile)new DummyLocatedFile { File = this });
     }
 
     public DummyAsmFile(string name)
