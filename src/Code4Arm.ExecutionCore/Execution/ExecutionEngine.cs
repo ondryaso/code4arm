@@ -18,6 +18,9 @@ namespace Code4Arm.ExecutionCore.Execution;
 
 public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
 {
+    private const int MaxArrayPoolSize = 2 * 1024 * 1024;
+    private const int MaxStackAllocatedSize = 512;
+
     internal readonly MemoryStream InputMemoryStream;
     internal readonly MemoryStream OutputMemoryStream;
     private Executable? _exe;
@@ -26,8 +29,8 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
     private ExecutionOptions _options;
     private Random _rnd = new();
     private readonly ArrayPool<byte> _arrayPool;
-    private const int MaxArrayPoolSize = 2 * 1024 * 1024;
     private List<UnicornHookRegistration> _strictAccessHooks = new();
+    private CancellationTokenSource? _currentCts;
 
     public StepBackMode StepBackMode { get; set; }
     public bool EnableStepBackMemoryCapture { get; set; }
@@ -349,21 +352,33 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
 
     private void RandomizeMemory(uint start, uint size)
     {
-        var rent = size <= MaxArrayPoolSize;
-        var data = rent ? _arrayPool.Rent((int)size) : new byte[size];
-        _rnd.NextBytes(data);
-        Engine.MemWrite(start, data, size);
-        if (rent)
-            _arrayPool.Return(data);
+        // The other option is to allocate _size_ bytes worth of memory and do a single write
+        // but I prefer this version which takes (much?) more CPU cycles but allocates MaxStackAllocatedSize B max 
+
+        var bufferSize = Math.Min(size, MaxStackAllocatedSize);
+        Span<byte> buffer = stackalloc byte[(int)bufferSize];
+        var end = start + size;
+
+        for (var address = start; address < end; address += bufferSize)
+        {
+            _rnd.NextBytes(buffer);
+            Engine.MemWrite(address, buffer, Math.Min(bufferSize, end - address));
+        }
     }
 
     private void ClearMemory(uint start, uint size)
     {
-        var rent = size <= MaxArrayPoolSize;
-        var data = rent ? _arrayPool.Rent((int)size) : new byte[size];
-        Engine.MemWrite(start, data, size);
-        if (rent)
-            _arrayPool.Return(data);
+        // Same as in RandomizeMemory()
+
+        var bufferSize = Math.Min(size, MaxStackAllocatedSize);
+        Span<byte> buffer = stackalloc byte[(int)bufferSize];
+        buffer.Clear();
+        var end = start + size;
+
+        for (var address = start; address < end; address += bufferSize)
+        {
+            Engine.MemWrite(address, buffer, Math.Min(bufferSize, end - address));
+        }
     }
 
     private void StrictAccessHook(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
@@ -394,11 +409,30 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         throw new NotImplementedException();
     }
 
-    public Task Launch(bool debug, CancellationToken cancellationToken = default)
+    private ulong GetCurrentStartAddress()
+    {
+        return 0;
+    }
+
+    public async Task Launch(bool debug, CancellationToken cancellationToken = default)
     {
         this.InitMemoryFromExecutable();
 
-        throw new NotImplementedException();
+        var startAddress = this.GetCurrentStartAddress();
+
+        _currentCts?.Dispose();
+        _currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _currentCts.CancelAfter(_options.Timeout);
+
+        try
+        {
+            await Task.Run(() => { Engine.EmuStart(startAddress, 0, 0, 0); }, _currentCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // TODO
+            Engine.EmuStop();
+        }
     }
 
     public void Restart(bool debug, CancellationToken cancellationToken = default)

@@ -140,7 +140,7 @@ public class Program
         // Emulate
         try
         {
-            unicorn.EmuStart(pc, uint.MaxValue, 0, 0);
+            unicorn.EmuStart(pc, exe.LastInstructionAddress, 0, 0);
 
             /* while (!shouldStop)
              {

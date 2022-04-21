@@ -1,20 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "UnicornManaged", "UnicornManaged\UnicornManaged.fsproj", "{466F8E6A-FF45-4412-991F-9BD439F29657}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Keystone.Net", "..\..\keystone\bindings\csharp\Keystone.Net\Keystone.Net.csproj", "{24B73AB3-A8F4-4219-BD6D-37EA4473743F}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Experiments", "Experiments\Experiments.csproj", "{252ABD8D-4776-4292-92DB-D2B3A706AA8B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armulator.ExecutionService", "Armulator.ExecutionService\Armulator.ExecutionService.csproj", "{42A45D23-BE20-4FD0-A748-AAA73ECEF3E2}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoClient", "DemoClient\DemoClient.csproj", "{34A40455-1832-4928-AB64-716394842447}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gee.External.Capstone", "..\..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj", "{CA3E56A5-B5E3-4FDD-82A2-E995BCF8011E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armfors.LanguageServer", "Armfors.LanguageServer\Armfors.LanguageServer.csproj", "{C827533A-7569-40C2-8F0D-4A292B73C591}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Code4Arm.LanguageServer", "Code4Arm.LanguageServer\Code4Arm.LanguageServer.csproj", "{C827533A-7569-40C2-8F0D-4A292B73C591}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armfors.LanguageServer.Tests", "Armfors.LanguageServer.Tests\Armfors.LanguageServer.Tests.csproj", "{852EF7FD-68CC-4157-B8B6-6578B9D6D939}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Code4Arm.LanguageServer.Tests", "Code4Arm.LanguageServer.Tests\Code4Arm.LanguageServer.Tests.csproj", "{852EF7FD-68CC-4157-B8B6-6578B9D6D939}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Code4Arm.ExecutionCore", "Code4Arm.ExecutionCore\Code4Arm.ExecutionCore.csproj", "{98417894-2E87-490F-AB2B-5ED41AE6B3BD}"
 EndProject
@@ -28,26 +18,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{466F8E6A-FF45-4412-991F-9BD439F29657}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{466F8E6A-FF45-4412-991F-9BD439F29657}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{466F8E6A-FF45-4412-991F-9BD439F29657}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{466F8E6A-FF45-4412-991F-9BD439F29657}.Release|Any CPU.Build.0 = Release|Any CPU
-		{24B73AB3-A8F4-4219-BD6D-37EA4473743F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{24B73AB3-A8F4-4219-BD6D-37EA4473743F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{24B73AB3-A8F4-4219-BD6D-37EA4473743F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{24B73AB3-A8F4-4219-BD6D-37EA4473743F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{252ABD8D-4776-4292-92DB-D2B3A706AA8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{252ABD8D-4776-4292-92DB-D2B3A706AA8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{252ABD8D-4776-4292-92DB-D2B3A706AA8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{252ABD8D-4776-4292-92DB-D2B3A706AA8B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{42A45D23-BE20-4FD0-A748-AAA73ECEF3E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{42A45D23-BE20-4FD0-A748-AAA73ECEF3E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{42A45D23-BE20-4FD0-A748-AAA73ECEF3E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{42A45D23-BE20-4FD0-A748-AAA73ECEF3E2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{34A40455-1832-4928-AB64-716394842447}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{34A40455-1832-4928-AB64-716394842447}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{34A40455-1832-4928-AB64-716394842447}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{34A40455-1832-4928-AB64-716394842447}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CA3E56A5-B5E3-4FDD-82A2-E995BCF8011E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CA3E56A5-B5E3-4FDD-82A2-E995BCF8011E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CA3E56A5-B5E3-4FDD-82A2-E995BCF8011E}.Release|Any CPU.ActiveCfg = Release|Any CPU
