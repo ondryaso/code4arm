@@ -133,6 +133,12 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// </summary>
             [Optional]
             public bool SupportTerminateDebuggee { get; set; }
+            
+            /// <summary>
+            /// The debug adapter supports the 'suspendDebuggee' attribute on the 'disconnect' request.
+            /// </summary>
+            [Optional]
+            public bool SupportSuspendDebuggee { get; set; }
 
             /// <summary>
             /// The debug adapter supports the delayed loading of parts of the stack, which requires that both the 'startFrame' and
@@ -183,6 +189,12 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// </summary>
             [Optional]
             public bool SupportsReadMemoryRequest { get; set; }
+            
+            /// <summary>
+            /// The debug adapter supports the 'writeMemory' request.
+            /// </summary>
+            [Optional]
+            public bool SupportsWriteMemoryRequest { get; set; }
 
             /// <summary>
             /// The debug adapter supports the 'disassemble' request.

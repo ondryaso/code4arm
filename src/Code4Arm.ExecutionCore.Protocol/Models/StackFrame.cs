@@ -67,6 +67,14 @@ public record StackFrame
     /// </summary>
     [Optional]
     public StackFramePresentationHint? PresentationHint { get; init; }
+    
+    /// <summary>
+    /// Indicates whether this frame can be restarted with the 'restart' request.
+    /// Clients should only use this if the debug adapter supports the 'restart'
+    /// request (capability 'supportsRestartRequest' is true).
+    /// </summary>
+    [Optional]
+    public bool CanRestart { get; init; }
 }
 
 public class StackFramePresentationHint : StringEnum<StackFramePresentationHint>

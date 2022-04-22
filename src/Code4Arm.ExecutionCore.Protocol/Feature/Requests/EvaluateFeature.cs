@@ -42,6 +42,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 
         public class EvaluateArgumentsContext : StringEnum<EvaluateArgumentsContext>
         {
+            public static readonly EvaluateArgumentsContext Variables = Create("variables");
             public static readonly EvaluateArgumentsContext Watch = Create("watch");
             public static readonly EvaluateArgumentsContext Repl = Create("repl");
             public static readonly EvaluateArgumentsContext Hover = Create("hover");

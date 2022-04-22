@@ -10,7 +10,9 @@ Differences to the original sources:
 - The root namespace is `Code4Arm.ExecutionCore.Protocol`.
 - Changes introduced in newer protocol versions are added (the original project reflects version 1.43.x).
 
-Currently reflects version **1.44.x** of the protocol.
+Currently reflects version **1.49.x** of the protocol with the following differences:
+- The `restart` request only accepts `LaunchRequestArguments` in its optional `arguments` field.
+- Changes introduced in **1.55.X** are also included.
 
 ## License
 

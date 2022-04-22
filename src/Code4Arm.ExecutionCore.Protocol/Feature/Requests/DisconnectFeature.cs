@@ -22,6 +22,15 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// </summary>
             [Optional]
             public bool TerminateDebuggee { get; init; }
+
+            /// <summary>
+            /// Indicates whether the debuggee should stay suspended when the debugger is
+            /// disconnected. If unspecified, the debuggee should resume execution.
+            /// The attribute is only honored by a debug adapter if the capability
+            /// 'supportSuspendDebuggee' is true.
+            /// </summary>
+            [Optional]
+            public bool SuspendDebuggee { get; init; }
         }
 
         public record DisconnectResponse

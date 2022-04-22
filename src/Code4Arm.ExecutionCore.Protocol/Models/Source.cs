@@ -5,8 +5,8 @@ using Newtonsoft.Json.Linq;
 namespace Code4Arm.ExecutionCore.Protocol.Models;
 
 /// <summary>
-/// A Source is a descriptor for source code.It is returned from the debug adapter as part of a StackFrame and it is used
-/// by clients when specifying breakpoints.
+/// A Source is a descriptor for source code.
+/// It is returned from the debug adapter as part of a StackFrame and it is used by clients when specifying breakpoints.
 /// </summary>
 public record Source
 {
@@ -53,8 +53,7 @@ public record Source
 
     /// <summary>
     /// Optional data that a debug adapter might want to loop through the client. The client should leave the data intact and
-    /// persist it across sessions. The client should not interpret
-    /// the data.
+    /// persist it across sessions. The client should not interpret the data.
     /// </summary>
     [Optional]
     public JToken? AdapterData { get; init; }

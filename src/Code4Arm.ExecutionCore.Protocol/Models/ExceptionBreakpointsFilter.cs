@@ -30,4 +30,19 @@ public record ExceptionBreakpointsFilter
     /// </summary>
     [Optional]
     public bool SupportsCondition { get; init; }
+    
+    /// <summary>
+    /// An optional help text providing additional information about the exception
+    /// filter. This string is typically shown as a hover and must be translated.
+    /// </summary>
+    [Optional]
+    public string? Description { get; init; }
+    
+    /// <summary>
+    /// An optional help text providing information about the condition. This
+    /// string is shown as the placeholder text for a text box and must be
+    /// translated.
+    /// </summary>
+    [Optional]
+    public string? ConditionDescription { get; init; }
 }

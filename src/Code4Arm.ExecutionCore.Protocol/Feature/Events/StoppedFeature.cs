@@ -1,4 +1,5 @@
-﻿using Code4Arm.ExecutionCore.Protocol.Serialization;
+﻿using Code4Arm.ExecutionCore.Protocol.Models;
+using Code4Arm.ExecutionCore.Protocol.Serialization;
 using Code4Arm.ExecutionCore.Protocol.StringEnum;
 using MediatR;
 
@@ -49,6 +50,26 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// </summary>
             [Optional]
             public bool AllThreadsStopped { get; init; }
+
+            /// <summary>
+            /// Ids of the breakpoints that triggered the event. In most cases there will
+            /// be only a single breakpoint but here are some examples for multiple
+            /// breakpoints:
+            /// <list type="bullet">
+            /// <item><description>
+            ///     Different types of breakpoints map to the same location.
+            /// </description></item>
+            /// <item><description>
+            ///     Multiple source breakpoints get collapsed to the same instruction by the compiler/runtime.
+            /// </description></item>
+            /// <item><description>
+            ///     Multiple function breakpoints with different function names map to the
+            ///   same location.
+            /// </description></item>
+            /// </list>
+            /// </summary>
+            [Optional]
+            public Container<long>? HitBreakpointIds { get; init; }
         }
 
         public class StoppedEventReason : StringEnum<StoppedEventReason>

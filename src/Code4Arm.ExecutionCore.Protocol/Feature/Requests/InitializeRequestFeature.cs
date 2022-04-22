@@ -92,6 +92,12 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// </summary>
             [Optional]
             public bool SupportsInvalidatedEvent { get; set; }
+            
+            /// <summary>
+            /// Client supports the memory event.
+            /// </summary>
+            [Optional]
+            public bool SupportsMemoryEvent { get; set; }
         }
 
         public record InitializeResponse : Capabilities

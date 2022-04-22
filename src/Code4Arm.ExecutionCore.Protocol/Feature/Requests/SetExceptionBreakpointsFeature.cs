@@ -9,12 +9,13 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Requests
     {
-        public record SetExceptionBreakpointsArguments : IRequest<SetExceptionBreakpointsResponse>
+        public record SetExceptionBreakpointsArguments
+            (Container<string> Filters) : IRequest<SetExceptionBreakpointsResponse>
         {
             /// <summary>
             /// IDs of checked exception options.The set of IDs is returned via the 'exceptionBreakpointFilters' capability.
             /// </summary>
-            public Container<string> Filters { get; init; }
+            public Container<string> Filters { get; init; } = Filters;
 
             /// <summary>
             /// Set of exception filters and their options. The set of all possible
@@ -35,6 +36,16 @@ namespace Code4Arm.ExecutionCore.Protocol
 
         public record SetExceptionBreakpointsResponse
         {
+            /// <summary>
+            /// Information about the exception breakpoints or filters.
+            /// The breakpoints returned are in the same order as the elements of the
+            /// 'filters', 'filterOptions', 'exceptionOptions' arrays in the arguments.
+            /// If both 'filters' and 'filterOptions' are given, the returned array must
+            /// start with 'filters' information first, followed by 'filterOptions'
+            /// information.
+            /// </summary>
+            [Optional]
+            public Container<Breakpoint>? Breakpoints { get; init; }
         }
     }
 
