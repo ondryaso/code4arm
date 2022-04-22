@@ -3,9 +3,9 @@
 
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Protocol.Models;
+using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
-using OmniSharp.Extensions.DebugAdapter.Protocol.Models;
-using OmniSharp.Extensions.DebugAdapter.Protocol.Requests;
 
 namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 

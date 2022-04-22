@@ -7,11 +7,11 @@ using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
+using Code4Arm.ExecutionCore.Protocol.Models;
+using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using ELFSharp.ELF;
-using OmniSharp.Extensions.DebugAdapter.Protocol.Models;
-using OmniSharp.Extensions.DebugAdapter.Protocol.Requests;
 using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 namespace Code4Arm.ExecutionCore.Execution;

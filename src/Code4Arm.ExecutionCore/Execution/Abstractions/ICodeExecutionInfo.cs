@@ -1,8 +1,8 @@
 // ICodeExecutionInfo.cs
 // Author: Ondřej Ondryáš
 
-using OmniSharp.Extensions.DebugAdapter.Protocol.Models;
-using OmniSharp.Extensions.DebugAdapter.Protocol.Requests;
+using Code4Arm.ExecutionCore.Protocol.Models;
+using Code4Arm.ExecutionCore.Protocol.Requests;
 
 namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 
