@@ -1,4 +1,10 @@
-﻿namespace Code4Arm.ExecutionCore.Protocol.Models;
+﻿// ModulesViewDescriptor.cs
+// Original source: https://github.com/OmniSharp/csharp-language-server-protocol
+// Original author: David Driscoll (and contributors)
+// Edited by: Ondřej Ondryáš
+// Licensed under the MIT License. Copyright (c) Ondřej Ondryáš, .NET Foundation and Contributors.
+
+namespace Code4Arm.ExecutionCore.Protocol.Models;
 
 /// <summary>
 /// The ModulesViewDescriptor is the container for all declarative configuration options of a ModuleView.

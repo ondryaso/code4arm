@@ -1,6 +1,8 @@
 ﻿// StringEnum.cs
-// Author: Gerardo Grignoli and contributors
-// Source: https://github.com/gerardog/StringEnum
+// Original source: https://github.com/OmniSharp/csharp-language-server-protocol
+// Original author: David Driscoll (and contributors)
+// Edited by: Ondřej Ondryáš
+// Licensed under the MIT License. Copyright (c) Ondřej Ondryáš, .NET Foundation and Contributors.
 
 #nullable disable
 

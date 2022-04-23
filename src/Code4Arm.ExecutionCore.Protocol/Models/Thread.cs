@@ -1,4 +1,10 @@
-﻿namespace Code4Arm.ExecutionCore.Protocol.Models;
+﻿// Thread.cs
+// Original source: https://github.com/OmniSharp/csharp-language-server-protocol
+// Original author: David Driscoll (and contributors)
+// Edited by: Ondřej Ondryáš
+// Licensed under the MIT License. Copyright (c) Ondřej Ondryáš, .NET Foundation and Contributors.
+
+namespace Code4Arm.ExecutionCore.Protocol.Models;
 
 /// <summary>
 /// A Thread
