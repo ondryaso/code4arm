@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Code4Arm.Unicorn", "Code4Ar
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Code4Arm.ExecutionCore.Protocol", "Code4Arm.ExecutionCore.Protocol\Code4Arm.ExecutionCore.Protocol.csproj", "{FD1FC091-2706-4AB2-816A-BDFBCD13FC64}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Code4Arm.ExecutionCore.Dwarf", "Code4Arm.ExecutionCore.Dwarf\Code4Arm.ExecutionCore.Dwarf.csproj", "{D28C93D3-EB39-49FC-B05C-557C62A49548}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,5 +50,9 @@ Global
 		{FD1FC091-2706-4AB2-816A-BDFBCD13FC64}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FD1FC091-2706-4AB2-816A-BDFBCD13FC64}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FD1FC091-2706-4AB2-816A-BDFBCD13FC64}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D28C93D3-EB39-49FC-B05C-557C62A49548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D28C93D3-EB39-49FC-B05C-557C62A49548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D28C93D3-EB39-49FC-B05C-557C62A49548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D28C93D3-EB39-49FC-B05C-557C62A49548}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

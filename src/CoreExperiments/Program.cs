@@ -1,7 +1,9 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
 using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
@@ -10,6 +12,7 @@ using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Constants;
+using ELFSharp.ELF;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using Microsoft.Extensions.Logging;
@@ -57,6 +60,24 @@ public class Program
         }
 
         var exe = res.Executable!;
+        var elf =
+            typeof(Executable).GetField("_elf", BindingFlags.Instance | BindingFlags.NonPublic)
+                              ?.GetValue(exe) as ELF<uint>;
+
+        var dsp = new DwarfLineAddressResolver(elf);
+        var a = dsp.GetSourceLine(0x10078, out _);
+        var b = dsp.GetSourceLine(0x10079, out var disp);
+        var c = dsp.GetSourceLine(0x10098, out _);
+        var d = dsp.GetSourceLine(0x100e4, out _);
+        var e = dsp.GetSourceLine(0x100e8, out _);
+        var f = dsp.GetSourceLine(0x100ec, out _);
+        
+        var h = dsp.GetAddress(a.File.Name, (int)a.Line);
+        var i = dsp.GetAddress(c.File.Name, (int)c.Line);
+        var j = dsp.GetAddress(d.File.Name, (int)d.Line);
+        var k = dsp.GetAddress(e.File.Name, (int)e.Line);
+        var l = dsp.GetAddress(f.File.Name, (int)f.Line);
+        
         Emulate(exe);
         exe.Dispose();
     }
@@ -213,9 +234,9 @@ public class DummyAsmFile : IAsmFile
         public IAsmFile File { get; init; } = null!;
     }
 
-    public Task<ILocatedFile> LocateAsync()
+    public ValueTask<ILocatedFile> LocateAsync()
     {
-        return Task.FromResult((ILocatedFile)new DummyLocatedFile { File = this });
+        return new ValueTask<ILocatedFile>(new DummyLocatedFile { File = this });
     }
 
     public DummyAsmFile(string name)
@@ -224,6 +245,7 @@ public class DummyAsmFile : IAsmFile
     }
 
     public string Name { get; }
+    public string ClientPath => this.LocateAsync().Result.FileSystemPath;
     public int Version => 0;
     public IAsmProject? Project { get; set; }
 }
