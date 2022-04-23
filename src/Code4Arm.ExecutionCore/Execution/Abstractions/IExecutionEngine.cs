@@ -3,8 +3,8 @@
 
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Models;
-using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
 
 namespace Code4Arm.ExecutionCore.Execution.Abstractions;
@@ -25,13 +25,12 @@ public interface IExecutionEngine : IDisposable
     /// Controls whether registers can be used in data breakpoints.
     /// </summary>
     bool EnableRegisterDataBreakpoints { get; set; }
+
     ExecutionState State { get; }
 
-    ICodeStaticInfo? CodeInfo { get; }
     IExecutableInfo? ExecutableInfo { get; }
-    ICodeExecutionInfo CodeExecutionInfo { get; }
-
-    IReadOnlyList<MemorySegment> Segments { get; }
+    IRuntimeInfo? RuntimeInfo { get; }
+    IDebugProvider? DebugProvider { get; }
 
     IUnicorn Engine { get; }
 
@@ -41,9 +40,10 @@ public interface IExecutionEngine : IDisposable
     void LoadExecutable(Executable executable);
 
     void SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
-    void SetBreakpoints(SetBreakpointsArguments arguments);
+    void SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints);
     void SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints);
     void SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
+
 
     // remaps memory
     Task Launch(bool debug, CancellationToken cancellationToken = default);

@@ -17,12 +17,13 @@ public class Executable : IExecutableInfo, IDisposable
 
     private string? _filePath;
     private List<AssembledObject> _sourceObjects;
-    public IAsmProject Project { get; }
+    public IAsmMakeTarget MakeTarget { get; }
+    public ELF<uint> Elf => _elf;
 
-    internal Executable(IAsmProject project, string filePath, ELF<uint> elf, List<AssembledObject> sourceObjects,
+    internal Executable(IAsmMakeTarget makeTarget, string filePath, ELF<uint> elf, List<AssembledObject> sourceObjects,
         IEnumerable<BoundFunctionSimulator>? functionSimulators, ILogger<Executable> logger)
     {
-        Project = project;
+        MakeTarget = makeTarget;
 
         _filePath = filePath;
         _elf = elf;
@@ -124,10 +125,10 @@ public class Executable : IExecutableInfo, IDisposable
         var symbolTableSection = _elf.Sections.FirstOrDefault(s => s.Type == SectionType.SymbolTable);
 
         if (symbolTableSection is not SymbolTable<uint> symbolTable)
-            throw new Exception($"ELF of project {Project.Name} doesn't contain a symbol table.");
+            throw new Exception($"ELF of make target {MakeTarget.Name} doesn't contain a symbol table.");
 
         if (!_elf.TryGetSection(".text", out var textSection))
-            throw new Exception($"ELF of project {Project.Name} doesn't contain a text section.");
+            throw new Exception($"ELF of make target {MakeTarget.Name} doesn't contain a text section.");
 
         TextSectionStartAddress = textSection.LoadAddress;
         TextSectionEndAddress = textSection.LoadAddress + textSection.Size;
@@ -140,7 +141,7 @@ public class Executable : IExecutableInfo, IDisposable
         }
         else
         {
-            _logger.LogTrace("ELF of project {Name} doesn't define the _start symbol.", Project.Name);
+            _logger.LogTrace("ELF of make target {Name} doesn't define the _start symbol.", MakeTarget.Name);
             EntryPoint = textSection.LoadAddress;
         }
 

@@ -41,4 +41,10 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="SharpDebug.DwarfSymbolProvider, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\..\..\SharpDebug\bin\Release\netstandard2.0\SharpDebug.DwarfSymbolProvider.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

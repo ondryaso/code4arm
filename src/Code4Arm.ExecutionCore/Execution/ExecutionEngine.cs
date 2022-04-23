@@ -7,16 +7,16 @@ using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
+using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
-using ELFSharp.ELF;
 using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
-public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
+public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 {
     private const int MaxArrayPoolSize = 2 * 1024 * 1024;
     private const int MaxStackAllocatedSize = 512;
@@ -37,9 +37,9 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
     public bool EnableRegisterDataBreakpoints { get; set; }
 
     public ExecutionState State { get; private set; }
-    public ICodeStaticInfo? CodeInfo { get; } // TODO
     public IExecutableInfo? ExecutableInfo => _exe;
-    public ICodeExecutionInfo CodeExecutionInfo => this;
+    public IRuntimeInfo? RuntimeInfo => _exe == null ? null : this;
+    public IDebugProvider? DebugProvider { get; private set; }
 
     public uint StackStartAddress { get; private set; }
     public uint StackSize => _options.StackSize;
@@ -226,6 +226,9 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         _exe = executable;
         this.MapMemoryFromExecutable();
 
+        DebugProvider = new DebugProvider(this);
+
+        // TODO: delete this
         this.InitMemoryFromExecutable();
     }
 
@@ -394,7 +397,7 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
         throw new NotImplementedException();
     }
 
-    public void SetBreakpoints(SetBreakpointsArguments arguments)
+    public void SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints)
     {
         throw new NotImplementedException();
     }
@@ -480,10 +483,13 @@ public class ExecutionEngine : IExecutionEngine, ICodeExecutionInfo
     public IEnumerable<DataBreakpointInfoResponse> GetDataBreakpointInfo(string name) =>
         throw new NotImplementedException();
 
+    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
+        ValueFormat? format) => throw new NotImplementedException();
+
     public EvaluateResponse EvaluateExpression(EvaluateArguments arguments) => throw new NotImplementedException();
 
     public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
 
-    public IEnumerable<GotoTarget> GetGotoTargets(GotoTargetsArguments arguments) =>
+    public IEnumerable<GotoTarget> GetGotoTargets(IAsmFile source, long line, long? column) =>
         throw new NotImplementedException();
 }

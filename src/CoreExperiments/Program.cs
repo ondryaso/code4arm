@@ -1,25 +1,20 @@
-﻿using System.Reflection;
-using System.Runtime.InteropServices;
-using Code4Arm.ExecutionCore.Assembling;
+﻿using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
-using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
 using Code4Arm.ExecutionCore.Files.Abstractions;
+using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.Unicorn;
-using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Constants;
-using ELFSharp.ELF;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using Moq;
-using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 namespace CoreExperiments;
 
@@ -35,12 +30,12 @@ public class Program
         var assembler = new Assembler(asmOptions, linkerOptions, loggerFactory);
         assembler.UseFunctionSimulators(new[] { new Printf() });
 
-        var proj = new DummyAsmProject("project", new DummyAsmFile("prog20a.s"), new DummyAsmFile("prog21b.s"));
+        var proj = new DummyAsmMakeTarget("makeTarget", new DummyAsmFile("prog20a.s"), new DummyAsmFile("prog21b.s"));
         var res = await assembler.MakeProject(proj);
 
         if (res.State != MakeResultState.Successful)
         {
-            Console.Error.WriteLine($"Error making project: {res.State.ToString()}.");
+            Console.Error.WriteLine($"Error making makeTarget: {res.State.ToString()}.");
 
             if (res.State == MakeResultState.InvalidObjects)
             {
@@ -60,24 +55,6 @@ public class Program
         }
 
         var exe = res.Executable!;
-        var elf =
-            typeof(Executable).GetField("_elf", BindingFlags.Instance | BindingFlags.NonPublic)
-                              ?.GetValue(exe) as ELF<uint>;
-
-        var dsp = new DwarfLineAddressResolver(elf);
-        var a = dsp.GetSourceLine(0x10078, out _);
-        var b = dsp.GetSourceLine(0x10079, out var disp);
-        var c = dsp.GetSourceLine(0x10098, out _);
-        var d = dsp.GetSourceLine(0x100e4, out _);
-        var e = dsp.GetSourceLine(0x100e8, out _);
-        var f = dsp.GetSourceLine(0x100ec, out _);
-        
-        var h = dsp.GetAddress(a.File.Name, (int)a.Line);
-        var i = dsp.GetAddress(c.File.Name, (int)c.Line);
-        var j = dsp.GetAddress(d.File.Name, (int)d.Line);
-        var k = dsp.GetAddress(e.File.Name, (int)e.Line);
-        var l = dsp.GetAddress(f.File.Name, (int)f.Line);
-        
         Emulate(exe);
         exe.Dispose();
     }
@@ -247,15 +224,15 @@ public class DummyAsmFile : IAsmFile
     public string Name { get; }
     public string ClientPath => this.LocateAsync().Result.FileSystemPath;
     public int Version => 0;
-    public IAsmProject? Project { get; set; }
+    public IAsmMakeTarget? Project { get; set; }
 }
 
-public class DummyAsmProject : IAsmProject
+public class DummyAsmMakeTarget : IAsmMakeTarget
 {
     public string Name { get; }
     public List<DummyAsmFile> Files { get; }
 
-    public DummyAsmProject(string name, params DummyAsmFile[] files)
+    public DummyAsmMakeTarget(string name, params DummyAsmFile[] files)
     {
         this.Name = name;
         this.Files = new List<DummyAsmFile>(files);
@@ -270,5 +247,20 @@ public class DummyAsmProject : IAsmProject
     public IAsmFile? GetFile(string name)
     {
         return this.Files.Find(f => f.Name == name);
+    }
+
+    public IDebugProtocolSourceLocator MakeSourceLocator()
+    {
+        var mock = new Mock<IDebugProtocolSourceLocator>();
+        mock.Setup(m => m.GetFileForSource)
+            .Returns((Source source) => new ValueTask<IAsmFile>(this.Files.First(f => f.Name == source.Name)));
+        mock.Setup(m => m.GetSourceForFile)
+            .Returns((IAsmFile file) => new ValueTask<Source>(new Source()
+            {
+                Name = file.Name,
+                Path = file.ClientPath
+            }));
+
+        return mock.Object;
     }
 }

@@ -67,6 +67,7 @@ public class Assembler : IDisposable
             }
 
         gasStartInfo.ArgumentList.Add("-alscn");
+        gasStartInfo.ArgumentList.Add("-g");
         gasStartInfo.ArgumentList.Add("-o");
         gasStartInfo.ArgumentList.Add(outputFile);
 
@@ -114,7 +115,7 @@ public class Assembler : IDisposable
     }
 
     /// <summary>
-    /// Assembles all files in a given <see cref="IAsmProject"/> and links them, resulting in an ELF executable binary.
+    /// Assembles all files in a given <see cref="IAsmMakeTarget"/> and links them, resulting in an ELF executable binary.
     /// When successful, reads the binary and creates an <see cref="Executable"/>.
     /// </summary>
     /// <remarks>
@@ -122,7 +123,7 @@ public class Assembler : IDisposable
     /// the file when disposed.<br/>
     /// The execution time of LD is limited by the configured <see cref="LinkerOptions.TimeoutMs"/>.
     /// </remarks>
-    /// <param name="asmProject">The <see cref="IAsmProject"/> to get source files from.</param>
+    /// <param name="asmMakeTarget">The <see cref="IAsmMakeTarget"/> to get source files from.</param>
     /// <returns>
     /// A structure describing the process result.
     /// When some of the files fail to assemble, <see cref="MakeResult.State"/> is set to
@@ -133,14 +134,14 @@ public class Assembler : IDisposable
     /// <see cref="MakeResult.State"/> is <see cref="MakeResultState.Successful"/>.
     /// </returns>
     /// <exception cref="Exception">LD process couldn't be started or its execution timed out.</exception>
-    public async Task<MakeResult> MakeProject(IAsmProject asmProject)
+    public async Task<MakeResult> MakeProject(IAsmMakeTarget asmMakeTarget)
     {
-        _logger.LogDebug("Making project {Name}.", asmProject.Name);
+        _logger.LogDebug("Making make target {Name}.", asmMakeTarget.Name);
         var validObjects = new List<AssembledObject>();
         List<AssembledObject>? invalidObjects = null;
 
         // Assemble all
-        foreach (var asmFile in asmProject.GetFiles())
+        foreach (var asmFile in asmMakeTarget.GetFiles())
         {
             var assembled = await this.AssembleFile(asmFile);
             if (assembled.AssemblySuccessful)
@@ -161,7 +162,7 @@ public class Assembler : IDisposable
 
             _logger.LogTrace("Not linking – invalid object file(s).");
 
-            return new MakeResult(asmProject, MakeResultState.InvalidObjects, null, validObjects, invalidObjects, null);
+            return new MakeResult(asmMakeTarget, MakeResultState.InvalidObjects, null, validObjects, invalidObjects, null);
         }
 
         // Look for _start in assembled objects. If not found, insert our own init file.
@@ -235,6 +236,7 @@ public class Assembler : IDisposable
             ldStartInfo.ArgumentList.Add(_linkerOptions.Value.LinkerScript);
         }
 
+        ldStartInfo.ArgumentList.Add("--compress-debug-sections=none");
         ldStartInfo.ArgumentList.Add("-o"); // Output file
         ldStartInfo.ArgumentList.Add(outputFile);
         ldStartInfo.ArgumentList.Add("-z"); // Page size
@@ -273,7 +275,7 @@ public class Assembler : IDisposable
         catch (TaskCanceledException e)
         {
             CleanObjects(validObjects);
-            _logger.LogWarning("LD process timed out for project {Name}.", asmProject.Name);
+            _logger.LogWarning("LD process timed out for make target {Name}.", asmMakeTarget.Name);
 
             throw new Exception("LD process timed out.", e);
         }
@@ -283,18 +285,18 @@ public class Assembler : IDisposable
         if (!string.IsNullOrWhiteSpace(stderr))
         {
             stderr = stderr.Replace(_linkerOptions.Value.LdPath + ":", string.Empty);
-            _logger.LogDebug("Linking error for project {Name}.", asmProject.Name);
+            _logger.LogDebug("Linking error for make target {Name}.", asmMakeTarget.Name);
             _logger.LogTrace("stderr output: {Error}", stderr);
         }
 
-        _logger.LogTrace("Project {Name} linking ended with code {Code}.", asmProject.Name, ldProcess.ExitCode);
+        _logger.LogTrace("MakeTarget {Name} linking ended with code {Code}.", asmMakeTarget.Name, ldProcess.ExitCode);
 
         var success = ldProcess.ExitCode == 0;
 
         Executable? retExe = null;
         if (success)
         {
-            retExe = this.MakeExecutable(asmProject, validObjects, outputFile);
+            retExe = this.MakeExecutable(asmMakeTarget, validObjects, outputFile);
             foreach (var assembledObject in validObjects)
             {
                 assembledObject.DeleteFile();
@@ -305,16 +307,16 @@ public class Assembler : IDisposable
             CleanObjects(validObjects);
         }
 
-        return new MakeResult(asmProject, success ? MakeResultState.Successful : MakeResultState.LinkingError, retExe,
+        return new MakeResult(asmMakeTarget, success ? MakeResultState.Successful : MakeResultState.LinkingError, retExe,
             validObjects, null, stderr);
     }
 
-    private Executable MakeExecutable(IAsmProject project, List<AssembledObject> assembledObjects, string elfPath)
+    private Executable MakeExecutable(IAsmMakeTarget makeTarget, List<AssembledObject> assembledObjects, string elfPath)
     {
         if (!ELFReader.TryLoad(elfPath, out ELF<uint> elf))
             throw new Exception("Cannot load linked ELF file.");
 
-        var exe = new Executable(project, elfPath, elf, assembledObjects, _functionSimulators,
+        var exe = new Executable(makeTarget, elfPath, elf, assembledObjects, _functionSimulators,
             _loggerFactory.CreateLogger<Executable>());
 
         return exe;
@@ -404,15 +406,22 @@ public class Assembler : IDisposable
             _path = path;
         }
 
-        public Task<ILocatedFile> LocateAsync() =>
-            Task.FromResult(new InitFileLocated { File = this, FileSystemPath = _path } as ILocatedFile);
+        public ValueTask<ILocatedFile> LocateAsync() =>
+            new(new InitFileLocated(_path, this));
 
         public string Name => "__ProgramEntryModule";
         public int Version => 1;
-        public IAsmProject? Project => null;
+        public string ClientPath => "__ProgramEntryModule__.s"; // TODO: Make this a constant?
+        public IAsmMakeTarget? Project => null;
 
         private class InitFileLocated : ILocatedFile
         {
+            public InitFileLocated(string fileSystemPath, IAsmFile file)
+            {
+                FileSystemPath = fileSystemPath;
+                File = file;
+            }
+
             public string FileSystemPath { get; init; }
             public int Version => 1;
             public IAsmFile File { get; init; }

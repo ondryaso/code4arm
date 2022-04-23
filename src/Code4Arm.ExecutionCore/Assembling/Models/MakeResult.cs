@@ -12,5 +12,5 @@ public enum MakeResultState
     LinkingError
 }
 
-public record struct MakeResult(IAsmProject Project, MakeResultState State, Executable? Executable,
+public record struct MakeResult(IAsmMakeTarget MakeTarget, MakeResultState State, Executable? Executable,
     List<AssembledObject> ValidObjects, List<AssembledObject>? InvalidObjects, string? LinkerError);

@@ -22,11 +22,16 @@ public interface IAsmFile
     /// files if their sources have not changed.
     /// </remarks>
     int Version { get; }
+    
+    /// <summary>
+    /// The path of the file on the client side.
+    /// </summary>
+    string ClientPath { get; }
 
     /// <summary>
-    /// The project this file belongs to.
+    /// The make target this file belongs to.
     /// </summary>
-    IAsmProject? Project { get; }
+    IAsmMakeTarget? Project { get; }
 
     /// <summary>
     /// Asynchronously ensures that this file exists in the filesystem and returns a disposable container over its location.
@@ -37,5 +42,5 @@ public interface IAsmFile
     /// <see cref="ILocatedFile"/>, which would delete the temporary file.
     /// </remarks>
     /// <returns>A disposable filesystem path pointing to this file.</returns>
-    Task<ILocatedFile> LocateAsync();
+    ValueTask<ILocatedFile> LocateAsync();
 }
