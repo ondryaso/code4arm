@@ -30,7 +30,7 @@ public class Program
         var assembler = new Assembler(asmOptions, linkerOptions, loggerFactory);
         assembler.UseFunctionSimulators(new[] { new Printf() });
 
-        var proj = new DummyAsmMakeTarget("makeTarget", new DummyAsmFile("prog20a.s"), new DummyAsmFile("prog21b.s"));
+        var proj = new DummyAsmMakeTarget("makeTarget", new DummyAsmFile("test.s"));
         var res = await assembler.MakeProject(proj);
 
         if (res.State != MakeResultState.Successful)
@@ -55,14 +55,26 @@ public class Program
         }
 
         var exe = res.Executable!;
-        Emulate(exe);
+        await Emulate(exe, loggerFactory.CreateLogger<ExecutionEngine>());
         exe.Dispose();
     }
 
-    private static void Emulate(Executable exe)
+    private static async Task Emulate(Executable exe, ILogger<ExecutionEngine> logger)
     {
-        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true });
+        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true }, logger, logger);
         execution.LoadExecutable(exe);
+        while (true)
+        {
+            await execution.Launch(true);
+            Console.WriteLine(execution.Engine.RegRead<uint>(Arm.Register.R0));
+        }
+    }
+
+    private static void EmulateOld(Executable exe, ILogger<ExecutionEngine> logger)
+    {
+        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true }, logger, logger);
+        execution.LoadExecutable(exe);
+        execution.InitMemoryFromExecutable();
 
         var unicorn = execution.Engine;
 
@@ -106,7 +118,7 @@ public class Program
 
         unicorn.AddInvalidMemoryAccessHook((engine, type, address, size, value) =>
         {
-            Console.WriteLine($"Invalid memory operation on {address}.");
+            Console.WriteLine($"Invalid memory operation on {address:x8}.");
 
             return false;
         }, MemoryHookType.FetchUnmapped, 0, ulong.MaxValue);
@@ -126,15 +138,7 @@ public class Program
                 Console.WriteLine($"{i++}: #? [{start:X}]");
             }
         }, exe.TextSectionStartAddress, exe.TextSectionEndAddress);
-
-        var trampolineHookRegistration = unicorn.AddCodeHook((engine, start, size) =>
-        {
-            if (exe.FunctionSimulators?.TryGetValue((uint)start, out var sim) ?? false)
-            {
-                sim.FunctionSimulator.Run(engine);
-            }
-        }, 0xff000000, 0xffffffff);
-
+        
         // Emulate
         try
         {
@@ -191,7 +195,7 @@ public class Program
     private static IOptionsMonitor<ConsoleLoggerOptions> MakeLoggerOptions()
     {
         var mock = new Mock<IOptionsMonitor<ConsoleLoggerOptions>>();
-        mock.Setup(a => a.CurrentValue).Returns(new ConsoleLoggerOptions() { });
+        mock.Setup(a => a.CurrentValue).Returns(new ConsoleLoggerOptions());
 
         return mock.Object;
     }
@@ -249,18 +253,27 @@ public class DummyAsmMakeTarget : IAsmMakeTarget
         return this.Files.Find(f => f.Name == name);
     }
 
+    private class Locator : IDebugProtocolSourceLocator
+    {
+        private readonly DummyAsmMakeTarget _target;
+
+        public Locator(DummyAsmMakeTarget target)
+        {
+            _target = target;
+        }
+
+        public ValueTask<Source> GetSourceForFile(IAsmFile file) => new(new Source()
+        {
+            Name = file.Name,
+            Path = file.ClientPath
+        });
+
+        public ValueTask<IAsmFile> GetFileForSource(Source source) =>
+            new(_target.Files.First(f => f.Name == source.Name));
+    }
+
     public IDebugProtocolSourceLocator MakeSourceLocator()
     {
-        var mock = new Mock<IDebugProtocolSourceLocator>();
-        mock.Setup(m => m.GetFileForSource)
-            .Returns((Source source) => new ValueTask<IAsmFile>(this.Files.First(f => f.Name == source.Name)));
-        mock.Setup(m => m.GetSourceForFile)
-            .Returns((IAsmFile file) => new ValueTask<Source>(new Source()
-            {
-                Name = file.Name,
-                Path = file.ClientPath
-            }));
-
-        return mock.Object;
+        return new Locator(this);
     }
 }

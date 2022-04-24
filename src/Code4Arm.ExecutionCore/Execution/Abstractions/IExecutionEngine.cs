@@ -39,11 +39,11 @@ public interface IExecutionEngine : IDisposable
 
     void LoadExecutable(Executable executable);
 
-    void SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
-    void SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints);
-    void SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints);
-    void SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
-
+    IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
+    IEnumerable<Breakpoint> SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints);
+    IEnumerable<Breakpoint> SetExceptionBreakpoints(IEnumerable<string> filterIds);
+    IEnumerable<Breakpoint> SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints);
+    IEnumerable<Breakpoint> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
 
     // remaps memory
     Task Launch(bool debug, CancellationToken cancellationToken = default);

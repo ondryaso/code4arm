@@ -18,6 +18,7 @@ public interface IDebugProvider
     StackTraceResponse MakeStackTrace();
     ScopesResponse MakeVariableScopes();
     IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine);
+    IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters();
 
     IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset, long? instructionOffset,
         long instructionCount, bool resolveSymbols);

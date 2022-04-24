@@ -8,5 +8,5 @@ namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 public interface ISyscallSimulator
 {
     int SyscallNumber { get; }
-    void Run(IUnicorn engine);
+    void Run(IExecutionEngine engine);
 }

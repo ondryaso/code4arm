@@ -44,6 +44,8 @@ internal class DebugProvider : IDebugProvider
     public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
         throw new NotImplementedException();
 
+    public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() => throw new NotImplementedException();
+
     public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
         long? instructionOffset, long instructionCount,
         bool resolveSymbols) =>

@@ -12,4 +12,5 @@ public interface IRuntimeInfo
     uint StackTopAddress { get; }
     uint StackEndAddress { get; }
     IReadOnlyList<MemorySegment> Segments { get; }
+    uint ProgramCounter { get; }
 }

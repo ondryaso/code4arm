@@ -36,7 +36,7 @@ public class ExecutionOptions
     /// <summary>
     /// The timeout used when invoking Unicorn emulation. The default is 5 seconds.
     /// </summary>
-    public int Timeout { get; set; } = 5000;
+    public int Timeout { get; set; } = 2000;
 
     /// <summary>
     /// The size of emulation stack memory. The default is 2 MiB. 
@@ -80,4 +80,6 @@ public class ExecutionOptions
     /// cause execution to halt when these are accessed (anyhow), as if they were unmapped memory.
     /// </remarks>
     public bool UseStrictMemoryAccess { get; set; } = false;
+
+    public RegisterInitOptions RegisterInitOptions { get; set; } = RegisterInitOptions.Clear;
 }

@@ -10,8 +10,11 @@ using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
+using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
+using Code4Arm.Unicorn.Constants;
+using Microsoft.Extensions.Logging;
 using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
 namespace Code4Arm.ExecutionCore.Execution;
@@ -23,6 +26,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     internal readonly MemoryStream InputMemoryStream;
     internal readonly MemoryStream OutputMemoryStream;
+    private readonly Guid _executionId;
+    private readonly ILogger<ExecutionEngine> _logger;
+    private readonly ILogger<ExecutionEngine> _clientLogger;
     private Executable? _exe;
     private List<MemorySegment>? _segments;
     private MemorySegment? _stackSegment;
@@ -31,6 +37,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly ArrayPool<byte> _arrayPool;
     private List<UnicornHookRegistration> _strictAccessHooks = new();
     private CancellationTokenSource? _currentCts;
+    private uint _pc;
+    private UnicornHookRegistration _trampolineHookRegistration;
+    private bool _firstRun = true;
+
 
     public StepBackMode StepBackMode { get; set; }
     public bool EnableStepBackMemoryCapture { get; set; }
@@ -49,11 +59,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public IReadOnlyList<MemorySegment> Segments =>
         _segments as IReadOnlyList<MemorySegment> ?? ImmutableList<MemorySegment>.Empty;
 
+    public uint ProgramCounter => _pc;
+
     public IUnicorn Engine { get; }
     public Stream EmulatedInput => InputMemoryStream;
     public Stream EmulatedOutput => OutputMemoryStream;
 
-    public ExecutionEngine(ExecutionOptions options)
+    public ExecutionEngine(ExecutionOptions options, ILogger<ExecutionEngine> systemLogger,
+        ILogger<ExecutionEngine> clientLogger)
     {
         _options = options;
 
@@ -63,12 +76,23 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         InputMemoryStream = new MemoryStream();
         OutputMemoryStream = new MemoryStream();
 
-        // Let's find out if Shared is enough...
         _arrayPool = ArrayPool<byte>.Shared;
+
+        _logger = systemLogger;
+        _clientLogger = clientLogger;
+        _executionId = Guid.NewGuid();
     }
 
     private IUnicorn MakeUnicorn()
-        => new Unicorn.Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
+    {
+        var unicorn = new Unicorn.Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
+        unicorn.CheckIfBindingMatchesLibrary(true);
+
+        unicorn.CpuModel = Arm.Cpu.MAX;
+        unicorn.EnableMultipleExits();
+
+        return unicorn;
+    }
 
     private void MakeStackSegment()
     {
@@ -221,15 +245,16 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         this.MakeStackSegment();
 
         if (_exe != null)
+        {
             this.UnmapAllMemory();
+            _firstRun = false;
+        }
 
         _exe = executable;
         this.MapMemoryFromExecutable();
+        this.InitTrampolineHook();
 
         DebugProvider = new DebugProvider(this);
-
-        // TODO: delete this
-        this.InitMemoryFromExecutable();
     }
 
     private void UnmapAllMemory()
@@ -317,13 +342,57 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     }
 
     /// <summary>
+    /// Registers a hook for the function simulator trampoline memory segment.
+    /// Always removes the previous trampoline hook.
+    /// If no trampoline memory segment exists, only removes the previous hook.
+    /// </summary>
+    private void InitTrampolineHook()
+    {
+        var trampoline = _segments?.FirstOrDefault(s => s.IsTrampoline);
+
+        if (trampoline == null)
+        {
+            if (_trampolineHookRegistration == default)
+                return;
+            Engine.RemoveHook(_trampolineHookRegistration);
+            _trampolineHookRegistration = default;
+
+            return;
+        }
+
+        _trampolineHookRegistration = Engine.AddCodeHook(this.TrampolineHookHandler, trampoline.ContentsStartAddress,
+            trampoline.ContentsEndAddress);
+    }
+
+    private void TrampolineHookHandler(IUnicorn engine, ulong address, uint size)
+    {
+        if (_exe is not { FunctionSimulators: { } } ||
+            !_exe.FunctionSimulators.TryGetValue((uint)address, out var simulator))
+        {
+            Engine.EmuStop();
+
+            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", _executionId, address);
+            _clientLogger.LogError(
+                "Program attempted to fetch from the function simulator memory segment on address {Address:x8} which is not bound to any simulated function.",
+                address);
+
+            this.HandleUnicornError(UnicornError.FetchUnmapped);
+
+            return;
+        }
+
+        _pc = (uint)address;
+        simulator.FunctionSimulator.Run(this);
+    }
+
+    /// <summary>
     /// Load data of segments from the executable.
     /// </summary>
     /// <remarks>
     /// This is used just before emulation is started. It overwrites the current contents of virtual memory with data
     /// from the executable and zeroes out BSS sections.
     /// </remarks>
-    private void InitMemoryFromExecutable()
+    public void InitMemoryFromExecutable()
     {
         if (_exe == null)
             throw new InvalidOperationException("Cannot initialize memory before an executable is loaded.");
@@ -387,55 +456,167 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private void StrictAccessHook(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
         long value)
     {
-        Console.WriteLine($"STRICT ACCESS HOOK AT {address:x8}");
+        _logger.LogTrace("Execution {Id}: virtually unmapped access to memory at {Address:x8}.", _executionId, address);
         Engine.EmuStop();
+
+        this.HandleUnicornError(memoryAccessType switch
+        {
+            MemoryAccessType.Fetch or MemoryAccessType.FetchProtected => UnicornError.FetchUnmapped,
+            MemoryAccessType.Read or MemoryAccessType.ReadProtected => UnicornError.ReadUnmapped,
+            MemoryAccessType.Write or MemoryAccessType.WriteProtected => UnicornError.WriteUnmapped,
+            _ => UnicornError.ReadProtected
+        });
         // TODO
     }
 
-    public void SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints)
+    public IEnumerable<Breakpoint> SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints)
     {
         throw new NotImplementedException();
     }
 
-    public void SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints)
+    public IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints)
     {
         throw new NotImplementedException();
     }
 
-    public void SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints)
+    public IEnumerable<Breakpoint> SetExceptionBreakpoints(IEnumerable<string> filterIds)
     {
         throw new NotImplementedException();
     }
 
-    public void SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints)
+    public IEnumerable<Breakpoint> SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints)
     {
         throw new NotImplementedException();
     }
 
-    private ulong GetCurrentStartAddress()
+    public IEnumerable<Breakpoint> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints)
     {
-        return 0;
+        throw new NotImplementedException();
+    }
+
+    private void MakeExits()
+    {
+        if (_exe == null)
+        {
+            Engine.SetExits(ReadOnlySpan<ulong>.Empty, 0);
+
+            return;
+        }
+
+        Span<ulong> exits = stackalloc ulong[2];
+
+        // Breakpoints
+        // TODO
+
+        exits[^2] = _exe.LastInstructionAddress + 4;
+        exits[^1] = _exe.TextSectionEndAddress; // Is this desirable?
+
+        Engine.SetExits(exits);
+    }
+
+    private void StartEmulation(uint startAddress, ulong count = 0ul)
+    {
+        try
+        {
+            _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
+
+            _pc = startAddress;
+            Engine.EmuStart(startAddress, 0, 0, count);
+            _pc = Engine.RegRead<uint>(Arm.Register.PC);
+
+            _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", _executionId, _pc);
+        }
+        catch (UnicornException e)
+        {
+            _pc = Engine.RegRead<uint>(Arm.Register.PC);
+            if (Enum.IsDefined(e.Error))
+            {
+                _logger.LogTrace(e, "Execution {Id}: Runtime exception.", _executionId);
+                // HandleUnicornError() will log to the client
+
+                this.HandleUnicornError(e.Error);
+            }
+            else
+            {
+                _logger.LogWarning(e, "Execution {Id}: Exited with unknown Unicorn error code {Code}.", _executionId,
+                    e.ErrorId);
+                _logger.LogError("An unknown emulator error occured (Unicorn error code {Code}) .", e.ErrorId);
+
+                throw;
+            }
+        }
+    }
+
+    private void HandleUnicornError(UnicornError error)
+    {
+        // TODO
+    }
+
+    private void InitRegisters()
+    {
+        if (_options.RegisterInitOptions != RegisterInitOptions.Keep
+            || _firstRun)
+        {
+            for (var r = Arm.Register.R0; r <= Arm.Register.R12; r++)
+            {
+                switch (_options.RegisterInitOptions)
+                {
+                    case RegisterInitOptions.Clear:
+                    case RegisterInitOptions.ClearFirst:
+                    case RegisterInitOptions.Keep:
+                        Engine.RegWrite(r, 0u);
+
+                        break;
+                    case RegisterInitOptions.Randomize:
+                    case RegisterInitOptions.RandomizeFirst:
+                        Engine.RegWrite(Arm.Register.LR, _rnd.Next(int.MaxValue));
+
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            if (_options.RegisterInitOptions is RegisterInitOptions.Randomize or RegisterInitOptions.RandomizeFirst)
+                Engine.RegWrite(Arm.Register.LR, (uint)_rnd.Next(int.MaxValue));
+            else
+                Engine.RegWrite(Arm.Register.LR, 0u);
+        }
+
+        Engine.RegWrite(Arm.Register.SP, StackTopAddress);
     }
 
     public async Task Launch(bool debug, CancellationToken cancellationToken = default)
     {
+        if (_exe == null)
+            throw new InvalidOperationException("Executable not loaded.");
+
         this.InitMemoryFromExecutable();
+        this.InitRegisters();
+        this.MakeExits();
 
-        var startAddress = this.GetCurrentStartAddress();
+        var startAddress = _exe.EntryPoint;
 
-        _currentCts?.Dispose();
         _currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _currentCts.CancelAfter(_options.Timeout);
+        _currentCts.Token.Register(() => { Engine.EmuStop(); });
 
         try
         {
-            await Task.Run(() => { Engine.EmuStart(startAddress, 0, 0, 0); }, _currentCts.Token);
+            await Task.Run(() =>
+            {
+                _currentCts.Token.ThrowIfCancellationRequested();
+                this.StartEmulation(startAddress);
+            }, _currentCts.Token);
         }
         catch (OperationCanceledException)
         {
-            // TODO
             Engine.EmuStop();
+            _pc = Engine.RegRead<uint>(Arm.Register.PC);
         }
+
+        _currentCts.Dispose();
+        _currentCts = null;
     }
 
     public void Restart(bool debug, CancellationToken cancellationToken = default)

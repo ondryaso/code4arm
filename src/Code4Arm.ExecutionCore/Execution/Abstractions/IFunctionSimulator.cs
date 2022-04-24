@@ -8,5 +8,5 @@ namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 public interface IFunctionSimulator
 {
     string Name { get; }
-    void Run(IUnicorn engine);
+    void Run(IExecutionEngine engine);
 }
