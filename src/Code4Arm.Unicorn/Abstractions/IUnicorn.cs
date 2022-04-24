@@ -51,6 +51,10 @@ public interface IUnicorn : IUnicornContext
     // Missing: uc_ctl, UC_CTL_TB_REQUEST_CACHE, read 
     // Missing: uc_ctl, UC_CTL_TB_REMOVE_CACHE, write
 
+    void GetExits(Span<ulong> target);
+    void SetExits(ReadOnlySpan<ulong> exits);
+    void SetExits(ReadOnlySpan<ulong> exits, int length);
+
     void MemWrite(ulong address, byte[] bytes);
     void MemWrite(ulong address, byte[] bytes, nuint size);
     void MemWrite(ulong address, ReadOnlySpan<byte> bytes);

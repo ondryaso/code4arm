@@ -311,7 +311,45 @@ public class Unicorn : IUnicorn
     public void EnableMultipleExits()
     {
         this.EnsureEngine();
-        var result = Native.uc_ctl(_engine, MakeReadControlType(1, UniConst.Ctl.UseExits), 1);
+        var result = Native.uc_ctl(_engine, MakeWriteControlType(1, UniConst.Ctl.UseExits), 1);
+        this.CheckResult(result);
+    }
+
+    public unsafe void GetExits(Span<ulong> target)
+    {
+        var currentCount = CurrentNumberOfExits; // Calls EnsureEngine()
+
+        if (target.Length < (int)currentCount)
+            throw new InvalidOperationException($"Target span is not large enough for {currentCount} existing exits.");
+
+        int result;
+        fixed (ulong* exitsPinned = target)
+        {
+            result = Native.uc_ctl(_engine, MakeReadControlType(2, UniConst.Ctl.Exits), exitsPinned, currentCount);
+        }
+
+        this.CheckResult(result);
+    }
+
+    public void SetExits(ReadOnlySpan<ulong> exits)
+    {
+        this.SetExits(exits, exits.Length);
+    }
+
+    public unsafe void SetExits(ReadOnlySpan<ulong> exits, int length)
+    {
+        if (length < 0)
+            throw new ArgumentException("Length must not be less than zero.", nameof(length));
+
+        this.EnsureEngine();
+
+        int result;
+        fixed (ulong* exitsPinned = exits)
+        {
+            result = Native.uc_ctl(_engine, MakeWriteControlType(2, UniConst.Ctl.Exits), exitsPinned,
+                (nuint)length);
+        }
+
         this.CheckResult(result);
     }
 
@@ -332,7 +370,7 @@ public class Unicorn : IUnicorn
     {
         get
         {
-            var currentCount = CurrentNumberOfExits;
+            var currentCount = CurrentNumberOfExits; // Calls EnsureEngine()
             var exits = new ulong[currentCount];
 
             int result;
@@ -353,7 +391,7 @@ public class Unicorn : IUnicorn
             int result;
             fixed (ulong* exitsPinned = value)
             {
-                result = Native.uc_ctl(_engine, MakeReadControlType(2, UniConst.Ctl.Exits), exitsPinned,
+                result = Native.uc_ctl(_engine, MakeWriteControlType(2, UniConst.Ctl.Exits), exitsPinned,
                     (nuint)value.Length);
             }
 
