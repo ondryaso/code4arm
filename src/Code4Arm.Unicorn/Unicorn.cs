@@ -13,6 +13,8 @@ namespace Code4Arm.Unicorn;
 
 public class Unicorn : IUnicorn
 {
+    public const int ApiMajor = 2, ApiMinor = 0, ApiPatch = 0, ApiExtra = 7;
+
     private readonly List<UnicornContext> _contexts = new();
 
     // Collections that keep hook references (both native and managed – the delegates mustn't be deleted by GC)
@@ -235,6 +237,18 @@ public class Unicorn : IUnicorn
     #endregion
 
     #region Engine control
+
+    public bool CheckIfBindingMatchesLibrary(bool throwIfNot = false, bool considerMinor = true)
+    {
+        var (major, minor) = Version;
+        var result = major == ApiMajor && (!considerMinor || minor == ApiMinor);
+
+        if (throwIfNot && !result)
+            throw new UnicornException((int)UnicornError.BindingVersionMismatch,
+                $"Unicorn library version is {major}.{minor} while the binding was made for {ApiMajor}.{ApiMinor}.");
+
+        return result;
+    }
 
     public unsafe int CurrentMode
     {

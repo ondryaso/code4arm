@@ -10,6 +10,14 @@ public interface IUnicorn : IUnicornContext
     // uc_version
     (uint Major, uint Minor) Version { get; }
 
+    /// <summary>
+    /// Checks whether the used Unicorn library version matches the one this binding was built for.
+    /// </summary>
+    /// <param name="throwIfNot">If true, this method will throw an <see cref="UnicornException"/> on mismatch.</param>
+    /// <param name="considerMinor">If true, different 'minor' version numbers will be considered mismatching.</param>
+    /// <returns>True if Unicorn is the same version this binding was build for.</returns>
+    bool CheckIfBindingMatchesLibrary(bool throwIfNot = false, bool considerMinor = true);
+
     // uc_ctl, UC_CTL_UC_MODE, read
     int CurrentMode { get; }
 
