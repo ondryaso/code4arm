@@ -50,7 +50,7 @@ public class Unicorn : IUnicorn
         var resultMessagePtr = Native.uc_strerror(result);
         var resultMessage = Marshal.PtrToStringAnsi(resultMessagePtr);
 
-        throw new UnicornException(result, $"[{result}] {resultMessage}");
+        throw new UnicornException(result, $"{resultMessage}. Error code: {result}.");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

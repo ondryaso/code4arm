@@ -198,6 +198,14 @@ public static class Arm
         public const int PXA270B1 = 30;
         public const int PXA270C0 = 31;
         public const int PXA270C5 = 32;
+
+        /// <summary>
+        /// Enables all Arm processor features available in the emulator.
+        /// </summary>
+        /// <remarks>
+        /// Using this CPU mode triggers the <a href="https://github.com/unicorn-engine/unicorn/blob/e3d0a33ab83c9dd65134da0c0a10a6a91173a08c/qemu/target/arm/cpu.c#L1952">arm_max_initfn</a>
+        /// initialization function from qemu/target/arm/cpu.c.
+        /// </remarks>
         public const int MAX = 33;
     }
 }

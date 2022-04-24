@@ -29,7 +29,6 @@ public interface IUnicorn : IUnicornContext
     ulong[] Exits { get; set; }
 
     // uc_ctl, UC_CTL_CPU_MODEL, read/write
-    // TODO: what are the possible values for this?
     int CpuModel { get; set; }
 
     // uc_arch_supported
