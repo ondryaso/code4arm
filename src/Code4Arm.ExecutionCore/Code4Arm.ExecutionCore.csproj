@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Capstone.NET\Gee.External.Capstone\Gee.External.Capstone.csproj" />
+    <ProjectReference Include="..\Code4Arm.ExecutionCore.Dwarf\Code4Arm.ExecutionCore.Dwarf.csproj" />
     <ProjectReference Include="..\Code4Arm.ExecutionCore.Protocol\Code4Arm.ExecutionCore.Protocol.csproj" />
     <ProjectReference Include="..\Code4Arm.Unicorn\Code4Arm.Unicorn.csproj" />
   </ItemGroup>

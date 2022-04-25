@@ -40,7 +40,7 @@ public interface IExecutionEngine : IDisposable
     void LoadExecutable(Executable executable);
 
     IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
-    IEnumerable<Breakpoint> SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints);
+    IEnumerable<Breakpoint> SetBreakpoints(Source file, IEnumerable<SourceBreakpoint> breakpoints);
     IEnumerable<Breakpoint> SetExceptionBreakpoints(IEnumerable<string> filterIds);
     IEnumerable<Breakpoint> SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints);
     IEnumerable<Breakpoint> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);

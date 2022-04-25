@@ -24,11 +24,4 @@ public interface IAsmMakeTarget
     /// <param name="name">The name of the make target file.</param>
     /// <returns>The make target ASM file or null if no such file exists.</returns>
     IAsmFile? GetFile(string name);
-
-    /// <summary>
-    /// Creates a debug protocol source locator for this make target, which is used to convert between DP's
-    /// <see cref="Code4Arm.ExecutionCore.Protocol.Models.Source"/> and the used <see cref="IAsmFile"/> implementation.
-    /// </summary>
-    /// <returns>A debug protocol source locator.</returns>
-    IDebugProtocolSourceLocator MakeSourceLocator();
 }

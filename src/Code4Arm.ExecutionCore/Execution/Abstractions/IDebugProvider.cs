@@ -8,6 +8,8 @@ namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 
 public interface IDebugProvider
 {
+    InitializeResponse Initialize(InitializeRequestArguments clientData);
+    
     IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column);
     SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format);
     SourceResponse GetSource(long sourceReference);

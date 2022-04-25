@@ -1,6 +1,7 @@
 // AssembledObject.cs
 // Author: Ondřej Ondryáš
 
+using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +20,9 @@ public class AssembledObject : IDisposable
     public int SourceVersion { get; }
     public bool AssemblySuccessful { get; }
 
+    public bool[]? IsProgramLine { get; }
+    public int ProgramLines { get; }
+
     internal AssembledObject(IAsmFile sourceFile, int sourceVersion, string objectFilePath, string gasOut,
         string gasErr, bool successful, ILogger<AssembledObject> logger)
     {
@@ -29,6 +33,12 @@ public class AssembledObject : IDisposable
         ObjectFilePath = objectFilePath;
         AssemblerOutput = gasOut;
         AssemblerErrors = gasErr;
+
+        if (successful)
+        {
+            IsProgramLine = this.DetermineProgramLines();
+            ProgramLines = IsProgramLine.Length;
+        }
     }
 
     internal void DeleteFile()
@@ -49,6 +59,41 @@ public class AssembledObject : IDisposable
                     ObjectFilePath, SourceFile.Name);
             }
         }
+    }
+
+    private static readonly Regex ProgramLineRegex =
+        new(@"^\s*(\d+)\s+[0-9a-f]{4,8}\s+[0-9A-F]{8}\s*[\w\.:]+", RegexOptions.Compiled);
+
+    private bool[] DetermineProgramLines()
+    {
+        using var reader = new StringReader(AssemblerOutput);
+        string? line;
+
+        var linesWithCode = new List<int>();
+        var maxLine = 0;
+
+        while ((line = reader.ReadLine()) != null)
+        {
+            if (line.StartsWith("DEFINED SYMBOLS") || line.StartsWith("NO DEFINED SYMBOLS"))
+                break;
+
+            var match = ProgramLineRegex.Match(line);
+            if (match.Success)
+            {
+                var lineNumber = int.Parse(match.Groups[1].Value);
+                linesWithCode.Add(lineNumber);
+                if (lineNumber > maxLine)
+                    maxLine = lineNumber;
+            }
+        }
+
+        var ret = new bool[maxLine];
+        foreach (var lineNumber in linesWithCode)
+        {
+            ret[lineNumber - 1] = true;
+        }
+
+        return ret;
     }
 
     public void Dispose()

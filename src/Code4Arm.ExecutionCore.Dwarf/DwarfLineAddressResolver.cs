@@ -47,7 +47,7 @@ public class DwarfLineAddressResolver
                                         .SelectMany(p => p.Files)
                                         .GroupBy(f => f.Path))
         {
-            _addressCache.Add(fileInformation.First().Name,
+            _addressCache.Add(fileInformation.Key,
                 SimpleCache.Create(() =>
                 {
                     return fileInformation.SelectMany(f => f.Lines)

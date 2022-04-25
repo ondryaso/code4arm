@@ -3,13 +3,14 @@
 
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
+using Code4Arm.ExecutionCore.Protocol.Models;
 using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
 using Microsoft.Extensions.Logging;
 
 namespace Code4Arm.ExecutionCore.Assembling.Models;
 
-public class Executable : IExecutableInfo, IDisposable
+public class Executable : IExecutableInfo, IDebugProtocolSourceLocator, IDisposable
 {
     private readonly ELF<uint> _elf;
     private readonly ILogger<Executable> _logger;
@@ -59,6 +60,11 @@ public class Executable : IExecutableInfo, IDisposable
     public uint TextSectionEndAddress { get; private set; }
 
     public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators { get; }
+
+    public IDebugProtocolSourceLocator MakeSourceLocator()
+    {
+        throw new NotImplementedException();
+    }
 
     /// <summary>
     /// Creates <see cref="MemorySegment"/> definitions based on the segments from the ELF.
@@ -204,4 +210,8 @@ public class Executable : IExecutableInfo, IDisposable
             }
         }
     }
+
+    public IEnumerable<Source> Sources { get; }
+    public string GetCompilationPathForSource(Source source) => throw new NotImplementedException();
+    public AssembledObject? GetObjectForSource(Source source) => throw new NotImplementedException();
 }

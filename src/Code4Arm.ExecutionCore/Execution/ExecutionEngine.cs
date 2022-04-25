@@ -3,8 +3,11 @@
 
 using System.Buffers;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Files.Abstractions;
@@ -21,6 +24,11 @@ namespace Code4Arm.ExecutionCore.Execution;
 
 public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 {
+    private record AddressBreakpoint : Breakpoint
+    {
+        public uint Address { get; init; }
+    }
+
     private const int MaxArrayPoolSize = 2 * 1024 * 1024;
     private const int MaxStackAllocatedSize = 512;
 
@@ -40,7 +48,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private uint _pc;
     private UnicornHookRegistration _trampolineHookRegistration;
     private bool _firstRun = true;
+    private DwarfLineAddressResolver? _lineResolver;
+    private DebugProvider? _debugProvider;
 
+    private Dictionary<long, AddressBreakpoint> _currentBreakpoints = new();
+    private long _breakpointId = 0;
 
     public StepBackMode StepBackMode { get; set; }
     public bool EnableStepBackMemoryCapture { get; set; }
@@ -49,7 +61,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public ExecutionState State { get; private set; }
     public IExecutableInfo? ExecutableInfo => _exe;
     public IRuntimeInfo? RuntimeInfo => _exe == null ? null : this;
-    public IDebugProvider? DebugProvider { get; private set; }
+    public IDebugProvider? DebugProvider => _debugProvider;
 
     public uint StackStartAddress { get; private set; }
     public uint StackSize => _options.StackSize;
@@ -92,6 +104,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         unicorn.EnableMultipleExits();
 
         return unicorn;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MemberNotNull(nameof(_exe), nameof(_segments), nameof(_debugProvider), nameof(_lineResolver))]
+    private void CheckLoaded()
+    {
+        // Iff the rest of this code works as intended, this could be cut down only to _exe == null
+        if (_exe == null || _segments == null || _debugProvider == null || _lineResolver == null)
+            throw new InvalidOperationException("Executable not loaded.");
     }
 
     private void MakeStackSegment()
@@ -237,8 +258,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return stackSegmentBegin;
     }
 
+    // CS8774 (member must not be null when method returns) doesn't seem to work very well when MemberNotNull covers
+    // a property that always returns a field set by the method to a non-null value.
+#pragma warning disable CS8774
+    [MemberNotNull(nameof(ExecutableInfo), nameof(RuntimeInfo), nameof(DebugProvider))]
     public void LoadExecutable(Executable executable)
     {
+        if (executable == null)
+            throw new ArgumentNullException(nameof(executable));
+
         _segments ??= new List<MemorySegment>(executable.Segments.Count + 1);
 
         // This replaces the segment descriptor in _segments and MAPS MEMORY accordingly
@@ -251,11 +279,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
 
         _exe = executable;
+
+        _debugProvider = new DebugProvider(this);
+        _lineResolver = new DwarfLineAddressResolver(_exe.Elf);
+
         this.MapMemoryFromExecutable();
         this.InitTrampolineHook();
-
-        DebugProvider = new DebugProvider(this);
     }
+#pragma warning restore CS8774
 
     private void UnmapAllMemory()
     {
@@ -284,8 +315,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private void MapMemoryFromExecutable()
     {
-        if (_exe == null || _segments == null)
-            throw new InvalidOperationException("Cannot map memory before an executable is loaded.");
+        this.CheckLoaded();
 
         foreach (var segment in _exe.Segments)
         {
@@ -394,8 +424,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// </remarks>
     public void InitMemoryFromExecutable()
     {
-        if (_exe == null)
-            throw new InvalidOperationException("Cannot initialize memory before an executable is loaded.");
+        this.CheckLoaded();
 
         foreach (var segment in _exe.Segments)
         {
@@ -469,9 +498,105 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // TODO
     }
 
-    public IEnumerable<Breakpoint> SetBreakpoints(IAsmFile file, IEnumerable<SourceBreakpoint> breakpoints)
+    /// <summary>
+    /// Finds a line in a given source on which a breakpoint can be set, starting the search on a given line and going
+    /// forward in the file. Returns the local line number and the corresponding address in the executable.
+    /// </summary>
+    /// <param name="sourceCompilationPath">The compilation path of the source file.</param>
+    /// <param name="sourceObject">The source assembled object.</param>
+    /// <param name="startingLocalLine">Local number of the line to start the search on.</param>
+    /// <returns>A tuple of resulting line and address, or (-1, 0) if no suitable line exists.</returns>
+    private (int Line, uint Address) FindClosestBreakablePosition(string sourceCompilationPath,
+        AssembledObject sourceObject,
+        int startingLocalLine)
     {
-        throw new NotImplementedException();
+        var tryingLine = startingLocalLine;
+
+        // Dwarf lines are numbered from 1
+        var address = _lineResolver!.GetAddress(sourceCompilationPath, tryingLine + 1);
+        var successful = true;
+
+        while (address == uint.MaxValue && tryingLine < sourceObject.ProgramLines)
+        {
+            successful = false;
+            tryingLine++;
+
+            for (; tryingLine < sourceObject.ProgramLines; tryingLine++)
+            {
+                if (!sourceObject.IsProgramLine![tryingLine])
+                    continue;
+
+                address = _lineResolver!.GetAddress(sourceCompilationPath, tryingLine + 1);
+                successful = true;
+
+                break;
+            }
+        }
+
+        return successful ? (tryingLine, address) : (-1, 0);
+    }
+
+    public IEnumerable<Breakpoint> SetBreakpoints(Source file, IEnumerable<SourceBreakpoint> breakpoints)
+    {
+        this.CheckLoaded();
+
+        var sourceCompilationPath = _exe.GetCompilationPathForSource(file);
+        var sourceObject = _exe.GetObjectForSource(file);
+
+        if (sourceObject == null)
+        {
+            _clientLogger.LogError("Cannot place breakpoint in file {File}.", file.Name);
+
+            return Enumerable.Empty<Breakpoint>();
+        }
+
+        _currentBreakpoints.Clear();
+        var ret = new List<Breakpoint>();
+
+        foreach (var breakpoint in breakpoints)
+        {
+            var localLine = _debugProvider.LineFromClient(breakpoint.Line);
+            var (targetLine, targetAddress) =
+                this.FindClosestBreakablePosition(sourceCompilationPath, sourceObject, localLine);
+
+            if (targetLine == -1)
+            {
+                // Breakpoint cannot be set on the provided line; return a 'dummy', unverified Breakpoint on this line.
+                // Don't create a _currentBreakpoints entry.
+                ret.Add(new Breakpoint()
+                {
+                    Line = breakpoint.Line,
+                    Message = "Line does not contain an instruction.",
+                    Source = file,
+                    Verified = false
+                });
+            }
+            else
+            {
+                // Create a breakpoint with address information and store it in _currentBreakpoints
+                var addedBreakpoint = new AddressBreakpoint()
+                {
+                    Id = _breakpointId,
+                    Line = _debugProvider.LineToClient(targetLine),
+                    Source = file,
+                    Verified = true, // TODO: Check if line contains instruction or data? Somehow?
+                    InstructionReference = targetAddress.ToString(),
+                    Address = targetAddress
+                };
+
+                ret.Add(addedBreakpoint);
+                _currentBreakpoints.Add(_breakpointId, addedBreakpoint);
+                
+                unchecked
+                {
+                    _breakpointId++;
+                }
+            }
+        }
+
+        this.MakeExits();
+
+        return ret;
     }
 
     public IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints)
