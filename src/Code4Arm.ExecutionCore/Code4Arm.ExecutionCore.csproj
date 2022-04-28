@@ -23,7 +23,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="MediatR.Contracts" Version="1.0.1" />
+    <PackageReference Include="MediatR" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,12 +40,6 @@
     <None Update="SupportFiles\source_header.s">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="SharpDebug.DwarfSymbolProvider, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\..\..\SharpDebug\bin\Release\netstandard2.0\SharpDebug.DwarfSymbolProvider.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

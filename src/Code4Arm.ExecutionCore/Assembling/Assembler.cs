@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
@@ -14,7 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace Code4Arm.ExecutionCore.Assembling;
 
-public class Assembler : IDisposable
+public class Assembler : IAssembler
 {
     private static readonly Regex FileNameRegex = new(@"^(?:.*?):\s*", RegexOptions.Multiline | RegexOptions.Compiled);
 

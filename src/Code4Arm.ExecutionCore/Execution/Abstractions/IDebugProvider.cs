@@ -9,12 +9,13 @@ namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 public interface IDebugProvider
 {
     InitializeResponse Initialize(InitializeRequestArguments clientData);
-    
+
     IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column);
     SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format);
     SourceResponse GetSource(long sourceReference);
     SourceResponse GetSource(Source source);
-    IEnumerable<DataBreakpointInfoResponse> GetDataBreakpointInfo(string name);
+    DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName);
+    DataBreakpointInfoResponse GetDataBreakpointInfo(string expression);
     EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context, ValueFormat? format);
     ExceptionInfoResponse GetLastExceptionInfo();
     StackTraceResponse MakeStackTrace();
@@ -29,6 +30,11 @@ public interface IDebugProvider
 
     IEnumerable<GotoTarget> GetGotoTargets(GotoTargetsArguments arguments)
         => this.GetGotoTargets(arguments.Source, arguments.Line, arguments.Column);
+
+    DataBreakpointInfoResponse GetDataBreakpointInfo(DataBreakpointInfoArguments arguments)
+        => arguments.VariablesReference.HasValue
+            ? this.GetDataBreakpointInfo(arguments.VariablesReference.Value, arguments.Name)
+            : this.GetDataBreakpointInfo(arguments.Name);
 
     SetVariableResponse SetVariable(SetVariableArguments arguments)
         => this.SetVariable(arguments.VariablesReference, arguments.Name, arguments.Value, arguments.Format);

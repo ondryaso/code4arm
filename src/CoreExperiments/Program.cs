@@ -1,4 +1,5 @@
 ﻿using Code4Arm.ExecutionCore.Assembling;
+using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution;
@@ -11,6 +12,7 @@ using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Constants;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
@@ -61,8 +63,10 @@ public class Program
 
     private static async Task Emulate(Executable exe, ILogger<ExecutionEngine> logger)
     {
-        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true }, logger, logger);
-        execution.LoadExecutable(exe);
+        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true }, Mock.Of<IMediator>(),
+            logger, logger);
+        await execution.LoadExecutable(exe);
+        
         while (true)
         {
             await execution.Launch(true);
@@ -72,7 +76,8 @@ public class Program
 
     private static void EmulateOld(Executable exe, ILogger<ExecutionEngine> logger)
     {
-        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true }, logger, logger);
+        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true },
+            Mock.Of<IMediator>(), logger, logger);
         execution.LoadExecutable(exe);
         execution.InitMemoryFromExecutable();
 
@@ -138,7 +143,7 @@ public class Program
                 Console.WriteLine($"{i++}: #? [{start:X}]");
             }
         }, exe.TextSectionStartAddress, exe.TextSectionEndAddress);
-        
+
         // Emulate
         try
         {
@@ -251,29 +256,5 @@ public class DummyAsmMakeTarget : IAsmMakeTarget
     public IAsmFile? GetFile(string name)
     {
         return this.Files.Find(f => f.Name == name);
-    }
-
-    private class Locator : IDebugProtocolSourceLocator
-    {
-        private readonly DummyAsmMakeTarget _target;
-
-        public Locator(DummyAsmMakeTarget target)
-        {
-            _target = target;
-        }
-
-        public ValueTask<Source> GetSourceForFile(IAsmFile file) => new(new Source()
-        {
-            Name = file.Name,
-            Path = file.ClientPath
-        });
-
-        public ValueTask<IAsmFile> GetFileForSource(Source source) =>
-            new(_target.Files.First(f => f.Name == source.Name));
-    }
-
-    public IDebugProtocolSourceLocator MakeSourceLocator()
-    {
-        return new Locator(this);
     }
 }

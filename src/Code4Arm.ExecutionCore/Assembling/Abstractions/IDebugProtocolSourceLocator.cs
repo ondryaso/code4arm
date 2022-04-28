@@ -2,7 +2,6 @@
 // Author: Ondřej Ondryáš
 
 using Code4Arm.ExecutionCore.Assembling.Models;
-using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 
 namespace Code4Arm.ExecutionCore.Assembling.Abstractions;

@@ -11,12 +11,14 @@ using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Files.Abstractions;
+using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Constants;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Architecture = Code4Arm.Unicorn.Abstractions.Enums.Architecture;
 
@@ -29,11 +31,23 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         public uint Address { get; init; }
     }
 
+    private enum UnexpectedStopCause
+    {
+        Normal,
+        StrictAccessHook,
+        TrampolineUnbound,
+        TimeoutOrExternalCancellation
+    }
+
     private const int MaxArrayPoolSize = 2 * 1024 * 1024;
     private const int MaxStackAllocatedSize = 512;
 
     internal readonly MemoryStream InputMemoryStream;
     internal readonly MemoryStream OutputMemoryStream;
+
+    private UnexpectedStopCause _lastStopCause = UnexpectedStopCause.Normal;
+    private MemoryAccessType _disallowedStrictAccessType;
+
     private readonly Guid _executionId;
     private readonly ILogger<ExecutionEngine> _logger;
     private readonly ILogger<ExecutionEngine> _clientLogger;
@@ -41,6 +55,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private List<MemorySegment>? _segments;
     private MemorySegment? _stackSegment;
     private ExecutionOptions _options;
+    private readonly IMediator _mediator;
     private Random _rnd = new();
     private readonly ArrayPool<byte> _arrayPool;
     private List<UnicornHookRegistration> _strictAccessHooks = new();
@@ -51,8 +66,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private DwarfLineAddressResolver? _lineResolver;
     private DebugProvider? _debugProvider;
 
-    private Dictionary<long, AddressBreakpoint> _currentBreakpoints = new();
-    private long _breakpointId = 0;
+    private SemaphoreSlim _runSemaphore = new(1);
+
+    private readonly Dictionary<uint, AddressBreakpoint> _currentBreakpoints = new();
 
     public StepBackMode StepBackMode { get; set; }
     public bool EnableStepBackMemoryCapture { get; set; }
@@ -77,10 +93,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public Stream EmulatedInput => InputMemoryStream;
     public Stream EmulatedOutput => OutputMemoryStream;
 
-    public ExecutionEngine(ExecutionOptions options, ILogger<ExecutionEngine> systemLogger,
-        ILogger<ExecutionEngine> clientLogger)
+    public ExecutionEngine(ExecutionOptions options, IMediator mediator,
+        ILogger<ExecutionEngine> systemLogger, ILogger<ExecutionEngine> clientLogger)
     {
         _options = options;
+        _mediator = mediator;
 
         Engine = this.MakeUnicorn();
         State = ExecutionState.Unloaded;
@@ -262,7 +279,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     // a property that always returns a field set by the method to a non-null value.
 #pragma warning disable CS8774
     [MemberNotNull(nameof(ExecutableInfo), nameof(RuntimeInfo), nameof(DebugProvider))]
-    public void LoadExecutable(Executable executable)
+    public Task LoadExecutable(Executable executable)
     {
         if (executable == null)
             throw new ArgumentNullException(nameof(executable));
@@ -285,6 +302,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         this.MapMemoryFromExecutable();
         this.InitTrampolineHook();
+
+        State = ExecutionState.Ready;
+
+        return Task.CompletedTask;
     }
 #pragma warning restore CS8774
 
@@ -406,7 +427,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 "Program attempted to fetch from the function simulator memory segment on address {Address:x8} which is not bound to any simulated function.",
                 address);
 
-            this.HandleUnicornError(UnicornError.FetchUnmapped);
+            _lastStopCause = UnexpectedStopCause.TrampolineUnbound;
 
             return;
         }
@@ -487,15 +508,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         _logger.LogTrace("Execution {Id}: virtually unmapped access to memory at {Address:x8}.", _executionId, address);
         Engine.EmuStop();
-
-        this.HandleUnicornError(memoryAccessType switch
-        {
-            MemoryAccessType.Fetch or MemoryAccessType.FetchProtected => UnicornError.FetchUnmapped,
-            MemoryAccessType.Read or MemoryAccessType.ReadProtected => UnicornError.ReadUnmapped,
-            MemoryAccessType.Write or MemoryAccessType.WriteProtected => UnicornError.WriteUnmapped,
-            _ => UnicornError.ReadProtected
-        });
-        // TODO
+        _lastStopCause = UnexpectedStopCause.StrictAccessHook;
+        _disallowedStrictAccessType = memoryAccessType;
     }
 
     /// <summary>
@@ -571,12 +585,24 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     Verified = false
                 });
             }
+            else if (_currentBreakpoints.ContainsKey(targetAddress))
+            {
+                // Breakpoint on the address is already defined
+                ret.Add(new Breakpoint()
+                {
+                    Line = breakpoint.Line,
+                    Message =
+                        $"Breakpoint would trigger on line {_debugProvider.LineToClient(targetLine)} that already contains a breakpoint.",
+                    Source = file,
+                    Verified = false
+                });
+            }
             else
             {
                 // Create a breakpoint with address information and store it in _currentBreakpoints
                 var addedBreakpoint = new AddressBreakpoint()
                 {
-                    Id = _breakpointId,
+                    Id = targetAddress,
                     Line = _debugProvider.LineToClient(targetLine),
                     Source = file,
                     Verified = true, // TODO: Check if line contains instruction or data? Somehow?
@@ -585,12 +611,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 };
 
                 ret.Add(addedBreakpoint);
-                _currentBreakpoints.Add(_breakpointId, addedBreakpoint);
-                
-                unchecked
-                {
-                    _breakpointId++;
-                }
+                _currentBreakpoints.Add(targetAddress, addedBreakpoint);
             }
         }
 
@@ -628,53 +649,142 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             return;
         }
 
-        Span<ulong> exits = stackalloc ulong[2];
+        Span<ulong> exits = stackalloc ulong[_currentBreakpoints.Count + 2];
 
         // Breakpoints
-        // TODO
+        var i = 0;
+        foreach (var (_, breakpoint) in _currentBreakpoints)
+        {
+            exits[i++] = breakpoint.Address;
+        }
 
-        exits[^2] = _exe.LastInstructionAddress + 4;
-        exits[^1] = _exe.TextSectionEndAddress; // Is this desirable?
+        exits[i++] = _exe.LastInstructionAddress + 4;
+        exits[i] = _exe.TextSectionEndAddress; // Is this desirable?
 
         Engine.SetExits(exits);
     }
 
-    private void StartEmulation(uint startAddress, ulong count = 0ul)
+    private async Task EmulationEnded()
+    {
+        _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", _executionId, _pc);
+        State = ExecutionState.Finished;
+
+        await this.SendEvent(new ExitedEvent() { ExitCode = 0 });
+    }
+
+    private async Task StartEmulation(uint startAddress, ulong count = 0ul)
     {
         try
         {
             _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
-
+            State = ExecutionState.Running;
             _pc = startAddress;
             Engine.EmuStart(startAddress, 0, 0, count);
             _pc = Engine.RegRead<uint>(Arm.Register.PC);
 
-            _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", _executionId, _pc);
+            try
+            {
+                if (_lastStopCause != UnexpectedStopCause.Normal)
+                {
+                    await this.HandleStopCause().ConfigureAwait(false);
+                    _lastStopCause = UnexpectedStopCause.Normal;
+                }
+                else if (_currentBreakpoints.TryGetValue(_pc, out var breakpoint))
+                {
+                    await this.BreakpointHit(breakpoint).ConfigureAwait(false);
+                }
+                else
+                {
+                    await this.EmulationEnded().ConfigureAwait(false);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Execution {Id}: Emulation result handling exception.", _executionId);
+
+                throw;
+            }
         }
         catch (UnicornException e)
         {
             _pc = Engine.RegRead<uint>(Arm.Register.PC);
+            State = ExecutionState.TerminatedException;
+
             if (Enum.IsDefined(e.Error))
             {
                 _logger.LogTrace(e, "Execution {Id}: Runtime exception.", _executionId);
                 // HandleUnicornError() will log to the client
 
-                this.HandleUnicornError(e.Error);
+                await this.HandleUnicornError(e.Error).ConfigureAwait(false);
             }
             else
             {
                 _logger.LogWarning(e, "Execution {Id}: Exited with unknown Unicorn error code {Code}.", _executionId,
                     e.ErrorId);
-                _logger.LogError("An unknown emulator error occured (Unicorn error code {Code}) .", e.ErrorId);
 
-                throw;
+                await this.HandleUnknownError(e.ErrorId).ConfigureAwait(false);
             }
+        }
+        finally
+        {
+            _runSemaphore.Release();
         }
     }
 
-    private void HandleUnicornError(UnicornError error)
+    private async Task HandleUnicornError(UnicornError error)
     {
         // TODO
+    }
+
+    private async Task HandleStopCause()
+    {
+        switch (_lastStopCause)
+        {
+            case UnexpectedStopCause.Normal:
+                State = ExecutionState.Finished;
+
+                break;
+            case UnexpectedStopCause.StrictAccessHook:
+                await this.HandleUnicornError(_disallowedStrictAccessType switch
+                {
+                    MemoryAccessType.Fetch or MemoryAccessType.FetchProtected => UnicornError.FetchUnmapped,
+                    MemoryAccessType.Read or MemoryAccessType.ReadProtected => UnicornError.ReadUnmapped,
+                    MemoryAccessType.Write or MemoryAccessType.WriteProtected => UnicornError.WriteUnmapped,
+                    _ => UnicornError.ReadProtected
+                });
+
+                break;
+            case UnexpectedStopCause.TrampolineUnbound:
+                await this.HandleUnicornError(UnicornError.FetchUnmapped);
+                // TODO?
+
+                break;
+            case UnexpectedStopCause.TimeoutOrExternalCancellation:
+                State = ExecutionState.TerminatedException;
+
+                break;
+            default:
+                State = ExecutionState.TerminatedException;
+
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private async Task HandleUnknownError(int id)
+    {
+        _logger.LogError("An unknown emulator error occured (Unicorn error code {Code}) .", id);
+        await this.SendEvent(new StoppedEvent
+        {
+            Reason = StoppedEventReason.Exception,
+            Description = $"Exited with unknown Unicorn error code {id}."
+        });
+    }
+
+    private async Task BreakpointHit(AddressBreakpoint breakpoint)
+    {
+        _logger.LogTrace("Execution {Id}: Breakpoint hit on line {Line} (address {Address:x8}).", _executionId,
+            breakpoint.Line, breakpoint.Address);
+        State = ExecutionState.Paused;
     }
 
     private void InitRegisters()
@@ -711,45 +821,82 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         Engine.RegWrite(Arm.Register.SP, StackTopAddress);
     }
 
-    public async Task Launch(bool debug, CancellationToken cancellationToken = default)
+    public async Task Launch(bool debug, CancellationToken cancellationToken = default, int timeout = Timeout.Infinite)
     {
-        if (_exe == null)
-            throw new InvalidOperationException("Executable not loaded.");
+        this.CheckLoaded();
 
-        this.InitMemoryFromExecutable();
-        this.InitRegisters();
-        this.MakeExits();
+        // If the token gets cancelled here, it propagates a OperationCanceledException out of the method
+        // which is OK
+        var entered = (State is ExecutionState.Ready or ExecutionState.Finished or ExecutionState.TerminatedException
+                or ExecutionState.TerminatedManually) &&
+            await _runSemaphore.WaitAsync(timeout, cancellationToken);
+        if (!entered)
+        {
+            _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", _executionId);
+            _clientLogger.LogError("Cannot launch while the previous launch hasn't finished.");
+
+            throw new InvalidOperationException("Previous execution launch hasn't ended yet.");
+        }
+
+        // Launch semaphore acquired
+        try
+        {
+            this.InitMemoryFromExecutable();
+            this.InitRegisters();
+            this.MakeExits();
+        }
+        catch
+        {
+            _runSemaphore.Release();
+
+            throw;
+        }
 
         var startAddress = _exe.EntryPoint;
 
         _currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _currentCts.CancelAfter(_options.Timeout);
-        _currentCts.Token.Register(() => { Engine.EmuStop(); });
+        _currentCts.Token.Register(() =>
+        {
+            _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+            Engine.EmuStop(); // Propagates to StartEmulation() which releases the semaphore
+        });
 
         try
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 _currentCts.Token.ThrowIfCancellationRequested();
-                this.StartEmulation(startAddress);
+                await this.StartEmulation(startAddress)
+                          .ConfigureAwait(false); // StartEmulation must release the semaphore
             }, _currentCts.Token);
         }
         catch (OperationCanceledException)
         {
-            Engine.EmuStop();
-            _pc = Engine.RegRead<uint>(Arm.Register.PC);
+            _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+            if (State != ExecutionState.Running)
+            {
+                await this.HandleStopCause().ConfigureAwait(false);
+                _runSemaphore.Release();
+
+                return;
+            }
+
+            // I don't think it is possible to be in the Running state when this exception is caught
+            // But just to make sure
+            Engine.EmuStop(); // Would propagate to StartEmulation() which releases the semaphore
         }
 
         _currentCts.Dispose();
         _currentCts = null;
     }
 
-    public void Restart(bool debug, CancellationToken cancellationToken = default)
+    public Task Restart(bool debug, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }
 
-    public void GotoTarget(int targetId)
+    public Task GotoTarget(int targetId)
     {
         throw new NotImplementedException();
     }
@@ -758,24 +905,34 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public Task ReverseContinue(CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
-    public void Step()
+    public async Task Step()
     {
-        throw new NotImplementedException();
+        // TODO
+        var entered = await _runSemaphore.WaitAsync(_options.Timeout);
+        if (!entered)
+        {
+            _logger.LogTrace("Execution {Id}: Attempt to step while running.", _executionId);
+            _clientLogger.LogError("Cannot step, execution is running.");
+
+            throw new InvalidOperationException("Cannot step, execution is running.");
+        }
+        
+        await this.StartEmulation(_pc, 1);
     }
 
-    public void StepBack()
+    public Task StepBack()
     {
         throw new NotImplementedException();
     }
 
     public Task StepOut(CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
-    public void Pause()
+    public Task Pause()
     {
         throw new NotImplementedException();
     }
 
-    public void Terminate()
+    public Task Terminate()
     {
         throw new NotImplementedException();
     }
@@ -783,6 +940,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public void Dispose()
     {
         // TODO
+        if (_runSemaphore != null!)
+            _runSemaphore.Dispose();
+
+        _runSemaphore = null!;
         Engine.Dispose();
     }
 
@@ -798,4 +959,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public IEnumerable<GotoTarget> GetGotoTargets(IAsmFile source, long line, long? column) =>
         throw new NotImplementedException();
+
+    private async Task SendEvent<T>(T @event) where T : IRequest
+    {
+        await _mediator.Publish(new EngineEvent<T>(this, @event)).ConfigureAwait(false);
+    }
 }

@@ -37,7 +37,7 @@ public interface IExecutionEngine : IDisposable
     Stream EmulatedInput { get; }
     Stream EmulatedOutput { get; }
 
-    void LoadExecutable(Executable executable);
+    Task LoadExecutable(Executable executable);
 
     IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
     IEnumerable<Breakpoint> SetBreakpoints(Source file, IEnumerable<SourceBreakpoint> breakpoints);
@@ -46,16 +46,16 @@ public interface IExecutionEngine : IDisposable
     IEnumerable<Breakpoint> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
 
     // remaps memory
-    Task Launch(bool debug, CancellationToken cancellationToken = default);
+    Task Launch(bool debug, CancellationToken cancellationToken = default, int timeout = Timeout.Infinite);
 
     // terminates and launches
-    void Restart(bool debug, CancellationToken cancellationToken = default);
-    void GotoTarget(int targetId);
+    Task Restart(bool debug, CancellationToken cancellationToken = default);
+    Task GotoTarget(int targetId);
     Task Continue(CancellationToken cancellationToken = default);
     Task ReverseContinue(CancellationToken cancellationToken = default);
-    void Step();
-    void StepBack();
+    Task Step();
+    Task StepBack();
     Task StepOut(CancellationToken cancellationToken = default);
-    void Pause();
-    void Terminate();
+    Task Pause();
+    Task Terminate();
 }

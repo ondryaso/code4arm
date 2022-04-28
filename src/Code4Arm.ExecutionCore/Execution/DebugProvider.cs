@@ -105,10 +105,11 @@ internal class DebugProvider : IDebugProvider
     public SourceResponse GetSource(long sourceReference) => throw new NotImplementedException();
 
     public SourceResponse GetSource(Source source) => throw new NotImplementedException();
+    
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) => throw new NotImplementedException();
 
-    public IEnumerable<DataBreakpointInfoResponse> GetDataBreakpointInfo(string name) =>
-        throw new NotImplementedException();
-
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
+    
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format) => throw new NotImplementedException();
 
