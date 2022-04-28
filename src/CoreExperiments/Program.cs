@@ -24,8 +24,15 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        var asmOptions = MakeAssemblerOptions();
-        var linkerOptions = MakeLinkerOptions();
+        var asmOptions = new AssemblerOptions()
+        {
+            GasPath = ToolchainBin + "arm-none-linux-gnueabihf-as" + BinExt
+        };
+        var linkerOptions = new LinkerOptions()
+        {
+            LdPath = ToolchainBin + "arm-none-linux-gnueabihf-ld" + BinExt
+        };
+
         var loggerProvider = new ConsoleLoggerProvider(MakeLoggerOptions());
         var loggerFactory = new LoggerFactory(new[] { loggerProvider });
 
@@ -63,10 +70,11 @@ public class Program
 
     private static async Task Emulate(Executable exe, ILogger<ExecutionEngine> logger)
     {
-        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true }, Mock.Of<IMediator>(),
+        var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true },
+            Mock.Of<IMediator>(),
             logger, logger);
         await execution.LoadExecutable(exe);
-        
+
         while (true)
         {
             await execution.Launch(true);
@@ -175,28 +183,6 @@ public class Program
         ? "/home/ondryaso/Projects/bp/testasm/"
         : @"C:\Users\ondry\Projects\bp-test-vs-env\";
 
-    private static IOptionsSnapshot<AssemblerOptions> MakeAssemblerOptions()
-    {
-        var mock = new Mock<IOptionsSnapshot<AssemblerOptions>>();
-        mock.Setup(a => a.Value).Returns(new AssemblerOptions()
-        {
-            GasPath = ToolchainBin + "arm-none-linux-gnueabihf-as" + BinExt
-        });
-
-        return mock.Object;
-    }
-
-    private static IOptionsSnapshot<LinkerOptions> MakeLinkerOptions()
-    {
-        var mock = new Mock<IOptionsSnapshot<LinkerOptions>>();
-        mock.Setup(a => a.Value).Returns(new LinkerOptions()
-        {
-            LdPath = ToolchainBin + "arm-none-linux-gnueabihf-ld" + BinExt
-        });
-
-        return mock.Object;
-    }
-
     private static IOptionsMonitor<ConsoleLoggerOptions> MakeLoggerOptions()
     {
         var mock = new Mock<IOptionsMonitor<ConsoleLoggerOptions>>();
@@ -234,6 +220,7 @@ public class DummyAsmFile : IAsmFile
     public string ClientPath => this.LocateAsync().Result.FileSystemPath;
     public int Version => 0;
     public IAsmMakeTarget? Project { get; set; }
+    public bool Equals(IAsmFile? other) => ReferenceEquals(other, this);
 }
 
 public class DummyAsmMakeTarget : IAsmMakeTarget

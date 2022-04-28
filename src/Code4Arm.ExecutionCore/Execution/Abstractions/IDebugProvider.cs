@@ -22,6 +22,13 @@ public interface IDebugProvider
     ScopesResponse MakeVariableScopes();
     IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine);
     IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters();
+    ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset);
+    WriteMemoryResponse WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded);
+
+    IEnumerable<Variable> GetChildVariables(long containerId, string parentVariableName, long? start, long? count,
+        ValueFormat? format);
+
+    IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count, ValueFormat? format);
 
     IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset, long? instructionOffset,
         long instructionCount, bool resolveSymbols);
@@ -51,6 +58,15 @@ public interface IDebugProvider
     IEnumerable<DisassembledInstruction> Disassemble(DisassembleArguments arguments)
         => this.Disassemble(arguments.MemoryReference, arguments.Offset, arguments.InstructionOffset,
             arguments.InstructionCount, arguments.ResolveSymbols);
+
+    ReadMemoryResponse ReadMemory(ReadMemoryArguments arguments)
+        => this.ReadMemory(arguments.MemoryReference, arguments.Count, arguments.Offset);
+
+    WriteMemoryResponse WriteMemory(WriteMemoryArguments arguments)
+        => this.WriteMemory(arguments.MemoryReference, arguments.AllowPartial, arguments.Offset, arguments.Data);
+
+    IEnumerable<Variable> GetChildVariables(VariablesArguments arguments)
+        => this.GetChildVariables(arguments.VariablesReference, arguments.Start, arguments.Count, arguments.Format);
 
     #endregion
 }

@@ -6,6 +6,7 @@ using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
+using MediatR;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
@@ -15,7 +16,7 @@ internal class DebugProvider : IDebugProvider
     private readonly IUnicorn _unicorn;
     private InitializeRequestArguments? _clientInfo;
 
-    public DebugProvider(ExecutionEngine engine)
+    public DebugProvider(ExecutionEngine engine, IMediator mediator)
     {
         _engine = engine;
         _unicorn = engine.Engine;
@@ -40,10 +41,8 @@ internal class DebugProvider : IDebugProvider
     public int ColumnFromClient(int client)
         => _clientInfo!.ColumnsStartAt1 ? client - 1 : client;
 
-    public InitializeResponse Initialize(InitializeRequestArguments clientData)
+    private InitializeResponse MakeCapabilities()
     {
-        _clientInfo = clientData;
-
         return new InitializeResponse()
         {
             SupportsCancelRequest = false,
@@ -58,7 +57,7 @@ internal class DebugProvider : IDebugProvider
             SupportsFunctionBreakpoints = false,    // TODO
             SupportsInstructionBreakpoints = false, // TODO,
             SupportsLogPoints = true,
-            SupportsModulesRequest = true,
+            SupportsModulesRequest = false, // TODO?
             SupportsRestartFrame = false,
             SupportsRestartRequest = true,
             SupportsSetExpression = false, // TODO?
@@ -86,18 +85,30 @@ internal class DebugProvider : IDebugProvider
         };
     }
 
+    public InitializeResponse Initialize(InitializeRequestArguments clientData)
+    {
+        _clientInfo = clientData;
+
+        var capabilities = this.MakeCapabilities();
+
+        return capabilities;
+    }
+
     private Container<ExceptionBreakpointsFilter> MakeFilters()
     {
         // TODO
         return new[]
         {
             new ExceptionBreakpointsFilter()
-                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
+                {Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false}
         };
     }
-
-    public IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column) =>
+    
+    public IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column)
+    {
         throw new NotImplementedException();
+
+    }
 
     public SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format) =>
         throw new NotImplementedException();
@@ -105,11 +116,12 @@ internal class DebugProvider : IDebugProvider
     public SourceResponse GetSource(long sourceReference) => throw new NotImplementedException();
 
     public SourceResponse GetSource(Source source) => throw new NotImplementedException();
-    
-    public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) => throw new NotImplementedException();
+
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
+        throw new NotImplementedException();
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
-    
+
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format) => throw new NotImplementedException();
 
@@ -124,6 +136,21 @@ internal class DebugProvider : IDebugProvider
 
     public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
         throw new NotImplementedException();
+
+    public ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset) =>
+        throw new NotImplementedException();
+
+    public WriteMemoryResponse
+        WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded) =>
+        throw new NotImplementedException();
+
+    public IEnumerable<Variable> GetChildVariables(long containerId, string parentVariableName, long? start,
+        long? count,
+        ValueFormat? format) =>
+        throw new NotImplementedException();
+
+    public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
+        ValueFormat? format) => throw new NotImplementedException();
 
     public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
         long? instructionOffset, long instructionCount,

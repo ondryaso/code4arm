@@ -7,7 +7,7 @@ namespace Code4Arm.ExecutionCore.Files.Abstractions;
 /// An abstraction over an assembly source file. It provides a way to ensure the source file is stored in the filesystem
 /// so that it can be processed by external tools.
 /// </summary>
-public interface IAsmFile
+public interface IAsmFile : IEquatable<IAsmFile>
 {
     /// <summary>
     /// The workspace-relative name of this file.

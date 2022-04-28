@@ -4,6 +4,7 @@
 // Edited by: Ondřej Ondryáš
 // Licensed under the MIT License. Copyright (c) Ondřej Ondryáš, .NET Foundation and Contributors.
 
+using System.Text.Json.Serialization;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Serialization;
 using MediatR;
@@ -22,6 +23,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 
             [Optional]
             [JsonProperty("clientID")]
+            [JsonPropertyName("clientID")]
             public string? ClientId { get; set; }
 
             /// <summary>
@@ -35,6 +37,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// The ID of the debug adapter.
             /// </summary>
             [JsonProperty("adapterID")]
+            [JsonPropertyName("adapterID")]
             public string AdapterId { get; set; } = null!;
 
             /// <summary>

@@ -9,6 +9,7 @@
     },
     "dependencies": {
         "vscode-languageclient": "^7.0.0",
+        "@microsoft/signalr": "^6.0.4",
         "net": "^1.0.2"
     },
     "categories": [
@@ -190,10 +191,61 @@
                     "label": "#e2a129"
                 }
             }
-        }
+        },
+        "breakpoints": [
+            {
+                "language": "arm-ual"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "code4arm-runtime",
+                "label": "Code4Arm Emulator & Debugger",
+                "runtime": "node",
+                "languages": ["arm-ual"],
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [],
+                        "properties": {
+                            "sourceDirectory": {
+                                "type": "string",
+                                "description": "A directory to use all *.s/*.S assembly source files from to link to a single executable.",
+                                "default": "${workspaceFolder}"
+                            },
+                            "sourceFiles": {
+                                "type": "array",
+                                "description": "An array of source file names, in linking order."
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "code4arm-runtime",
+                        "request": "launch",
+                        "name": "Code4Arm: Assemble, link and debug all assembly files",
+                        "sourceDirectory": "${workspaceFolder}"
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "Code4Arm: All files",
+                        "description": "A new configuration for debugging an Arm executable linked together from all source files in the workspace folder.",
+                        "body": {
+                            "type": "code4arm-runtime",
+                            "request": "launch",
+                            "name": "Code4Arm: Assemble, link and debug all assembly files",
+                            "sourceDirectory": "^\\${workspaceFolder}"
+                        }
+                    }
+                ]
+            }
+        ]
     },
     "activationEvents": [
-        "onLanguage:arm-ual"
+        "onLanguage:arm-ual",
+        "onDebugResolve:code4arm-runtime",
+        "onDebugInitialConfigurations"
     ],
     "scripts": {
         "vscode:prepublish": "npm run compile",
@@ -208,6 +260,7 @@
         "@types/mocha": "^9.0.0",
         "@types/node": "14.x",
         "@types/vscode": "^1.63.0",
+        "@vscode/debugadapter": "^1.55.1",
         "@typescript-eslint/eslint-plugin": "^5.9.1",
         "@typescript-eslint/parser": "^5.9.1",
         "@vscode/test-electron": "^2.0.3",

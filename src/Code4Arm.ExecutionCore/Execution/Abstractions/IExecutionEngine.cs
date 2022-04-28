@@ -30,7 +30,7 @@ public interface IExecutionEngine : IDisposable
 
     IExecutableInfo? ExecutableInfo { get; }
     IRuntimeInfo? RuntimeInfo { get; }
-    IDebugProvider? DebugProvider { get; }
+    IDebugProvider DebugProvider { get; }
 
     IUnicorn Engine { get; }
 
@@ -50,7 +50,7 @@ public interface IExecutionEngine : IDisposable
 
     // terminates and launches
     Task Restart(bool debug, CancellationToken cancellationToken = default);
-    Task GotoTarget(int targetId);
+    Task GotoTarget(long targetId);
     Task Continue(CancellationToken cancellationToken = default);
     Task ReverseContinue(CancellationToken cancellationToken = default);
     Task Step();

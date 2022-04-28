@@ -64,7 +64,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private UnicornHookRegistration _trampolineHookRegistration;
     private bool _firstRun = true;
     private DwarfLineAddressResolver? _lineResolver;
-    private DebugProvider? _debugProvider;
+    private readonly DebugProvider _debugProvider;
 
     private SemaphoreSlim _runSemaphore = new(1);
 
@@ -77,7 +77,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public ExecutionState State { get; private set; }
     public IExecutableInfo? ExecutableInfo => _exe;
     public IRuntimeInfo? RuntimeInfo => _exe == null ? null : this;
-    public IDebugProvider? DebugProvider => _debugProvider;
+    public IDebugProvider DebugProvider => _debugProvider;
 
     public uint StackStartAddress { get; private set; }
     public uint StackSize => _options.StackSize;
@@ -110,6 +110,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _logger = systemLogger;
         _clientLogger = clientLogger;
         _executionId = Guid.NewGuid();
+        
+        _debugProvider = new DebugProvider(this, _mediator);
     }
 
     private IUnicorn MakeUnicorn()
@@ -297,7 +299,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _exe = executable;
 
-        _debugProvider = new DebugProvider(this);
         _lineResolver = new DwarfLineAddressResolver(_exe.Elf);
 
         this.MapMemoryFromExecutable();
@@ -896,7 +897,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         throw new NotImplementedException();
     }
 
-    public Task GotoTarget(int targetId)
+    public Task GotoTarget(long targetId)
     {
         throw new NotImplementedException();
     }
@@ -960,7 +961,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public IEnumerable<GotoTarget> GetGotoTargets(IAsmFile source, long line, long? column) =>
         throw new NotImplementedException();
 
-    private async Task SendEvent<T>(T @event) where T : IRequest
+    private async Task SendEvent<T>(T @event) where T : IProtocolEvent
     {
         await _mediator.Publish(new EngineEvent<T>(this, @event)).ConfigureAwait(false);
     }

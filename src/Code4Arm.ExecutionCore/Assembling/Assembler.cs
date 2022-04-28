@@ -11,7 +11,6 @@ using Code4Arm.ExecutionCore.Files.Abstractions;
 using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Code4Arm.ExecutionCore.Assembling;
 
@@ -19,19 +18,29 @@ public class Assembler : IAssembler
 {
     private static readonly Regex FileNameRegex = new(@"^(?:.*?):\s*", RegexOptions.Multiline | RegexOptions.Compiled);
 
-    private readonly IOptionsSnapshot<AssemblerOptions> _assemblerOptions;
-    private readonly IOptionsSnapshot<LinkerOptions> _linkerOptions;
     private readonly ILogger<Assembler> _logger;
     private readonly ILoggerFactory _loggerFactory;
 
     private List<BoundFunctionSimulator>? _functionSimulators;
     private string? _linkerScriptPath;
 
-    public Assembler(IOptionsSnapshot<AssemblerOptions> assemblerOptions, IOptionsSnapshot<LinkerOptions> linkerOptions,
-        ILoggerFactory loggerFactory)
+    public LinkerOptions LinkerOptions { get; set; }
+    public AssemblerOptions AssemblerOptions { get; set; }
+
+    public Assembler(ILoggerFactory loggerFactory)
     {
-        _assemblerOptions = assemblerOptions;
-        _linkerOptions = linkerOptions;
+        AssemblerOptions = new AssemblerOptions();
+        LinkerOptions = new LinkerOptions();
+
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<Assembler>();
+    }
+
+    public Assembler(AssemblerOptions assemblerOptions, LinkerOptions linkerOptions, ILoggerFactory loggerFactory)
+    {
+        AssemblerOptions = assemblerOptions;
+        LinkerOptions = linkerOptions;
+
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<Assembler>();
     }
@@ -43,7 +52,7 @@ public class Assembler : IAssembler
     /// <remarks>
     /// The output object file is saved to a temporary location. The returned <see cref="AssembledObject"/> deletes
     /// the file when disposed.<br/>
-    /// The execution time of GAS is limited by the configured <see cref="AssemblerOptions.TimeoutMs"/>.
+    /// The execution time of GAS is limited by the configured <see cref="Configuration.AssemblerOptions.TimeoutMs"/>.
     /// </remarks>
     /// <param name="file">The assembly source file.</param>
     /// <returns>An <see cref="AssembledObject"/> descriptor object of the assembled object file.</returns>
@@ -54,15 +63,15 @@ public class Assembler : IAssembler
         using var location = await file.LocateAsync();
         _logger.LogTrace("Path: {Location}.", location.FileSystemPath);
 
-        var gasStartInfo = new ProcessStartInfo(_assemblerOptions.Value.GasPath)
+        var gasStartInfo = new ProcessStartInfo(AssemblerOptions.GasPath)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
 
         var outputFile = Path.GetTempFileName();
-        if (_assemblerOptions.Value.GasOptions != null)
-            foreach (var gasOption in _assemblerOptions.Value.GasOptions)
+        if (AssemblerOptions.GasOptions != null)
+            foreach (var gasOption in AssemblerOptions.GasOptions)
             {
                 gasStartInfo.ArgumentList.Add(gasOption);
             }
@@ -72,8 +81,8 @@ public class Assembler : IAssembler
         gasStartInfo.ArgumentList.Add("-o");
         gasStartInfo.ArgumentList.Add(outputFile);
 
-        if (!string.IsNullOrWhiteSpace(_assemblerOptions.Value.SourceHeaderPath))
-            gasStartInfo.ArgumentList.Add(_assemblerOptions.Value.SourceHeaderPath);
+        if (!string.IsNullOrWhiteSpace(AssemblerOptions.SourceHeaderPath))
+            gasStartInfo.ArgumentList.Add(AssemblerOptions.SourceHeaderPath);
 
         gasStartInfo.ArgumentList.Add(location.FileSystemPath);
 
@@ -85,7 +94,7 @@ public class Assembler : IAssembler
             throw new Exception("Error starting GAS process.");
         }
 
-        var cts = new CancellationTokenSource(_assemblerOptions.Value.TimeoutMs);
+        var cts = new CancellationTokenSource(AssemblerOptions.TimeoutMs);
 
         try
         {
@@ -122,7 +131,7 @@ public class Assembler : IAssembler
     /// <remarks>
     /// The output object file is saved to a temporary location. The returned <see cref="Executable"/> deletes
     /// the file when disposed.<br/>
-    /// The execution time of LD is limited by the configured <see cref="LinkerOptions.TimeoutMs"/>.
+    /// The execution time of LD is limited by the configured <see cref="Configuration.LinkerOptions.TimeoutMs"/>.
     /// </remarks>
     /// <param name="asmMakeTarget">The <see cref="IAsmMakeTarget"/> to get source files from.</param>
     /// <returns>
@@ -163,11 +172,12 @@ public class Assembler : IAssembler
 
             _logger.LogTrace("Not linking – invalid object file(s).");
 
-            return new MakeResult(asmMakeTarget, MakeResultState.InvalidObjects, null, validObjects, invalidObjects, null);
+            return new MakeResult(asmMakeTarget, MakeResultState.InvalidObjects, null, validObjects, invalidObjects,
+                null);
         }
 
         // Look for _start in assembled objects. If not found, insert our own init file.
-        if (!string.IsNullOrWhiteSpace(_linkerOptions.Value.InitFilePath))
+        if (!string.IsNullOrWhiteSpace(LinkerOptions.InitFilePath))
         {
             var hasStartSymbol = false;
 
@@ -200,7 +210,7 @@ public class Assembler : IAssembler
 
             if (!hasStartSymbol)
             {
-                var initFileSource = new InitFile(_linkerOptions.Value.InitFilePath);
+                var initFileSource = new InitFile(LinkerOptions.InitFilePath);
                 var assembled = await this.AssembleFile(initFileSource);
 
                 if (assembled.AssemblySuccessful)
@@ -216,7 +226,7 @@ public class Assembler : IAssembler
         }
 
         // Link
-        var ldStartInfo = new ProcessStartInfo(_linkerOptions.Value.LdPath)
+        var ldStartInfo = new ProcessStartInfo(LinkerOptions.LdPath)
         {
             // RedirectStandardOutput = true,
             RedirectStandardError = true
@@ -224,17 +234,17 @@ public class Assembler : IAssembler
 
         var outputFile = Path.GetTempFileName();
 
-        if (_linkerOptions.Value.LdOptions != null) // Options to place BEFORE object files
-            foreach (var ldOption in _linkerOptions.Value.LdOptions)
+        if (LinkerOptions.LdOptions != null) // Options to place BEFORE object files
+            foreach (var ldOption in LinkerOptions.LdOptions)
             {
                 ldStartInfo.ArgumentList.Add(ldOption);
             }
 
-        if (!string.IsNullOrWhiteSpace(_linkerOptions.Value.LinkerScript))
+        if (!string.IsNullOrWhiteSpace(LinkerOptions.LinkerScript))
         {
             // Main linker script (if configured)
             ldStartInfo.ArgumentList.Add("-T");
-            ldStartInfo.ArgumentList.Add(_linkerOptions.Value.LinkerScript);
+            ldStartInfo.ArgumentList.Add(LinkerOptions.LinkerScript);
         }
 
         ldStartInfo.ArgumentList.Add("--compress-debug-sections=none");
@@ -251,8 +261,8 @@ public class Assembler : IAssembler
             ldStartInfo.ArgumentList.Add(assembledObject.ObjectFilePath);
         }
 
-        if (_linkerOptions.Value.LdTrailOptions != null) // Options to place AFTER object files
-            foreach (var ldOption in _linkerOptions.Value.LdTrailOptions)
+        if (LinkerOptions.LdTrailOptions != null) // Options to place AFTER object files
+            foreach (var ldOption in LinkerOptions.LdTrailOptions)
             {
                 ldStartInfo.ArgumentList.Add(ldOption);
             }
@@ -267,7 +277,7 @@ public class Assembler : IAssembler
             throw new Exception("Error starting LD process.");
         }
 
-        var cts = new CancellationTokenSource(_linkerOptions.Value.TimeoutMs);
+        var cts = new CancellationTokenSource(LinkerOptions.TimeoutMs);
 
         try
         {
@@ -285,7 +295,7 @@ public class Assembler : IAssembler
 
         if (!string.IsNullOrWhiteSpace(stderr))
         {
-            stderr = stderr.Replace(_linkerOptions.Value.LdPath + ":", string.Empty);
+            stderr = stderr.Replace(LinkerOptions.LdPath + ":", string.Empty);
             _logger.LogDebug("Linking error for make target {Name}.", asmMakeTarget.Name);
             _logger.LogTrace("stderr output: {Error}", stderr);
         }
@@ -308,7 +318,8 @@ public class Assembler : IAssembler
             CleanObjects(validObjects);
         }
 
-        return new MakeResult(asmMakeTarget, success ? MakeResultState.Successful : MakeResultState.LinkingError, retExe,
+        return new MakeResult(asmMakeTarget, success ? MakeResultState.Successful : MakeResultState.LinkingError,
+            retExe,
             validObjects, null, stderr);
     }
 
@@ -329,7 +340,7 @@ public class Assembler : IAssembler
     public void UseFunctionSimulators(IEnumerable<IFunctionSimulator> simulators)
     {
         _functionSimulators = new List<BoundFunctionSimulator>();
-        var address = _linkerOptions.Value.TrampolineStartAddress;
+        var address = LinkerOptions.TrampolineStartAddress;
         foreach (var functionSimulator in simulators)
         {
             _logger.LogTrace("Using function simulator {Name} at address {Address:x8}.", functionSimulator.Name,
@@ -337,7 +348,7 @@ public class Assembler : IAssembler
 
             _functionSimulators.Add(new BoundFunctionSimulator(functionSimulator, address));
 
-            if (address >= _linkerOptions.Value.TrampolineEndAddress)
+            if (address >= LinkerOptions.TrampolineEndAddress)
             {
                 _logger.LogError("Too many function simulators for the configured trampoline memory.");
 
@@ -430,6 +441,28 @@ public class Assembler : IAssembler
             public void Dispose()
             {
             }
+        }
+
+        public bool Equals(IAsmFile? other)
+        {
+            return other is InitFile file && _path == file._path;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj))
+                return false;
+            if (ReferenceEquals(this, obj))
+                return true;
+            if (obj.GetType() != this.GetType())
+                return false;
+
+            return ((InitFile)obj)._path == _path;
+        }
+
+        public override int GetHashCode()
+        {
+            return _path.GetHashCode();
         }
     }
 }
