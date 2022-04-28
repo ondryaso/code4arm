@@ -13,7 +13,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record InvalidatedEvent : IRequest
+        [EventName(EventNames.Invalidated)]
+        public record InvalidatedEvent : IProtocolEvent
         {
             /// <summary>
             /// Optional set of logical areas that got invalidated. This property has a

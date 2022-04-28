@@ -13,7 +13,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record ModuleEvent : IRequest
+        [EventName(EventNames.Module)]
+        public record ModuleEvent : IProtocolEvent
         {
             /// <summary>
             /// The reason for the event.

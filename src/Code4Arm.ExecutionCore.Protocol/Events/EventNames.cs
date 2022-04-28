@@ -18,6 +18,7 @@ public static class EventNames
     public const string Output = "output";
     public const string Breakpoint = "breakpoint";
     public const string Module = "module";
+    public const string Memory = "memory";
     public const string LoadedSource = "loadedSource";
     public const string Process = "process";
     public const string Capabilities = "capabilities";

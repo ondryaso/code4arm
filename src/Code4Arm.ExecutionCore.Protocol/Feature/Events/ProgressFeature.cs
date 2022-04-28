@@ -26,8 +26,9 @@ namespace Code4Arm.ExecutionCore.Protocol
             [Optional]
             public string? Message { get; init; }
         }
-
-        public record ProgressStartEvent : ProgressEvent, IRequest
+        
+        [EventName(EventNames.ProgressStart)]
+        public record ProgressStartEvent : ProgressEvent, IProtocolEvent
         {
             /// <summary>
             /// Mandatory (short) title of the progress reporting. Shown in the UI to describe the long running operation.
@@ -58,6 +59,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             public int? Percentage { get; init; }
         }
 
+        [EventName(EventNames.ProgressUpdate)]
         public record ProgressUpdateEvent : ProgressEvent, IRequest
         {
             /// <summary>
@@ -67,6 +69,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             public double? Percentage { get; init; }
         }
 
+        [EventName(EventNames.ProgressEnd)]
         public record ProgressEndEvent : ProgressEvent, IRequest
         {
         }

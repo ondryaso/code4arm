@@ -4,14 +4,13 @@
 // Edited by: Ondřej Ondryáš
 // Licensed under the MIT License. Copyright (c) Ondřej Ondryáš, .NET Foundation and Contributors.
 
-using MediatR;
-
 // ReSharper disable CheckNamespace
 namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record ExitedEvent : IRequest
+        [EventName(EventNames.Exited)]
+        public record ExitedEvent : IProtocolEvent
         {
             /// <summary>
             /// The exit code returned from the debuggee.

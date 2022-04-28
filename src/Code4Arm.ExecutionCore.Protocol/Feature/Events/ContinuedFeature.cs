@@ -12,7 +12,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record ContinuedEvent : IRequest
+        [EventName(EventNames.Continued)]
+        public record ContinuedEvent : IProtocolEvent
         {
             /// <summary>
             /// The thread which was continued.

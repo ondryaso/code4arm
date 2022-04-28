@@ -14,7 +14,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record StoppedEvent : IRequest
+        [EventName(EventNames.Stopped)]
+        public record StoppedEvent : IProtocolEvent
         {
             /// <summary>
             /// The reason for the event.

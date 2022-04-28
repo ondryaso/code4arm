@@ -15,7 +15,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record OutputEvent : IRequest
+        [EventName(EventNames.Output)]
+        public record OutputEvent : IProtocolEvent
         {
             /// <summary>
             /// The output category. If not specified, 'console' is assumed.

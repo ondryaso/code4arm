@@ -85,7 +85,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 
     namespace Events
     {
-        public record BreakpointEvent : IRequest
+        [EventName(EventNames.Breakpoint)]
+        public record BreakpointEvent : IProtocolEvent
         {
             /// <summary>
             /// The reason for the event.

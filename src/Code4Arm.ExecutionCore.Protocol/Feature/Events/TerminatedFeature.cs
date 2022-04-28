@@ -14,7 +14,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record TerminatedEvent : IRequest
+        [EventName(EventNames.Terminated)]
+        public record TerminatedEvent : IProtocolEvent
         {
             /// <summary>
             /// A debug adapter may set 'restart' to true (or to an arbitrary object) to request that the front end restarts the

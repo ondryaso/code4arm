@@ -12,7 +12,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record MemoryEvent : IRequest
+        [EventName(EventNames.Memory)]
+        public record MemoryEvent : IProtocolEvent
         {
             /// <summary>
             /// Memory reference of a memory range that has been updated.

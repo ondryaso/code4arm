@@ -4,6 +4,7 @@
 // Edited by: Ondřej Ondryáš
 // Licensed under the MIT License. Copyright (c) Ondřej Ondryáš, .NET Foundation and Contributors.
 
+using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Serialization;
 using MediatR;
@@ -16,6 +17,7 @@ namespace Code4Arm.ExecutionCore.Protocol
         /// <summary>
         /// Information about the capabilities of a debug adapter.
         /// </summary>
+        [EventName(EventNames.Capabilities)]
         public record Capabilities
         {
             /// <summary>
@@ -249,7 +251,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 
     namespace Events
     {
-        public record CapabilitiesEvent : IRequest
+        public record CapabilitiesEvent : IProtocolEvent
         {
             /// <summary>
             /// The set of updated capabilities.

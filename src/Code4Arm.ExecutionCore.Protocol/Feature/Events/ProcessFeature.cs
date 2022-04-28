@@ -13,7 +13,8 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        public record ProcessEvent : IRequest
+        [EventName(EventNames.Process)]
+        public record ProcessEvent : IProtocolEvent
         {
             /// <summary>
             /// The logical name of the process. This is usually the full path to process's executable file. Example:
