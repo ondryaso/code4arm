@@ -85,7 +85,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 
     namespace Events
     {
-        [EventName(EventNames.Breakpoint)]
+        [ProtocolEvent(EventNames.Breakpoint)]
         public record BreakpointEvent : IProtocolEvent
         {
             /// <summary>

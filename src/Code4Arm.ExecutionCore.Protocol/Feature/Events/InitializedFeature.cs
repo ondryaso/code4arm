@@ -11,7 +11,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.Initialized)]
+        [ProtocolEvent(EventNames.Initialized, true)]
         public record InitializedEvent : IProtocolEvent
         {
         }

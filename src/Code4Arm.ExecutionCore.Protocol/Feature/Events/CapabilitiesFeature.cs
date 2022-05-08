@@ -17,7 +17,7 @@ namespace Code4Arm.ExecutionCore.Protocol
         /// <summary>
         /// Information about the capabilities of a debug adapter.
         /// </summary>
-        [EventName(EventNames.Capabilities)]
+        [ProtocolEvent(EventNames.Capabilities)]
         public record Capabilities
         {
             /// <summary>

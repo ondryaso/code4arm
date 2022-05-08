@@ -13,7 +13,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.Invalidated)]
+        [ProtocolEvent(EventNames.Invalidated)]
         public record InvalidatedEvent : IProtocolEvent
         {
             /// <summary>

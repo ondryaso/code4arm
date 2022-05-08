@@ -14,7 +14,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.Stopped)]
+        [ProtocolEvent(EventNames.Stopped)]
         public record StoppedEvent : IProtocolEvent
         {
             /// <summary>

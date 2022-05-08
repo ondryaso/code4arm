@@ -27,7 +27,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             public string? Message { get; init; }
         }
         
-        [EventName(EventNames.ProgressStart)]
+        [ProtocolEvent(EventNames.ProgressStart)]
         public record ProgressStartEvent : ProgressEvent, IProtocolEvent
         {
             /// <summary>
@@ -59,7 +59,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             public int? Percentage { get; init; }
         }
 
-        [EventName(EventNames.ProgressUpdate)]
+        [ProtocolEvent(EventNames.ProgressUpdate)]
         public record ProgressUpdateEvent : ProgressEvent, IRequest
         {
             /// <summary>
@@ -69,7 +69,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             public double? Percentage { get; init; }
         }
 
-        [EventName(EventNames.ProgressEnd)]
+        [ProtocolEvent(EventNames.ProgressEnd)]
         public record ProgressEndEvent : ProgressEvent, IRequest
         {
         }

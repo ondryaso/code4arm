@@ -12,7 +12,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.Continued)]
+        [ProtocolEvent(EventNames.Continued)]
         public record ContinuedEvent : IProtocolEvent
         {
             /// <summary>

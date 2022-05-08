@@ -9,7 +9,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.Exited)]
+        [ProtocolEvent(EventNames.Exited)]
         public record ExitedEvent : IProtocolEvent
         {
             /// <summary>

@@ -13,7 +13,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.LoadedSource)]
+        [ProtocolEvent(EventNames.LoadedSource)]
         public record LoadedSourceEvent : IProtocolEvent
         {
             /// <summary>

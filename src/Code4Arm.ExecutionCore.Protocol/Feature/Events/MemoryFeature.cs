@@ -12,7 +12,7 @@ namespace Code4Arm.ExecutionCore.Protocol
 {
     namespace Events
     {
-        [EventName(EventNames.Memory)]
+        [ProtocolEvent(EventNames.Memory)]
         public record MemoryEvent : IProtocolEvent
         {
             /// <summary>
