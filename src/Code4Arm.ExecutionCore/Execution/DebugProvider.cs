@@ -2,15 +2,19 @@
 // Author: Ondřej Ondryáš
 
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
+using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
+using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
 using MediatR;
+using Newtonsoft.Json.Linq;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
-internal class DebugProvider : IDebugProvider
+internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 {
     private readonly ExecutionEngine _engine;
     private readonly IUnicorn _unicorn;
@@ -46,8 +50,8 @@ internal class DebugProvider : IDebugProvider
         return new InitializeResponse()
         {
             SupportsCancelRequest = false,
-            SupportedChecksumAlgorithms = new Container<ChecksumAlgorithm>(ChecksumAlgorithm.Md5,
-                ChecksumAlgorithm.Sha1, ChecksumAlgorithm.Sha256, ChecksumAlgorithm.Timestamp),
+            SupportedChecksumAlgorithms =
+                new Container<ChecksumAlgorithm>(ChecksumAlgorithm.Md5, ChecksumAlgorithm.Timestamp),
             SupportsClipboardContext = false,
             SupportsCompletionsRequest = false,
             SupportsConditionalBreakpoints = false,
@@ -100,22 +104,17 @@ internal class DebugProvider : IDebugProvider
         return new[]
         {
             new ExceptionBreakpointsFilter()
-                {Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false}
+                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
         };
     }
-    
+
     public IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column)
     {
         throw new NotImplementedException();
-
     }
 
     public SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format) =>
         throw new NotImplementedException();
-
-    public SourceResponse GetSource(long sourceReference) => throw new NotImplementedException();
-
-    public SourceResponse GetSource(Source source) => throw new NotImplementedException();
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
         throw new NotImplementedException();
@@ -156,4 +155,134 @@ internal class DebugProvider : IDebugProvider
         long? instructionOffset, long instructionCount,
         bool resolveSymbols) =>
         throw new NotImplementedException();
+
+    #region Sources
+
+    public async Task<SourceResponse> GetSourceContents(long sourceReference)
+    {
+        sourceReference -= 1; // Source references are indices in the executable sources array offset by +1
+
+        var exeSources = _engine.ExecutableInfo?.Sources;
+
+        if (exeSources is null)
+            throw new ExecutableNotLoadedException(_engine.ExecutionId, nameof(GetSourceContents));
+
+        if (exeSources.Count <= sourceReference)
+            throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
+
+        var exeSource = exeSources[(int)sourceReference];
+        using var locatedFile = await exeSource.SourceFile.LocateAsync();
+        var contents = await File.ReadAllTextAsync(locatedFile.FileSystemPath);
+
+        return new SourceResponse() { Content = contents };
+    }
+
+    private int GetSourceReference(Source? source)
+    {
+        if (source?.SourceReference is > 0)
+            return (int)source.SourceReference.Value;
+
+        if (source?.AdapterData == null)
+            throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
+
+        try
+        {
+            return source.AdapterData.Value<int>();
+        }
+        catch (InvalidCastException)
+        {
+            throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
+        }
+    }
+
+    public async Task<SourceResponse> GetSourceContents(Source source)
+    {
+        var reference = this.GetSourceReference(source);
+
+        return await this.GetSourceContents(reference);
+    }
+
+    public async Task<IEnumerable<Source>> GetSources()
+    {
+        var exeSources = _engine.ExecutableInfo?.Sources;
+
+        if (exeSources is null)
+            return Enumerable.Empty<Source>();
+
+        var ret = new Source[exeSources.Count];
+        var i = 0;
+
+        foreach (var exeSource in exeSources)
+        {
+            var isClientSide = exeSource.ClientPath != null;
+
+            ret[i] = new Source()
+            {
+                Name = exeSource.SourceFile.Name,
+                Path = exeSource.ClientPath ?? exeSource.SourceFile.Name,
+                Origin = isClientSide ? null : "execution service",
+                //PresentationHint = isClientSide ? null : SourcePresentationHint.Deemphasize,
+                SourceReference = isClientSide ? null : (i + 1),
+                Checksums = await MakeChecksums(exeSource),
+                AdapterData = new JValue(i + 1)
+            };
+
+            i++;
+        }
+
+        return ret;
+    }
+
+    public string GetCompilationPathForSource(Source source)
+    {
+        var asmObj = this.GetObjectForSource(source);
+
+        if (asmObj == null)
+            throw new ArgumentException("Source not found.", nameof(source));
+
+        return asmObj.ObjectFilePath;
+    }
+
+    public AssembledObject? GetObjectForSource(Source source)
+    {
+        if (_engine.ExecutableInfo is null)
+            throw new ExecutableNotLoadedException(_engine.ExecutionId, nameof(GetSourceContents));
+
+        if (_engine.ExecutableInfo is not Executable exe)
+            return null;
+
+        var exeSourceObjects = exe.SourceObjects;
+
+        // Source references are indices in the executable sources array offset by +1
+        var reference = this.GetSourceReference(source) - 1;
+
+        return exeSourceObjects.Count <= reference ? null : exeSourceObjects[reference];
+    }
+
+    private static async Task<Checksum[]> MakeChecksums(ExecutableSource exeSource)
+    {
+        // TODO: Cache for InitFile
+
+        using var locatedFile = await exeSource.SourceFile.LocateAsync();
+        await using var file = File.OpenRead(locatedFile.FileSystemPath);
+        using var md5 = MD5.Create();
+        var hash = await md5.ComputeHashAsync(file);
+        var ret = new Checksum[2];
+
+        ret[0] = new Checksum()
+        {
+            Algorithm = ChecksumAlgorithm.Md5,
+            Value = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant()
+        };
+
+        ret[1] = new Checksum()
+        {
+            Algorithm = ChecksumAlgorithm.Timestamp,
+            Value = locatedFile.Version.ToString()
+        };
+
+        return ret;
+    }
+
+    #endregion
 }

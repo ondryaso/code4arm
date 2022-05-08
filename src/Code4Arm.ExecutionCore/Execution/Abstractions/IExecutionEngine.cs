@@ -31,6 +31,7 @@ public interface IExecutionEngine : IDisposable
     IExecutableInfo? ExecutableInfo { get; }
     IRuntimeInfo? RuntimeInfo { get; }
     IDebugProvider DebugProvider { get; }
+    IDebugProtocolSourceLocator SourceLocator { get; }
 
     IUnicorn Engine { get; }
 

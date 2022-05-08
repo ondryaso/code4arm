@@ -44,13 +44,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     internal readonly MemoryStream InputMemoryStream;
     internal readonly MemoryStream OutputMemoryStream;
+    internal readonly Guid ExecutionId;
 
     private UnexpectedStopCause _lastStopCause = UnexpectedStopCause.Normal;
     private MemoryAccessType _disallowedStrictAccessType;
 
-    private readonly Guid _executionId;
     private readonly ILogger<ExecutionEngine> _logger;
-    private readonly ILogger<ExecutionEngine> _clientLogger;
+    private readonly ILogger _clientLogger;
     private Executable? _exe;
     private List<MemorySegment>? _segments;
     private MemorySegment? _stackSegment;
@@ -78,7 +78,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public IExecutableInfo? ExecutableInfo => _exe;
     public IRuntimeInfo? RuntimeInfo => _exe == null ? null : this;
     public IDebugProvider DebugProvider => _debugProvider;
-
+    public IDebugProtocolSourceLocator SourceLocator => _debugProvider;
     public uint StackStartAddress { get; private set; }
     public uint StackSize => _options.StackSize;
     public uint StackTopAddress { get; private set; }
@@ -94,7 +94,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public Stream EmulatedOutput => OutputMemoryStream;
 
     public ExecutionEngine(ExecutionOptions options, IMediator mediator,
-        ILogger<ExecutionEngine> systemLogger, ILogger<ExecutionEngine> clientLogger)
+        ILogger<ExecutionEngine> systemLogger, ILogger clientLogger)
     {
         _options = options;
         _mediator = mediator;
@@ -109,8 +109,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _logger = systemLogger;
         _clientLogger = clientLogger;
-        _executionId = Guid.NewGuid();
-        
+        ExecutionId = Guid.NewGuid();
+
         _debugProvider = new DebugProvider(this, _mediator);
     }
 
@@ -423,7 +423,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             Engine.EmuStop();
 
-            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", _executionId, address);
+            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", ExecutionId, address);
             _clientLogger.LogError(
                 "Program attempted to fetch from the function simulator memory segment on address {Address:x8} which is not bound to any simulated function.",
                 address);
@@ -507,7 +507,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private void StrictAccessHook(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
         long value)
     {
-        _logger.LogTrace("Execution {Id}: virtually unmapped access to memory at {Address:x8}.", _executionId, address);
+        _logger.LogTrace("Execution {Id}: virtually unmapped access to memory at {Address:x8}.", ExecutionId, address);
         Engine.EmuStop();
         _lastStopCause = UnexpectedStopCause.StrictAccessHook;
         _disallowedStrictAccessType = memoryAccessType;
@@ -555,8 +555,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         this.CheckLoaded();
 
-        var sourceCompilationPath = _exe.GetCompilationPathForSource(file);
-        var sourceObject = _exe.GetObjectForSource(file);
+        var sourceCompilationPath = _debugProvider.GetCompilationPathForSource(file);
+        var sourceObject = _debugProvider.GetObjectForSource(file);
 
         if (sourceObject == null)
         {
@@ -667,7 +667,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task EmulationEnded()
     {
-        _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", _executionId, _pc);
+        _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", ExecutionId, _pc);
         State = ExecutionState.Finished;
 
         await this.SendEvent(new ExitedEvent() { ExitCode = 0 });
@@ -677,7 +677,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         try
         {
-            _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
+            _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", ExecutionId, startAddress);
             State = ExecutionState.Running;
             _pc = startAddress;
             Engine.EmuStart(startAddress, 0, 0, count);
@@ -701,7 +701,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Execution {Id}: Emulation result handling exception.", _executionId);
+                _logger.LogError(e, "Execution {Id}: Emulation result handling exception.", ExecutionId);
 
                 throw;
             }
@@ -713,14 +713,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (Enum.IsDefined(e.Error))
             {
-                _logger.LogTrace(e, "Execution {Id}: Runtime exception.", _executionId);
+                _logger.LogTrace(e, "Execution {Id}: Runtime exception.", ExecutionId);
                 // HandleUnicornError() will log to the client
 
                 await this.HandleUnicornError(e.Error).ConfigureAwait(false);
             }
             else
             {
-                _logger.LogWarning(e, "Execution {Id}: Exited with unknown Unicorn error code {Code}.", _executionId,
+                _logger.LogWarning(e, "Execution {Id}: Exited with unknown Unicorn error code {Code}.", ExecutionId,
                     e.ErrorId);
 
                 await this.HandleUnknownError(e.ErrorId).ConfigureAwait(false);
@@ -783,7 +783,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task BreakpointHit(AddressBreakpoint breakpoint)
     {
-        _logger.LogTrace("Execution {Id}: Breakpoint hit on line {Line} (address {Address:x8}).", _executionId,
+        _logger.LogTrace("Execution {Id}: Breakpoint hit on line {Line} (address {Address:x8}).", ExecutionId,
             breakpoint.Line, breakpoint.Address);
         State = ExecutionState.Paused;
     }
@@ -833,7 +833,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             await _runSemaphore.WaitAsync(timeout, cancellationToken);
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", _executionId);
+            _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", ExecutionId);
             _clientLogger.LogError("Cannot launch while the previous launch hasn't finished.");
 
             throw new InvalidOperationException("Previous execution launch hasn't ended yet.");
@@ -912,12 +912,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var entered = await _runSemaphore.WaitAsync(_options.Timeout);
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to step while running.", _executionId);
+            _logger.LogTrace("Execution {Id}: Attempt to step while running.", ExecutionId);
             _clientLogger.LogError("Cannot step, execution is running.");
 
             throw new InvalidOperationException("Cannot step, execution is running.");
         }
-        
+
         await this.StartEmulation(_pc, 1);
     }
 

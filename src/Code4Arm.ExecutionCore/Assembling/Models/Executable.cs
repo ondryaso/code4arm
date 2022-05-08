@@ -1,23 +1,28 @@
 // Executable.cs
 // Author: Ondřej Ondryáš
 
+using System.Collections.Immutable;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
-using Code4Arm.ExecutionCore.Protocol.Models;
 using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
 using Microsoft.Extensions.Logging;
 
 namespace Code4Arm.ExecutionCore.Assembling.Models;
 
-public class Executable : IExecutableInfo, IDebugProtocolSourceLocator, IDisposable
+public class Executable : IExecutableInfo, IDisposable
 {
     private readonly ELF<uint> _elf;
     private readonly ILogger<Executable> _logger;
     private readonly List<MemorySegment> _segments;
 
     private string? _filePath;
-    private List<AssembledObject> _sourceObjects;
+
+    private readonly List<AssembledObject> _sourceObjects;
+    private readonly ImmutableList<ExecutableSource> _sources;
+
+    public IReadOnlyList<AssembledObject> SourceObjects => _sourceObjects;
+
     public IAsmMakeTarget MakeTarget { get; }
     public ELF<uint> Elf => _elf;
 
@@ -31,6 +36,9 @@ public class Executable : IExecutableInfo, IDebugProtocolSourceLocator, IDisposa
         _sourceObjects = sourceObjects;
         _logger = logger;
         _segments = new List<MemorySegment>(elf.Segments.Count + 1); // Space for the 'trampoline' 
+        _sources = sourceObjects
+                   .Select(o => new ExecutableSource(o.SourceFile, o.SourceVersion, o.SourceFile.ClientPath))
+                   .ToImmutableList();
 
         if (functionSimulators != null)
         {
@@ -47,6 +55,7 @@ public class Executable : IExecutableInfo, IDebugProtocolSourceLocator, IDisposa
     }
 
     public IReadOnlyList<MemorySegment> Segments => _segments;
+    public IReadOnlyList<ExecutableSource> Sources => _sources;
 
     /// <summary>
     /// The address of the _start symbol. If no such symbol is defined, points to the start of the .text section.
@@ -60,11 +69,6 @@ public class Executable : IExecutableInfo, IDebugProtocolSourceLocator, IDisposa
     public uint TextSectionEndAddress { get; private set; }
 
     public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators { get; }
-
-    public IDebugProtocolSourceLocator MakeSourceLocator()
-    {
-        throw new NotImplementedException();
-    }
 
     /// <summary>
     /// Creates <see cref="MemorySegment"/> definitions based on the segments from the ELF.
@@ -210,8 +214,4 @@ public class Executable : IExecutableInfo, IDebugProtocolSourceLocator, IDisposa
             }
         }
     }
-
-    public IEnumerable<Source> Sources { get; }
-    public string GetCompilationPathForSource(Source source) => throw new NotImplementedException();
-    public AssembledObject? GetObjectForSource(Source source) => throw new NotImplementedException();
 }

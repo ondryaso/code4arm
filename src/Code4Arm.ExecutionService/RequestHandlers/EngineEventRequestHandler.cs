@@ -1,4 +1,4 @@
-// EngineRequestHandler.cs
+// EngineEventRequestHandler.cs
 // Author: Ondřej Ondryáš
 
 using System.Reflection;
@@ -18,6 +18,7 @@ public class EngineEventRequestHandler<TEvent> : IRequestHandler<EngineEvent<TEv
     private readonly IHubContext<DebuggerSessionHub, IDebuggerSession> _hubContext;
     private readonly ILogger<EngineEventRequestHandler<TEvent>> _logger;
     private readonly string _eventName;
+    private readonly bool _isEmpty;
 
     public EngineEventRequestHandler(SessionManager sessionManager,
         IHubContext<DebuggerSessionHub, IDebuggerSession> hubContext,
@@ -27,9 +28,14 @@ public class EngineEventRequestHandler<TEvent> : IRequestHandler<EngineEvent<TEv
         _hubContext = hubContext;
         _logger = logger;
 
-        var eventName = typeof(TEvent).GetCustomAttribute<EventNameAttribute>()?.EventName;
-        _eventName = eventName ?? throw new ArgumentException(
-            $"Cannot create an engine event request handler for unannotated type {typeof(TEvent).FullName}.");
+        var eventAttribute = typeof(TEvent).GetCustomAttribute<ProtocolEventAttribute>();
+
+        if (eventAttribute == null)
+            throw new ArgumentException(
+                $"Cannot create an engine event request handler for unannotated type {typeof(TEvent).FullName}.");
+
+        _eventName = eventAttribute.EventName;
+        _isEmpty = eventAttribute.IsEmpty;
     }
 
     public async Task<Unit> Handle(EngineEvent<TEvent> request, CancellationToken cancellationToken)
@@ -43,8 +49,9 @@ public class EngineEventRequestHandler<TEvent> : IRequestHandler<EngineEvent<TEv
         }
 
         var client = _hubContext.Clients.Client(connectionId);
-        
-        await client.HandleEvent(_eventName, request.Event);
+
+        await client.HandleEvent(_eventName, _isEmpty ? null : request.Event);
+
         return Unit.Value;
     }
 }

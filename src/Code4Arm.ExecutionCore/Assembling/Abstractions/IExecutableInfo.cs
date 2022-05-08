@@ -15,14 +15,7 @@ public interface IExecutableInfo
     public uint TextSectionEndAddress { get; }
 
     public IReadOnlyList<MemorySegment> Segments { get; }
+    public IReadOnlyList<ExecutableSource> Sources { get; }
 
     public Dictionary<uint, BoundFunctionSimulator>? FunctionSimulators { get; }
-    
-    /// <summary>
-    /// Creates a debug protocol source locator for this executable, which is used to create DP's
-    /// <see cref="Code4Arm.ExecutionCore.Protocol.Models.Source"/> objects for the source files this executable
-    /// has been compiled from.
-    /// </summary>
-    /// <returns>A debug protocol source locator.</returns>
-    IDebugProtocolSourceLocator MakeSourceLocator();
 }

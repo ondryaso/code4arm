@@ -3,14 +3,18 @@
 
 using System.Runtime.CompilerServices;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
+using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
+using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
+using Code4Arm.ExecutionService.Exceptions;
 using Code4Arm.ExecutionService.HubRequests;
 using Code4Arm.ExecutionService.Services;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
+using Thread = Code4Arm.ExecutionCore.Protocol.Models.Thread;
 
 namespace Code4Arm.ExecutionService.Hubs;
 
@@ -18,11 +22,13 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
 {
     private readonly IMediator _mediator;
     private readonly SessionManager _sessionManager;
+    private readonly ILogger<DebuggerSessionHub> _logger;
 
-    public DebuggerSessionHub(IMediator mediator, SessionManager sessionManager)
+    public DebuggerSessionHub(IMediator mediator, SessionManager sessionManager, ILogger<DebuggerSessionHub> logger)
     {
         _mediator = mediator;
         _sessionManager = sessionManager;
+        _logger = logger;
     }
 
     private ValueTask<Session> GetSession()
@@ -60,7 +66,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         if (session.ProjectSession == null)
             throw new HubException("No project loaded.");
 
-        return await session.ProjectSession.GetSourceLocator();
+        return session.GetEngine().SourceLocator;
     }
 
     public override async Task OnConnectedAsync()
@@ -170,6 +176,8 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     {
         var session = await this.GetSession();
 
+        // TODO: check state
+
         if (arguments.SourceDirectory != null)
         {
             session.InitFromDirectory(arguments.SourceDirectory);
@@ -180,19 +188,61 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         }
         else
         {
-            throw new HubException("No build target specified.");
+            throw new DebuggerException("noTarget", 200,
+                "No build target specified. Either 'sourceDirectory' or 'sourceFiles' must be present in launch.json");
         }
 
-        var exe = await this.GetExecution(false);
+        var build = await session.ProjectSession.Build(false);
+        if (build.State == MakeResultState.InvalidObjects)
+        {
+            if (build.InvalidObjects == null)
+            {
+                _logger.LogError("InvalidObjects state but InvalidObjects is null.");
 
-        return null!;
+                throw new HubException("Unexpected execution service state (InvalidObjects null).");
+            }
+
+            foreach (var invalidObject in build.InvalidObjects)
+            {
+                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, 201, "assemble",
+                    invalidObject.AssemblerErrors);
+            }
+
+            throw new DebuggerException("assemble", 201,
+                $"Cannot assemble {build.InvalidObjects?.Count} source(s). Check output for error details.");
+        }
+
+        if (build.State == MakeResultState.LinkingError)
+        {
+            if (build.LinkerError != null)
+                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, 202,
+                    "link", build.LinkerError);
+
+            throw new DebuggerException("link", 202,
+                "Cannot link assembled objects. Check output for more details.");
+        }
+
+        if (build.Executable == null)
+        {
+            _logger.LogError("Build successful but executable is null.");
+
+            throw new HubException("Unexpected execution service error (Executable null).");
+        }
+
+        var exe = session.GetEngine();
+        await exe.LoadExecutable(build.Executable!);
+
+        await Clients.Caller.HandleEvent(EventNames.Initialized, null);
+
+        return new LaunchResponse();
     }
-    
+
     public async Task<LoadedSourcesResponse> LoadedSources(LoadedSourcesArguments arguments)
     {
         var sl = await this.GetSourceLocator();
+        var sources = await sl.GetSources();
 
-        return new LoadedSourcesResponse() { Sources = new Container<Source>(sl.Sources) };
+        return new LoadedSourcesResponse() { Sources = new Container<Source>(sources) };
     }
 
     public async Task<NextResponse> Next(NextArguments arguments)
@@ -310,8 +360,8 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
 
     public async Task<SourceResponse> Source(SourceArguments arguments)
     {
-        var dp = await this.GetDebugProvider();
-        var result = dp.GetSource(arguments);
+        var dp = await this.GetSourceLocator();
+        var result = await dp.GetSourceContents(arguments);
 
         return result;
     }
@@ -355,6 +405,12 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         await exe.Terminate();
 
         return new TerminateResponse();
+    }
+
+    public Task<ThreadsResponse> Threads(ThreadsArguments arguments)
+    {
+        return Task.FromResult(new ThreadsResponse()
+            { Threads = new Container<Thread>(new Thread() { Id = 0, Name = "Emulated CPU" }) });
     }
 
     public async Task<VariablesResponse> Variables(VariablesArguments arguments)
@@ -412,11 +468,6 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     }
 
     public Task<TerminateThreadsResponse> TerminateThreads(TerminateThreadsArguments arguments)
-    {
-        throw new InvalidOperationException("Threads are not supported.");
-    }
-
-    public Task<ThreadsResponse> Threads(ThreadsArguments arguments)
     {
         throw new InvalidOperationException("Threads are not supported.");
     }

@@ -5,7 +5,6 @@ using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
-using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -48,31 +47,6 @@ public abstract class BaseProjectSession : IProjectSession
         _lastResult = result;
 
         return result;
-    }
-
-    public async Task Use(IExecutionEngine execution)
-    {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(BaseProjectSession));
-
-        if (_lastResult is { State: MakeResultState.Successful })
-        {
-            var exe = _lastResult.Value.Executable!;
-            if (exe != execution.ExecutableInfo && execution.State is ExecutionState.Ready or ExecutionState.Finished
-                    or ExecutionState.TerminatedException or ExecutionState.TerminatedManually)
-                await execution.LoadExecutable(exe).ConfigureAwait(false);
-        }
-    }
-
-    public Task<IDebugProtocolSourceLocator> GetSourceLocator()
-    {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(BaseProjectSession));
-
-        if (_lastResult is not { Executable: { } })
-            throw new InvalidOperationException();
-
-        return Task.FromResult<IDebugProtocolSourceLocator>(_lastResult.Value.Executable!);
     }
 
     public void Dispose()

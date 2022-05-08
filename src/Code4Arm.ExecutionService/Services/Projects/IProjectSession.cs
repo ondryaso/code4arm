@@ -13,8 +13,4 @@ public interface IProjectSession : IAsmMakeTarget, IDisposable
     bool Dirty { get; }
 
     Task<MakeResult> Build(bool rebuild);
-
-    Task Use(IExecutionEngine execution);
-
-    Task<IDebugProtocolSourceLocator> GetSourceLocator();
 }

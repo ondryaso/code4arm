@@ -78,6 +78,7 @@ public class DirectoryProjectSession : BaseProjectSession
             _filesToRemove.Add(e.FullPath);
         };
 
+        _needsReload = _needsFullReload = true;
         this.LoadFiles(); // Enables the watcher
     }
 
@@ -111,13 +112,16 @@ public class DirectoryProjectSession : BaseProjectSession
         if (_disposed)
             throw new ObjectDisposedException(nameof(BaseProjectSession));
 
+        _needsReload = false;
+        _dirty = false;
+        
         if (_needsFullReload)
         {
             // This could, in theory, lead to some files getting missed, but it's highly improbable
             _dirWatcher!.EnableRaisingEvents = false;
             _filesToAdd?.Clear();
             _filesToRemove?.Clear();
-            var allFiles = Directory.GetFiles(_rootDirectoryPath, "*.s|*.S", SearchOption.AllDirectories);
+            var allFiles = Directory.GetFiles(_rootDirectoryPath, "*.s", SearchOption.AllDirectories);
             _dirWatcher!.EnableRaisingEvents = true;
 
             lock (_loadingLocker)
@@ -133,6 +137,7 @@ public class DirectoryProjectSession : BaseProjectSession
 
             _needsFullReload = false;
             _dirty = false;
+            _needsReload = false;
 
             return;
         }
@@ -153,8 +158,6 @@ public class DirectoryProjectSession : BaseProjectSession
                     _files.Remove(name);
                 }
         }
-
-        _dirty = false;
     }
 
     protected override void Dispose(bool disposing)

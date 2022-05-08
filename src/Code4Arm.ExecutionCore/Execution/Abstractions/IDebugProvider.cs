@@ -12,8 +12,6 @@ public interface IDebugProvider
 
     IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column);
     SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format);
-    SourceResponse GetSource(long sourceReference);
-    SourceResponse GetSource(Source source);
     DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName);
     DataBreakpointInfoResponse GetDataBreakpointInfo(string expression);
     EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context, ValueFormat? format);
@@ -45,9 +43,6 @@ public interface IDebugProvider
 
     SetVariableResponse SetVariable(SetVariableArguments arguments)
         => this.SetVariable(arguments.VariablesReference, arguments.Name, arguments.Value, arguments.Format);
-
-    SourceResponse GetSource(SourceArguments arguments)
-        => arguments.Source == null ? this.GetSource(arguments.SourceReference) : this.GetSource(arguments.Source);
 
     EvaluateResponse EvaluateExpression(EvaluateArguments arguments)
         => this.EvaluateExpression(arguments.Expression, arguments.Context, arguments.Format);

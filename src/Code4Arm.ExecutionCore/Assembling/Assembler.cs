@@ -421,9 +421,9 @@ public class Assembler : IAssembler
         public ValueTask<ILocatedFile> LocateAsync() =>
             new(new InitFileLocated(_path, this));
 
-        public string Name => "__ProgramEntryModule";
+        public string Name => "__ProgramEntryModule.s";
         public int Version => 1;
-        public string ClientPath => "__ProgramEntryModule__.s"; // TODO: Make this a constant?
+        public string? ClientPath => null;
         public IAsmMakeTarget? Project => null;
 
         private class InitFileLocated : ILocatedFile
