@@ -37,7 +37,8 @@ public class Executable : IExecutableInfo, IDisposable
         _logger = logger;
         _segments = new List<MemorySegment>(elf.Segments.Count + 1); // Space for the 'trampoline' 
         _sources = sourceObjects
-                   .Select(o => new ExecutableSource(o.SourceFile, o.SourceVersion, o.SourceFile.ClientPath))
+                   .Select(o =>
+                       new ExecutableSource(o.SourceFile, o.BuildFilePath, o.SourceVersion, o.SourceFile.ClientPath))
                    .ToImmutableList();
 
         if (functionSimulators != null)

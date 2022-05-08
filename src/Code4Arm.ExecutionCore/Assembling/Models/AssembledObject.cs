@@ -18,18 +18,20 @@ public class AssembledObject : IDisposable
 
     public IAsmFile SourceFile { get; }
     public int SourceVersion { get; }
+    public string BuildFilePath { get; }
     public bool AssemblySuccessful { get; }
 
     public bool[]? IsProgramLine { get; }
     public int ProgramLines { get; }
 
-    internal AssembledObject(IAsmFile sourceFile, int sourceVersion, string objectFilePath, string gasOut,
-        string gasErr, bool successful, ILogger<AssembledObject> logger)
+    internal AssembledObject(IAsmFile sourceFile, int sourceVersion, string buildFilePath, string objectFilePath,
+        string gasOut, string gasErr, bool successful, ILogger<AssembledObject> logger)
     {
         _logger = logger;
         AssemblySuccessful = successful;
         SourceFile = sourceFile;
         SourceVersion = sourceVersion;
+        BuildFilePath = buildFilePath;
         ObjectFilePath = objectFilePath;
         AssemblerOutput = gasOut;
         AssemblerErrors = gasErr;

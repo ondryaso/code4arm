@@ -14,7 +14,7 @@ public interface IDebugProtocolSourceLocator
     Task<SourceResponse> GetSourceContents(long sourceReference);
     Task<SourceResponse> GetSourceContents(Source source);
 
-    string GetCompilationPathForSource(Source source);
+    string? GetCompilationPathForSource(Source source);
 
     /// <returns>The corresponding <see cref="AssembledObject"/>, or null if no such object exists.</returns>
     AssembledObject? GetObjectForSource(Source source);

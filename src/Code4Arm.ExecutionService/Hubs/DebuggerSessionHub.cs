@@ -2,8 +2,8 @@
 // Author: Ondřej Ondryáš
 
 using System.Runtime.CompilerServices;
-using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Events;
@@ -98,6 +98,9 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<ConfigurationDoneResponse> ConfigurationDone(ConfigurationDoneArguments arguments)
     {
         // TODO
+        var exe = await this.GetExecution();
+        await exe.Launch();
+
         return new ConfigurationDoneResponse();
     }
 
@@ -234,6 +237,19 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
 
         await Clients.Caller.HandleEvent(EventNames.Initialized, null);
 
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await exe.InitExecutable(!arguments.NoDebug, 2000);
+            }
+            catch
+            {
+                // TODO
+                await Clients.Caller.Log("asdasd", DateTime.UtcNow, LogLevel.Error, 0, null, "Cannot start.");
+            }
+        });
+        
         return new LaunchResponse();
     }
 
@@ -410,7 +426,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public Task<ThreadsResponse> Threads(ThreadsArguments arguments)
     {
         return Task.FromResult(new ThreadsResponse()
-            { Threads = new Container<Thread>(new Thread() { Id = 0, Name = "Emulated CPU" }) });
+            { Threads = new Container<Thread>(new Thread() { Id = ExecutionEngine.ThreadId, Name = "Emulated CPU" }) });
     }
 
     public async Task<VariablesResponse> Variables(VariablesArguments arguments)

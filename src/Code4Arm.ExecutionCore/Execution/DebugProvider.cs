@@ -2,6 +2,8 @@
 // Author: Ondřej Ondryáš
 
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
@@ -9,8 +11,10 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
+using Code4Arm.Unicorn.Constants;
 using MediatR;
 using Newtonsoft.Json.Linq;
+using ExecutionEngineException = Code4Arm.ExecutionCore.Execution.Exceptions.ExecutionEngineException;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
@@ -55,7 +59,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsClipboardContext = false,
             SupportsCompletionsRequest = false,
             SupportsConditionalBreakpoints = false,
-            SupportsDataBreakpoints = true,
+            SupportsDataBreakpoints = false,    // TODO
             SupportsDisassembleRequest = false, // TODO
             SupportsExceptionOptions = false,
             SupportsFunctionBreakpoints = false,    // TODO
@@ -71,8 +75,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsTerminateRequest = true,
             SupportSuspendDebuggee = false,
             SupportTerminateDebuggee = false,
-            SupportsBreakpointLocationsRequest = true,
-            SupportsConfigurationDoneRequest = false,
+            SupportsBreakpointLocationsRequest = false, // TODO
+            SupportsConfigurationDoneRequest = true,
             SupportsEvaluateForHovers = false, //TODO?
             SupportsExceptionFilterOptions = false,
             SupportsExceptionInfoRequest = true,
@@ -113,8 +117,37 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         throw new NotImplementedException();
     }
 
-    public SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format) =>
-        throw new NotImplementedException();
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="containerId">The Variables reference number.</param>
+    /// <param name="variableName"></param>
+    /// <param name="value"></param>
+    /// <param name="format"></param>
+    /// <returns></returns>
+    public SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format)
+    {
+        // TODO
+        if (containerId == 1)
+        {
+            var regId = int.Parse(variableName[1..]);
+            var isHex = format?.Hex ?? false;
+
+            if (!int.TryParse(value, isHex ? NumberStyles.HexNumber : NumberStyles.Integer,
+                    NumberFormatInfo.InvariantInfo, out var val))
+                throw new InvalidValueException();
+
+            _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), val);
+
+            return new SetVariableResponse()
+            {
+                Value = val.ToString(isHex ? "x" : ""),
+                Type = "General-purpose register"
+            };
+        }
+
+        throw new InvalidVariableReferenceException();
+    }
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
         throw new NotImplementedException();
@@ -126,15 +159,97 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
 
-    public StackTraceResponse MakeStackTrace() => throw new NotImplementedException();
+    public StackTraceResponse MakeStackTrace()
+    {
+        var frames = new StackFrame[1];
+        frames[0] = new StackFrame()
+        {
+            Id = 1,
+            Line = 6,
+            CanRestart = false,
+            PresentationHint = StackFramePresentationHint.Normal,
+            Source = _engine.CurrentBreakpoint?.Source,
+            Name = "Breakpoint"
+        };
 
-    public ScopesResponse MakeVariableScopes() => throw new NotImplementedException();
+        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
+
+        // TODO
+        return ret;
+    }
+
+    public ScopesResponse MakeVariableScopes()
+    {
+        return new ScopesResponse()
+        {
+            Scopes = new Container<Scope>(new Scope()
+            {
+                Name = "Registers",
+                NamedVariables = 15,
+                VariablesReference = 1,
+                PresentationHint = "registers"
+            }, new Scope()
+            {
+                Name = "Data",
+                NamedVariables = 2,
+                VariablesReference = 2,
+                PresentationHint = "locals"
+            })
+        };
+    }
 
     public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
         throw new NotImplementedException();
 
     public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
         throw new NotImplementedException();
+
+    public IEnumerable<Variable> GetChildVariables(long containerId, string parentVariableName, long? start,
+        long? count, ValueFormat? format) =>
+        Enumerable.Empty<Variable>(); // TODO
+
+    public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
+        ValueFormat? format)
+    {
+        if (variablesReference == 1)
+        {
+            var toRet = count.HasValue ? Math.Min(count.Value, 16) : 16;
+            for (var i = 0; i < toRet; i++)
+            {
+                yield return new Variable()
+                {
+                    Name = "R" + i,
+                    Type = "General-purpose register",
+                    Value = (_engine.Engine.RegRead<int>(Arm.Register.GetRegister(i)))
+                        .ToString((format?.Hex ?? false) ? "x" : "")
+                };
+            }
+        }
+
+        if (variablesReference == 2)
+        {
+            yield return new Variable()
+            {
+                Name = "Test 1",
+                Type = "Memory",
+                Value = (456121).ToString((format?.Hex ?? false) ? "x" : "")
+            };
+
+            yield return new Variable()
+            {
+                Name = "Test 2",
+                Type = "Memory",
+                Value = (787878).ToString((format?.Hex ?? false) ? "x" : "")
+            };
+        }
+    }
+
+    public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
+        long? instructionOffset, long instructionCount,
+        bool resolveSymbols) =>
+        throw new NotImplementedException();
+
+    #region Memory
 
     public ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset) =>
         throw new NotImplementedException();
@@ -143,18 +258,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded) =>
         throw new NotImplementedException();
 
-    public IEnumerable<Variable> GetChildVariables(long containerId, string parentVariableName, long? start,
-        long? count,
-        ValueFormat? format) =>
-        throw new NotImplementedException();
-
-    public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
-        ValueFormat? format) => throw new NotImplementedException();
-
-    public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
-        long? instructionOffset, long instructionCount,
-        bool resolveSymbols) =>
-        throw new NotImplementedException();
+    #endregion
 
     #region Sources
 
@@ -177,22 +281,36 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return new SourceResponse() { Content = contents };
     }
 
-    private int GetSourceReference(Source? source)
+    private int GetSourceReference(Source? source, [CallerMemberName] string caller = "")
     {
         if (source?.SourceReference is > 0)
             return (int)source.SourceReference.Value;
 
-        if (source?.AdapterData == null)
-            throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
+        if (source?.AdapterData != null)
+        {
+            try
+            {
+                return source.AdapterData.Value<int>();
+            }
+            catch (InvalidCastException)
+            {
+                // Intentionally left blank
+            }
+        }
 
-        try
+        if (source?.Path == null)
+            throw new InvalidSourceException(_engine.ExecutionId, caller);
+
+        var i = 1;
+        foreach (var exeSource in _engine.ExecutableInfo!.Sources)
         {
-            return source.AdapterData.Value<int>();
+            if (exeSource.ClientPath == source.Path)
+                return i;
+
+            i++;
         }
-        catch (InvalidCastException)
-        {
-            throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
-        }
+
+        throw new InvalidSourceException(_engine.ExecutionId, caller);
     }
 
     public async Task<SourceResponse> GetSourceContents(Source source)
@@ -233,14 +351,20 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return ret;
     }
 
-    public string GetCompilationPathForSource(Source source)
+    public string? GetCompilationPathForSource(Source source)
     {
-        var asmObj = this.GetObjectForSource(source);
+        if (_engine.ExecutableInfo is null)
+            throw new ExecutableNotLoadedException(_engine.ExecutionId, nameof(GetSourceContents));
 
-        if (asmObj == null)
-            throw new ArgumentException("Source not found.", nameof(source));
+        if (_engine.ExecutableInfo is not Executable exe)
+            return null;
 
-        return asmObj.ObjectFilePath;
+        var exeSources = exe.Sources;
+
+        // Source references are indices in the executable sources array offset by +1
+        var reference = this.GetSourceReference(source) - 1;
+
+        return exeSources.Count <= reference ? null : exeSources[reference].BuildPath;
     }
 
     public AssembledObject? GetObjectForSource(Source source)

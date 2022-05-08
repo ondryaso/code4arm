@@ -120,8 +120,8 @@ public class Assembler : IAssembler
         _logger.LogTrace("File {Name} [{Version}] assembly ended with code {Code}.", file.Name, file.Version,
             gasProcess.ExitCode);
 
-        return new AssembledObject(file, location.Version, outputFile, stdout, stderr, gasProcess.ExitCode == 0,
-            _loggerFactory.CreateLogger<AssembledObject>());
+        return new AssembledObject(file, location.Version, location.FileSystemPath, outputFile, stdout,
+            stderr, gasProcess.ExitCode == 0, _loggerFactory.CreateLogger<AssembledObject>());
     }
 
     /// <summary>

@@ -47,7 +47,8 @@ public interface IExecutionEngine : IDisposable
     IEnumerable<Breakpoint> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
 
     // remaps memory
-    Task Launch(bool debug, CancellationToken cancellationToken = default, int timeout = Timeout.Infinite);
+    Task InitExecutable(bool debug, int timeout = Timeout.Infinite, CancellationToken cancellationToken = default);
+    Task Launch();
 
     // terminates and launches
     Task Restart(bool debug, CancellationToken cancellationToken = default);
