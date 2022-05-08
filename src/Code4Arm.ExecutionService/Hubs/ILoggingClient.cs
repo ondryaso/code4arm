@@ -5,5 +5,5 @@ namespace Code4Arm.ExecutionService.Hubs;
 
 public interface ILoggingClient
 {
-    Task Log(LogLevel level, int eventId, string? eventName, string message);
+    Task Log(string category, DateTime timestampUtc, LogLevel level, int eventId, string? eventName, string message);
 }

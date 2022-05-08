@@ -8,11 +8,14 @@ namespace Code4Arm.ExecutionService.Services;
 
 public class RemoteLogger : ILogger
 {
+    private readonly string _category;
     private readonly RemoteLoggerFactory _factory;
     private readonly IHubContext<DebuggerSessionHub, IDebuggerSession> _hubContext;
 
-    internal RemoteLogger(RemoteLoggerFactory factory, IHubContext<DebuggerSessionHub, IDebuggerSession> hubContext)
+    internal RemoteLogger(string category, RemoteLoggerFactory factory,
+        IHubContext<DebuggerSessionHub, IDebuggerSession> hubContext)
     {
+        _category = category;
         _factory = factory;
         _hubContext = hubContext;
     }
@@ -28,7 +31,8 @@ public class RemoteLogger : ILogger
             return;
 
         var client = _hubContext.Clients.Client(_factory.ConnectionId);
-        Task.Run(async () => await client.Log(logLevel, eventId.Id, eventId.Name, formatter(state, exception)));
+        Task.Run(async () => await client.Log(_category, DateTime.UtcNow, logLevel, eventId.Id, eventId.Name,
+            formatter(state, exception)));
     }
 }
 
@@ -57,7 +61,7 @@ public class RemoteLoggerFactory : ILoggerFactory
     public ILogger CreateLogger(string categoryName)
     {
         var hubContext = _serviceProvider.GetRequiredService<IHubContext<DebuggerSessionHub, IDebuggerSession>>();
-        var logger = new RemoteLogger(this, hubContext);
+        var logger = new RemoteLogger(categoryName, this, hubContext);
 
         return logger;
     }

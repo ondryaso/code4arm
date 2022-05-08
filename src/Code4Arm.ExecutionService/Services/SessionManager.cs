@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
@@ -10,6 +11,8 @@ using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.ExecutionService.Services.Projects;
 using MediatR;
 using Microsoft.Extensions.Options;
+
+#pragma warning disable CS8774
 
 namespace Code4Arm.ExecutionService.Services;
 
@@ -23,6 +26,7 @@ public class Session : IDisposable
     private readonly ILoggerFactory _loggerFactory;
     private IProjectSession? _projectSession;
     private ExecutionEngine? _engine;
+    private ILogger _remoteLogger;
 
     private InitializeRequestArguments? _clientInfo;
 
@@ -35,7 +39,11 @@ public class Session : IDisposable
         _linkerOptions = linkerOptions;
         _mediator = mediator;
         _loggerFactory = loggerFactory;
+
+        _remoteLogger = manager.GetRemoteLoggerFactory(ConnectionId).CreateLogger("Code4Arm.Session");
     }
+
+    public ILogger Logger => _remoteLogger;
 
     public InitializeRequestArguments ClientInfo
     {
@@ -49,6 +57,7 @@ public class Session : IDisposable
         set => _clientInfo = value;
     }
 
+    [MemberNotNull(nameof(ProjectSession))]
     public void InitFromDirectory(string path)
     {
         if (_projectSession is DirectoryProjectSession directoryProjectSession)
@@ -61,6 +70,7 @@ public class Session : IDisposable
         _projectSession = new DirectoryProjectSession(path, _assemblerOptions, _linkerOptions, _loggerFactory);
     }
 
+    [MemberNotNull(nameof(ProjectSession))]
     public void InitFromFiles(IEnumerable<string> files)
     {
         _projectSession?.Dispose();
@@ -71,9 +81,9 @@ public class Session : IDisposable
     {
         if (_engine != null)
             return _engine;
-        
+
         var remoteLoggerFactory = _manager.GetRemoteLoggerFactory(ConnectionId);
-        var clientLogger = new Logger<ExecutionEngine>(remoteLoggerFactory);
+        var clientLogger = remoteLoggerFactory.CreateLogger("Code4Arm.ExecutionEngine");
 
         _engine = new ExecutionEngine(new ExecutionOptions(), _mediator,
             _loggerFactory.CreateLogger<ExecutionEngine>(), clientLogger);

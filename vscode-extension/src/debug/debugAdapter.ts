@@ -2,6 +2,7 @@ import { DebugSession, ExitedEvent, logger, LoggingDebugSession, Response, Termi
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { ProtocolServer } from '@vscode/debugadapter/lib/protocol';
+import { time } from 'console';
 
 interface ICustomLaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     sourceDirectory?: string;
@@ -13,6 +14,17 @@ interface IDebuggerResponse {
     message?: string;
     body?: any;
 }
+
+enum ServiceLogLevel {
+    Trace = 0,
+    Debug,
+    Information,
+    Warning,
+    Error,
+    Critical,
+    None,
+}
+
 
 export class Code4ArmDebugSession extends ProtocolServer {
 
@@ -39,10 +51,37 @@ export class Code4ArmDebugSession extends ProtocolServer {
         console.error(msg);
     }
 
+
+    private handleServiceLog(category: string, timestamp: string, logLevel: ServiceLogLevel,
+        eventId: number, eventName: string | null, message: string) {
+        // TODO
+        if (logLevel === ServiceLogLevel.None)
+            return;
+
+        const time = new Date(timestamp);
+        const msg = `!! [${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}.${time.getMilliseconds()}] ${category}: ${message}`;
+
+        switch (logLevel) {
+            case ServiceLogLevel.Trace:
+            case ServiceLogLevel.Debug:
+            case ServiceLogLevel.Information:
+                this.log(msg);
+                break;
+            default:
+                this.logError(msg);
+                break;
+        }
+    }
+
     private async ensureConnected(): Promise<boolean> {
         if (this.connection.state == HubConnectionState.Disconnected) {
-            this.connection.on('HandleEvent', this.handleRemoteEvent);
-            this.connection.onclose(this.handleConnectionClose);
+            const _this = this;
+
+            this.connection.on('HandleEvent', (eventName: string, body: any | null) => { _this.handleRemoteEvent(eventName, body); });
+            this.connection.on('Log', (category: string, timestamp: string, logLevel: ServiceLogLevel,
+                id: number, name: string | null, message: string) => { _this.handleServiceLog(category, timestamp, logLevel, id, name, message); });
+
+            this.connection.onclose((error?: Error) => { _this.handleConnectionClose(error) });
 
             try {
                 await this.connection.start();
@@ -57,15 +96,18 @@ export class Code4ArmDebugSession extends ProtocolServer {
         return true;
     }
 
-    private handleRemoteEvent(eventName: string, body: any) {
+    private handleRemoteEvent(eventName: string, body: any | null) {
         this.log("-> EVENT " + eventName);
 
         const protoEvent: DebugProtocol.Event = {
             event: eventName,
             type: 'event',
-            body: body,
             seq: 0
         };
+
+        if (body != null) {
+            protoEvent.body = body;
+        }
 
         this.sendEvent(protoEvent);
     }
@@ -73,7 +115,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
     private handleConnectionClose(error?: Error | undefined) {
         // TODO
         console.info("Connection closed");
-        
+
         this.sendEvent(new TerminatedEvent());
         this.stop();
 
@@ -82,14 +124,15 @@ export class Code4ArmDebugSession extends ProtocolServer {
         }
     }
 
-    private makeErrorResponse(request: DebugProtocol.Request, message: string, description: string, id: number): DebugProtocol.Response {
+    private makeErrorResponse(request: DebugProtocol.Request, message: string, description: string, id: number, showUser?: boolean): DebugProtocol.Response {
         const errorResponse = new Response(request);
         errorResponse.success = false;
 
         const errorMessage: DebugProtocol.Message = {
             id: id,
             format: description,
-            showUser: true
+            showUser: (typeof showUser === 'undefined' ? true : showUser),
+            sendTelemetry: true
         };
 
         (<any>errorResponse).message = message;
@@ -102,9 +145,10 @@ export class Code4ArmDebugSession extends ProtocolServer {
 
     protected async dispatchRequest(request: DebugProtocol.Request) {
         if (!(await this.ensureConnected())) {
-            const response = this.makeErrorResponse(request, 'remoteConnectionError', 'Cannot connect to the execution service', 100);
+            const response = this.makeErrorResponse(request, 'remoteConnectionError', 'Cannot connect to the execution service.', 100);
             this.sendResponse(response);
             this.sendEvent(new TerminatedEvent());
+            return;
         }
 
         try {
@@ -120,6 +164,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             }
 
             let response: DebugProtocol.Response = new Response(request);
+            console.log("   | RESP " + (response.success ? "Success" : ("Error " + response.message)) + " (" + remoteMethodName + ")");
 
             response.success = remoteResponse.success;
             response.body = remoteResponse.body;
@@ -131,7 +176,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             this.sendResponse(response);
         } catch (err) {
             this.logError(err);
-            const response = this.makeErrorResponse(request, 'remoteError', 'Unhandled execution service error.', 101);
+            const response = this.makeErrorResponse(request, 'remoteError', 'Unhandled execution service error.', 101, false);
             this.sendResponse(response);
         }
     }

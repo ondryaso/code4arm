@@ -23,7 +23,9 @@ public class LogRequestHandler<THub, TClient> : IRequestHandler<LogRequest<THub,
     public async Task<Unit> Handle(LogRequest<THub, TClient> request, CancellationToken cancellationToken)
     {
         var client = _hubContext.Clients.Client(request.ConnectionId);
-        await client.Log(request.Level, request.EventId, request.EventName, request.Message).ConfigureAwait(false);
+        await client
+              .Log(request.Category, request.TimestampUtc, request.Level, request.EventId, request.EventName,
+                  request.Message).ConfigureAwait(false);
 
         return Unit.Value;
     }

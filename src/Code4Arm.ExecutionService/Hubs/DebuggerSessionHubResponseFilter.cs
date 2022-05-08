@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using Code4Arm.ExecutionCore.Protocol.Models;
+using Code4Arm.ExecutionService.Exceptions;
 using Microsoft.AspNetCore.SignalR;
 using ExecutionEngineException = Code4Arm.ExecutionCore.Execution.Exceptions.ExecutionEngineException;
 
@@ -31,7 +32,7 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
         {
             var body = await next(invocationContext);
 
-            return new DebuggerResponse() {Success = true, Body = body};
+            return new DebuggerResponse() { Success = true, Body = body };
         }
         catch (ExecutionEngineException executionEngineException)
         {
@@ -46,15 +47,42 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
                 Message = executionEngineException.ErrorType,
                 Body = new
                 {
+                    error = this.MakeErrorMessageForException(executionEngineException.ErrorType,
+                        executionEngineException.Message)
+                }
+            };
+        }
+        catch (DebuggerException debuggerException)
+        {
+            return new DebuggerResponse()
+            {
+                Success = false,
+                Message = debuggerException.Code,
+                Body = new
+                {
                     error = new Message()
                     {
-                        Format = executionEngineException.Message,
-                        Id = 0, // TODO
-                        ShowUser = true,
-                        SendTelemetry = false
+                        Format = debuggerException.FullMessageFormat ?? debuggerException.Code,
+                        Id = debuggerException.Id,
+                        ShowUser = debuggerException.ShowUser,
+                        SendTelemetry = debuggerException.SendTelemetry,
+                        Variables = debuggerException.Variables,
                     }
                 }
             };
         }
+    }
+
+    private Message MakeErrorMessageForException(string errorType, string? message)
+    {
+        // TODO
+
+        return new Message()
+        {
+            Format = message ?? errorType,
+            Id = 0, // TODO
+            ShowUser = true,
+            SendTelemetry = false
+        };
     }
 }
