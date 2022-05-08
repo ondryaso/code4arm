@@ -161,6 +161,18 @@ public static class Arm
         public const int XPSR_NZCVQG = 138;
         public const int CP_REG = 139;
         public const int Ending = 140;
+
+        public static int GetRegister(int registerIndex)
+        {
+            return registerIndex switch
+            {
+                >= 0 and <= 12 => R0 + registerIndex,
+                13 => R13,
+                14 => R14,
+                15 => R15,
+                _ => throw new ArgumentException("Value must be between 0 and 15.", nameof(registerIndex))
+            };
+        }
     }
 
     public static class Cpu
