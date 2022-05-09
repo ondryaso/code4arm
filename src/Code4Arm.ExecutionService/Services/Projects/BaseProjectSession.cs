@@ -5,6 +5,8 @@ using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Execution.Abstractions;
+using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -28,6 +30,8 @@ public abstract class BaseProjectSession : IProjectSession
         IOptionsMonitor<LinkerOptions> linkerOptions, ILoggerFactory loggerFactory)
     {
         Assembler = new Assembler(assemblerOptions.CurrentValue, linkerOptions.CurrentValue, loggerFactory);
+        Assembler.UseFunctionSimulators(new IFunctionSimulator[] {new Printf()}); // TODO: get from DI?
+
         _assemblerOptionsChangeHandler = assemblerOptions.OnChange(opt => Assembler.AssemblerOptions = opt);
         _linkerOptionsChangeHandler = linkerOptions.OnChange(opt => Assembler.LinkerOptions = opt);
     }

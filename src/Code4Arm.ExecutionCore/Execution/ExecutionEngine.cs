@@ -10,10 +10,9 @@ using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
-using Code4Arm.ExecutionCore.Files.Abstractions;
+using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
-using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
@@ -48,6 +47,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     internal readonly MemoryStream OutputMemoryStream;
     internal readonly Guid ExecutionId;
     internal AddressBreakpoint? CurrentBreakpoint;
+    internal bool DebuggingEnabled = true;
+
+    internal uint CurrentPc;
+    internal int CurrentStopLine;
+    internal int CurrentStopSourceIndex;
 
     private UnexpectedStopCause _lastStopCause = UnexpectedStopCause.Normal;
     private MemoryAccessType _disallowedStrictAccessType;
@@ -63,7 +67,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly ArrayPool<byte> _arrayPool;
     private List<UnicornHookRegistration> _strictAccessHooks = new();
     private CancellationTokenSource? _currentCts;
-    private uint _pc;
     private UnicornHookRegistration _trampolineHookRegistration;
     private bool _firstRun = true;
     private DwarfLineAddressResolver? _lineResolver;
@@ -71,7 +74,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private bool _breakpointExitsDisabled = false;
 
-    private readonly ManualResetEvent _configurationDoneEvent = new(false);
+    private readonly ManualResetEventSlim _configurationDoneEvent = new(false);
     private readonly SemaphoreSlim _runSemaphore = new(1);
 
     private readonly Dictionary<uint, AddressBreakpoint> _currentBreakpoints = new();
@@ -93,7 +96,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public IReadOnlyList<MemorySegment> Segments =>
         _segments as IReadOnlyList<MemorySegment> ?? ImmutableList<MemorySegment>.Empty;
 
-    public uint ProgramCounter => _pc;
+    public uint ProgramCounter => CurrentPc;
 
     public IUnicorn Engine { get; }
     public Stream EmulatedInput => InputMemoryStream;
@@ -146,8 +149,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw new InvalidOperationException("_segments must be initialized.");
 
         var stOpt = _options.StackPlacementOptions;
-        var addressOpts = (int)stOpt & ((int)StackPlacementOptions.FixedAddress +
-            (int)StackPlacementOptions.RandomizeAddress + (int)StackPlacementOptions.AlwaysKeepFirstAddress);
+        var addressOpts = (int) stOpt & ((int) StackPlacementOptions.FixedAddress +
+            (int) StackPlacementOptions.RandomizeAddress + (int) StackPlacementOptions.AlwaysKeepFirstAddress);
 
         if ((addressOpts & (addressOpts - 1)) != 0) // Has more than one set bit (~ is power of 2)
             throw new InvalidOperationException(
@@ -188,7 +191,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _ => throw new ArgumentOutOfRangeException()
         };
 
-        var newStackSegment = new MemorySegment(stackSegmentBegin, StackSize) { IsStack = true };
+        var newStackSegment = new MemorySegment(stackSegmentBegin, StackSize) {IsStack = true};
         _segments.Add(newStackSegment);
 
         if (_stackSegment == null)
@@ -219,7 +222,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (stOpt.HasFlag(StackPlacementOptions.KeepData))
             {
-                keptStackData = rented ? _arrayPool.Rent((int)keptSize) : new byte[keptSize];
+                keptStackData = rented ? _arrayPool.Rent((int) keptSize) : new byte[keptSize];
                 Engine.MemRead(_stackSegment.StartAddress, keptStackData, keptSize);
             }
 
@@ -260,8 +263,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             // If there was a starting address, use it first and set it to value other than -1
             // so that it's not used the next time
             stackSegmentBegin = initial == -1
-                ? (uint)_rnd.NextInt64(0, uint.MaxValue - StackSize - 4096)
-                : (uint)initial;
+                ? (uint) _rnd.NextInt64(0, uint.MaxValue - StackSize - 4096)
+                : (uint) initial;
             initial = 0;
 
             stackSegmentBegin -= (stackSegmentBegin % 4096);
@@ -368,7 +371,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (segment.IsTrampoline)
             {
-                var jumpBackInstruction = new byte[] { 0x1e, 0xff, 0x2f, 0xe1 };
+                var jumpBackInstruction = new byte[] {0x1e, 0xff, 0x2f, 0xe1};
                 var span = jumpBackInstruction.AsSpan();
 
                 for (var address = segment.ContentsStartAddress; address < segment.ContentsEndAddress; address += 4)
@@ -424,8 +427,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private void TrampolineHookHandler(IUnicorn engine, ulong address, uint size)
     {
-        if (_exe is not { FunctionSimulators: { } } ||
-            !_exe.FunctionSimulators.TryGetValue((uint)address, out var simulator))
+        if (_exe is not {FunctionSimulators: { }} ||
+            !_exe.FunctionSimulators.TryGetValue((uint) address, out var simulator))
         {
             Engine.EmuStop();
 
@@ -439,7 +442,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             return;
         }
 
-        _pc = (uint)address;
+        CurrentPc = (uint) address;
         simulator.FunctionSimulator.Run(this);
     }
 
@@ -485,7 +488,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // but I prefer this version which takes (much?) more CPU cycles but allocates MaxStackAllocatedSize B max 
 
         var bufferSize = Math.Min(size, MaxStackAllocatedSize);
-        Span<byte> buffer = stackalloc byte[(int)bufferSize];
+        Span<byte> buffer = stackalloc byte[(int) bufferSize];
         var end = start + size;
 
         for (var address = start; address < end; address += bufferSize)
@@ -500,7 +503,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // Same as in RandomizeMemory()
 
         var bufferSize = Math.Min(size, MaxStackAllocatedSize);
-        Span<byte> buffer = stackalloc byte[(int)bufferSize];
+        Span<byte> buffer = stackalloc byte[(int) bufferSize];
         buffer.Clear();
         var end = start + size;
 
@@ -681,12 +684,30 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task EmulationEnded()
     {
-        _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", ExecutionId, _pc);
+        _logger.LogTrace("Execution {Id}: Ended with PC = {PC:x8}.", ExecutionId, CurrentPc);
         State = ExecutionState.Finished;
 
         await this.SendEvent(new TerminatedEvent());
         await Task.Delay(500);
-        await this.SendEvent(new ExitedEvent() { ExitCode = 0 }); // TODO read exit code
+        await this.SendEvent(new ExitedEvent() {ExitCode = 0}); // TODO read exit code
+    }
+
+    private void DetermineCurrentStopPositions()
+    {
+        CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
+        var lineInfo = _lineResolver!.GetSourceLine(CurrentPc, out var _);
+        CurrentStopLine = (int) lineInfo.Line - 1; // in DWARF, the lines are numbered from 1
+
+        var i = 0;
+        foreach (var exeSource in _exe!.Sources)
+        {
+            if (exeSource.BuildPath.Equals(lineInfo.File.Path, StringComparison.OrdinalIgnoreCase))
+                break;
+
+            i++;
+        }
+
+        CurrentStopSourceIndex = (i == _exe!.Sources.Count ? -1 : i);
     }
 
     private async Task StartEmulation(uint startAddress, ulong count = 0ul)
@@ -694,10 +715,19 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         try
         {
             _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", ExecutionId, startAddress);
+
             State = ExecutionState.Running;
-            _pc = startAddress;
+
+            CurrentPc = startAddress;
             Engine.EmuStart(startAddress, 0, 0, count);
-            _pc = Engine.RegRead<uint>(Arm.Register.PC);
+
+            if (_currentCts != null)
+            {
+                _currentCts.Dispose();
+                _currentCts = null;
+            }
+
+            this.DetermineCurrentStopPositions();
 
             try
             {
@@ -706,7 +736,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     await this.HandleStopCause();
                     _lastStopCause = UnexpectedStopCause.Normal;
                 }
-                else if (_currentBreakpoints.TryGetValue(_pc, out var breakpoint))
+                else if (_currentBreakpoints.TryGetValue(CurrentPc, out var breakpoint))
                 {
                     await this.BreakpointHit(breakpoint);
                 }
@@ -728,7 +758,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
         catch (UnicornException e)
         {
-            _pc = Engine.RegRead<uint>(Arm.Register.PC);
+            CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
             State = ExecutionState.TerminatedException;
 
             if (Enum.IsDefined(e.Error))
@@ -810,7 +840,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         _logger.LogTrace("Execution {Id}: Breakpoint hit on line {Line} (address {Address:x8}).", ExecutionId,
             breakpoint.Line, breakpoint.Address);
-        State = ExecutionState.Paused;
+        State = ExecutionState.PausedBreakpoint;
         CurrentBreakpoint = breakpoint;
 
         // TODO
@@ -826,6 +856,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task StepDone()
     {
+        State = ExecutionState.Paused;
+
         await this.SendEvent(new StoppedEvent()
         {
             Reason = StoppedEventReason.Step,
@@ -861,7 +893,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
 
             if (_options.RegisterInitOptions is RegisterInitOptions.Randomize or RegisterInitOptions.RandomizeFirst)
-                Engine.RegWrite(Arm.Register.LR, (uint)_rnd.Next(int.MaxValue));
+                Engine.RegWrite(Arm.Register.LR, (uint) _rnd.Next(int.MaxValue));
             else
                 Engine.RegWrite(Arm.Register.LR, 0u);
         }
@@ -869,26 +901,26 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         Engine.RegWrite(Arm.Register.SP, StackTopAddress);
     }
 
-    public async Task InitExecutable(bool debug, int timeout = Timeout.Infinite,
-        CancellationToken cancellationToken = default)
+    public async Task InitLaunch(bool debug, int enterTimeout = Timeout.Infinite, bool waitForLaunch = true)
     {
         this.CheckLoaded();
-
-        if (!_configurationDoneEvent.WaitOne())
-            throw new InvalidOperationException("Client hasn't finished configuration.");
 
         // If the token gets cancelled here, it propagates a OperationCanceledException out of the method
         // which is OK
         var entered = (State is ExecutionState.Ready or ExecutionState.Finished or ExecutionState.TerminatedException
                 or ExecutionState.TerminatedManually) &&
-            await _runSemaphore.WaitAsync(timeout, cancellationToken);
+            await _runSemaphore.WaitAsync(enterTimeout);
+
         if (!entered)
         {
             _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", ExecutionId);
             _clientLogger.LogError("Cannot launch while the previous launch hasn't finished.");
 
-            throw new InvalidOperationException("Previous execution launch hasn't ended yet.");
+            throw new InvalidExecutionStateException(ExecutionId, nameof(this.InitLaunch), State);
         }
+
+        DebuggingEnabled = debug;
+        _breakpointExitsDisabled = !debug;
 
         // Launch semaphore acquired
         try
@@ -896,6 +928,17 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             this.InitMemoryFromExecutable();
             this.InitRegisters();
             this.MakeExits();
+
+            _lastStopCause = UnexpectedStopCause.Normal;
+
+            _currentCts?.Dispose();
+            _currentCts = new CancellationTokenSource();
+            _currentCts.CancelAfter(_options.Timeout);
+            _currentCts.Token.Register(() =>
+            {
+                _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+                Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
+            });
         }
         catch
         {
@@ -904,21 +947,40 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw;
         }
 
-        var startAddress = _exe.EntryPoint;
-
-        _currentCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _currentCts.CancelAfter(_options.Timeout);
-        _currentCts.Token.Register(() =>
-        {
-            _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
-            Engine.EmuStop(); // Propagates to StartEmulation() which releases the semaphore
-        });
-
         try
         {
-            await Task.Run(async () =>
+            var startAddress = _exe.EntryPoint;
+
+            _ = Task.Run(async () =>
             {
-                _currentCts.Token.ThrowIfCancellationRequested();
+                if (_currentCts.IsCancellationRequested)
+                {
+                    await this.ExitOnTimeout();
+
+                    return;
+                }
+
+                if (waitForLaunch)
+                {
+                    try
+                    {
+                        _configurationDoneEvent.Wait(_currentCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        await this.ExitOnTimeout();
+
+                        return;
+                    }
+
+                    if (_currentCts.IsCancellationRequested)
+                    {
+                        await this.ExitOnTimeout();
+
+                        return;
+                    }
+                }
+
                 await this.SendEvent(new ProcessEvent()
                 {
                     Name = "code4arm-emulation",
@@ -927,28 +989,27 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     StartMethod = ProcessEventStartMethod.Launch
                 });
 
-                await this.StartEmulation(startAddress)
-                    ; // StartEmulation must release the semaphore
+                await this.StartEmulation(startAddress); // StartEmulation must release the semaphore
             }, _currentCts.Token);
         }
         catch (OperationCanceledException)
         {
-            _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
-            if (State != ExecutionState.Running)
-            {
-                await this.HandleStopCause();
-                _runSemaphore.Release();
-
-                return;
-            }
-
-            // I don't think it is possible to be in the Running state when this exception is caught
-            // But just to make sure
-            Engine.EmuStop(); // Would propagate to StartEmulation() which releases the semaphore
+            await this.ExitOnTimeout();
         }
+    }
 
-        _currentCts.Dispose();
-        _currentCts = null;
+    private async Task ExitOnTimeout()
+    {
+        _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+
+        try
+        {
+            await this.HandleStopCause();
+        }
+        finally
+        {
+            _runSemaphore.Release();
+        }
     }
 
     public Task Launch()
@@ -958,7 +1019,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return Task.CompletedTask;
     }
 
-    public Task Restart(bool debug, CancellationToken cancellationToken = default)
+    public Task Restart(bool debug)
     {
         throw new NotImplementedException();
     }
@@ -968,11 +1029,95 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         throw new NotImplementedException();
     }
 
-    public Task Continue(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public async Task Continue(int enterTimeout = Timeout.Infinite)
+    {
+        this.CheckLoaded();
 
-    public Task ReverseContinue(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        // If the token gets cancelled here, it propagates a OperationCanceledException out of the method
+        // which is OK
+        var entered = (State is ExecutionState.Paused or ExecutionState.PausedBreakpoint) &&
+            await _runSemaphore.WaitAsync(enterTimeout);
 
-    public async Task Step()
+        if (!entered)
+        {
+            _logger.LogTrace("Execution {Id}: Attempt to continue when not paused.", ExecutionId);
+            _clientLogger.LogError("Cannot continue when the execution isn't paused.");
+
+            throw new InvalidExecutionStateException(ExecutionId, nameof(this.InitLaunch), State);
+        }
+
+        // Launch semaphore acquired
+        try
+        {
+            if (State == ExecutionState.PausedBreakpoint)
+            {
+                _breakpointExitsDisabled = true;
+                this.MakeExits();
+
+                // TODO: is this safe?
+                Engine.EmuStart(CurrentPc, 0, 0, 1);
+                CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
+
+                if (DebuggingEnabled)
+                {
+                    _breakpointExitsDisabled = false;
+                    this.MakeExits();
+                }
+            }
+            else if (DebuggingEnabled && _breakpointExitsDisabled)
+            {
+                _breakpointExitsDisabled = false;
+                this.MakeExits();
+            }
+
+            _lastStopCause = UnexpectedStopCause.Normal;
+
+            _currentCts?.Dispose();
+            _currentCts = new CancellationTokenSource();
+            _currentCts.CancelAfter(_options.Timeout);
+            _currentCts.Token.Register(() =>
+            {
+                _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+                Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
+            });
+        }
+        catch
+        {
+            _runSemaphore.Release();
+
+            throw;
+        }
+
+        var startAddress = CurrentPc;
+        try
+        {
+            _ = Task.Run(async () =>
+            {
+                if (_currentCts.IsCancellationRequested)
+                {
+                    await this.ExitOnTimeout();
+
+                    return;
+                }
+
+                await this.SendEvent(new ContinuedEvent()
+                {
+                    ThreadId = ThreadId,
+                    AllThreadsContinued = true
+                });
+
+                await this.StartEmulation(startAddress); // StartEmulation must release the semaphore
+            }, _currentCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            await this.ExitOnTimeout();
+        }
+    }
+
+    public Task ReverseContinue() => throw new NotImplementedException();
+
+    public async Task Step(int enterTimeout = Timeout.Infinite)
     {
         // TODO
         var entered = await _runSemaphore.WaitAsync(_options.Timeout);
@@ -989,8 +1134,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _breakpointExitsDisabled = true;
             this.MakeExits();
         }
-        
-        await this.StartEmulation(_pc, 1);
+
+        await this.StartEmulation(CurrentPc, 1);
     }
 
     public Task StepBack()
@@ -998,7 +1143,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         throw new NotImplementedException();
     }
 
-    public Task StepOut(CancellationToken cancellationToken = default)
+    public Task StepOut(int enterTimeout = Timeout.Infinite)
     {
         throw new NotImplementedException();
     }
@@ -1016,6 +1161,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return Task.CompletedTask;
     }
 
+    private async Task SendEvent<T>(T @event) where T : IProtocolEvent
+    {
+        await _mediator.Send(new EngineEvent<T>(this, @event));
+    }
+
     public void Dispose()
     {
         // TODO
@@ -1023,23 +1173,5 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _configurationDoneEvent.Dispose();
 
         Engine.Dispose();
-    }
-
-    public IEnumerable<DataBreakpointInfoResponse> GetDataBreakpointInfo(string name) =>
-        throw new NotImplementedException();
-
-    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
-        ValueFormat? format) => throw new NotImplementedException();
-
-    public EvaluateResponse EvaluateExpression(EvaluateArguments arguments) => throw new NotImplementedException();
-
-    public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
-
-    public IEnumerable<GotoTarget> GetGotoTargets(IAsmFile source, long line, long? column) =>
-        throw new NotImplementedException();
-
-    private async Task SendEvent<T>(T @event) where T : IProtocolEvent
-    {
-        await _mediator.Send(new EngineEvent<T>(this, @event));
     }
 }

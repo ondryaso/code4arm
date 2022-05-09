@@ -92,7 +92,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var dp = await this.GetDebugProvider();
         var result = dp.GetBreakpointLocations(arguments);
 
-        return new BreakpointLocationsResponse() { Breakpoints = new Container<BreakpointLocation>(result) };
+        return new BreakpointLocationsResponse() {Breakpoints = new Container<BreakpointLocation>(result)};
     }
 
     public async Task<ConfigurationDoneResponse> ConfigurationDone(ConfigurationDoneArguments arguments)
@@ -107,8 +107,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<ContinueResponse> Continue(ContinueArguments arguments)
     {
         var exe = await this.GetExecution();
-
-        Task.Run(async () => await exe.Continue());
+        await exe.Continue();
 
         return new ContinueResponse();
     }
@@ -126,7 +125,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var dp = await this.GetDebugProvider();
         var result = dp.Disassemble(arguments);
 
-        return new DisassembleResponse() { Instructions = new Container<DisassembledInstruction>(result) };
+        return new DisassembleResponse() {Instructions = new Container<DisassembledInstruction>(result)};
     }
 
     public async Task<DisconnectResponse> Disconnect(DisconnectArguments arguments)
@@ -165,7 +164,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var dp = await this.GetDebugProvider();
         var result = dp.GetGotoTargets(arguments);
 
-        return new GotoTargetsResponse() { Targets = new Container<GotoTarget>(result) };
+        return new GotoTargetsResponse() {Targets = new Container<GotoTarget>(result)};
     }
 
     public async Task<InitializeResponse> Initialize(InitializeRequestArguments arguments)
@@ -236,20 +235,8 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         await exe.LoadExecutable(build.Executable!);
 
         await Clients.Caller.HandleEvent(EventNames.Initialized, null);
+        await exe.InitLaunch(!arguments.NoDebug);
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await exe.InitExecutable(!arguments.NoDebug, 2000);
-            }
-            catch
-            {
-                // TODO
-                await Clients.Caller.Log("asdasd", DateTime.UtcNow, LogLevel.Error, 0, null, "Cannot start.");
-            }
-        });
-        
         return new LaunchResponse();
     }
 
@@ -258,7 +245,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var sl = await this.GetSourceLocator();
         var sources = await sl.GetSources();
 
-        return new LoadedSourcesResponse() { Sources = new Container<Source>(sources) };
+        return new LoadedSourcesResponse() {Sources = new Container<Source>(sources)};
     }
 
     public async Task<NextResponse> Next(NextArguments arguments)
@@ -325,7 +312,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetBreakpoints(arguments.Source, arguments.Breakpoints);
 
         return new SetBreakpointsResponse()
-            { Breakpoints = new Container<Breakpoint>(result) };
+            {Breakpoints = new Container<Breakpoint>(result)};
     }
 
     public async Task<SetDataBreakpointsResponse> SetDataBreakpoints(SetDataBreakpointsArguments arguments)
@@ -334,7 +321,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetDataBreakpoints(arguments.Breakpoints);
 
         return new SetDataBreakpointsResponse()
-            { Breakpoints = new Container<Breakpoint>(result) };
+            {Breakpoints = new Container<Breakpoint>(result)};
     }
 
     public async Task<SetExceptionBreakpointsResponse> SetExceptionBreakpoints(
@@ -344,7 +331,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetExceptionBreakpoints(arguments.Filters);
 
         return new SetExceptionBreakpointsResponse()
-            { Breakpoints = new Container<Breakpoint>(result) };
+            {Breakpoints = new Container<Breakpoint>(result)};
     }
 
     public async Task<SetFunctionBreakpointsResponse> SetFunctionBreakpoints(SetFunctionBreakpointsArguments arguments)
@@ -353,7 +340,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetFunctionBreakpoints(arguments.Breakpoints);
 
         return new SetFunctionBreakpointsResponse()
-            { Breakpoints = new Container<Breakpoint>(result) };
+            {Breakpoints = new Container<Breakpoint>(result)};
     }
 
     public async Task<SetInstructionBreakpointsResponse> SetInstructionBreakpoints(
@@ -363,7 +350,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetInstructionBreakpoints(arguments.Breakpoints);
 
         return new SetInstructionBreakpointsResponse()
-            { Breakpoints = new Container<Breakpoint>(result) };
+            {Breakpoints = new Container<Breakpoint>(result)};
     }
 
     public async Task<SetVariableResponse> SetVariable(SetVariableArguments arguments)
@@ -385,7 +372,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<StackTraceResponse> StackTrace(StackTraceArguments arguments)
     {
         var dp = await this.GetDebugProvider();
-        var result = dp.MakeStackTrace();
+        var result = await dp.MakeStackTrace();
 
         return result;
     }
@@ -426,7 +413,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public Task<ThreadsResponse> Threads(ThreadsArguments arguments)
     {
         return Task.FromResult(new ThreadsResponse()
-            { Threads = new Container<Thread>(new Thread() { Id = ExecutionEngine.ThreadId, Name = "Emulated CPU" }) });
+            {Threads = new Container<Thread>(new Thread() {Id = ExecutionEngine.ThreadId, Name = "Emulated CPU"})});
     }
 
     public async Task<VariablesResponse> Variables(VariablesArguments arguments)
@@ -435,7 +422,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = dp.GetChildVariables(arguments);
 
         return new VariablesResponse()
-            { Variables = new Container<Variable>(result) };
+            {Variables = new Container<Variable>(result)};
     }
 
     public async Task<WriteMemoryResponse> WriteMemory(WriteMemoryArguments arguments)

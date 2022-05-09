@@ -16,7 +16,7 @@ public interface IDebugProvider
     DataBreakpointInfoResponse GetDataBreakpointInfo(string expression);
     EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context, ValueFormat? format);
     ExceptionInfoResponse GetLastExceptionInfo();
-    StackTraceResponse MakeStackTrace();
+    Task<StackTraceResponse> MakeStackTrace();
     ScopesResponse MakeVariableScopes();
     IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine);
     IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters();

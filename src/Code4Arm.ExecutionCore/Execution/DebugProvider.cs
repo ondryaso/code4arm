@@ -63,14 +63,14 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsDisassembleRequest = false, // TODO
             SupportsExceptionOptions = false,
             SupportsFunctionBreakpoints = false,    // TODO
-            SupportsInstructionBreakpoints = false, // TODO,
+            SupportsInstructionBreakpoints = false, // TODO
             SupportsLogPoints = true,
             SupportsModulesRequest = false, // TODO?
             SupportsRestartFrame = false,
             SupportsRestartRequest = true,
             SupportsSetExpression = false, // TODO?
             SupportsSetVariable = true,
-            SupportsStepBack = true,
+            SupportsStepBack = false, // TODO
             SupportsSteppingGranularity = false,
             SupportsTerminateRequest = true,
             SupportSuspendDebuggee = false,
@@ -108,7 +108,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return new[]
         {
             new ExceptionBreakpointsFilter()
-                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
+                {Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false}
         };
     }
 
@@ -159,22 +159,34 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
 
-    public StackTraceResponse MakeStackTrace()
+    public async Task<StackTraceResponse> MakeStackTrace()
     {
+        if (_engine.ExecutableInfo == null)
+            throw new InvalidOperationException(); // TODO
+
         var frames = new StackFrame[1];
+
+        var sourceIndex = _engine.CurrentStopSourceIndex;
+        var source = _engine.State == ExecutionState.PausedBreakpoint ? _engine.CurrentBreakpoint?.Source : null;
+
+        if (source is null && _engine.ExecutableInfo.Sources.Count > sourceIndex)
+        {
+            var exeSource = _engine.ExecutableInfo.Sources[sourceIndex];
+            source = await this.GetSource(sourceIndex, exeSource);
+        }
+
         frames[0] = new StackFrame()
         {
             Id = 1,
-            Line = 6,
+            Line = this.LineToClient(_engine.CurrentStopLine),
             CanRestart = false,
             PresentationHint = StackFramePresentationHint.Normal,
-            Source = _engine.CurrentBreakpoint?.Source,
-            Name = "Breakpoint"
+            Source = source,
+            Name = "Current execution state",
+            InstructionPointerReference = _engine.CurrentPc.ToString()
         };
 
-        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
-
-        // TODO
+        var ret = new StackTraceResponse() {StackFrames = new Container<StackFrame>(frames), TotalFrames = 1};
         return ret;
     }
 
@@ -274,17 +286,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         if (exeSources.Count <= sourceReference)
             throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
 
-        var exeSource = exeSources[(int)sourceReference];
+        var exeSource = exeSources[(int) sourceReference];
         using var locatedFile = await exeSource.SourceFile.LocateAsync();
         var contents = await File.ReadAllTextAsync(locatedFile.FileSystemPath);
 
-        return new SourceResponse() { Content = contents };
+        return new SourceResponse() {Content = contents};
     }
 
     private int GetSourceReference(Source? source, [CallerMemberName] string caller = "")
     {
         if (source?.SourceReference is > 0)
-            return (int)source.SourceReference.Value;
+            return (int) source.SourceReference.Value;
 
         if (source?.AdapterData != null)
         {
@@ -304,7 +316,11 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         var i = 1;
         foreach (var exeSource in _engine.ExecutableInfo!.Sources)
         {
-            if (exeSource.ClientPath == source.Path)
+            if (exeSource.ClientPath == null || source.Path == null)
+                continue;
+
+            // TODO: Handle path case sensitivity?
+            if (exeSource.ClientPath.Equals(source.Path, StringComparison.OrdinalIgnoreCase))
                 return i;
 
             i++;
@@ -320,6 +336,22 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return await this.GetSourceContents(reference);
     }
 
+    private async Task<Source> GetSource(int sourceIndex, ExecutableSource exeSource)
+    {
+        var isClientSide = exeSource.ClientPath != null;
+
+        return new Source()
+        {
+            Name = exeSource.SourceFile.Name,
+            Path = exeSource.ClientPath ?? exeSource.SourceFile.Name,
+            Origin = isClientSide ? null : "execution service",
+            //PresentationHint = isClientSide ? null : SourcePresentationHint.Deemphasize,
+            SourceReference = isClientSide ? null : (sourceIndex + 1),
+            Checksums = await MakeChecksums(exeSource),
+            AdapterData = new JValue(sourceIndex + 1)
+        };
+    }
+
     public async Task<IEnumerable<Source>> GetSources()
     {
         var exeSources = _engine.ExecutableInfo?.Sources;
@@ -332,19 +364,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         foreach (var exeSource in exeSources)
         {
-            var isClientSide = exeSource.ClientPath != null;
-
-            ret[i] = new Source()
-            {
-                Name = exeSource.SourceFile.Name,
-                Path = exeSource.ClientPath ?? exeSource.SourceFile.Name,
-                Origin = isClientSide ? null : "execution service",
-                //PresentationHint = isClientSide ? null : SourcePresentationHint.Deemphasize,
-                SourceReference = isClientSide ? null : (i + 1),
-                Checksums = await MakeChecksums(exeSource),
-                AdapterData = new JValue(i + 1)
-            };
-
+            ret[i] = await this.GetSource(i, exeSource);
             i++;
         }
 

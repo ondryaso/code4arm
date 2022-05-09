@@ -10,7 +10,7 @@ public class InvalidExecutionStateException : ExecutionEngineException
     public ExecutionState State { get; }
 
     public InvalidExecutionStateException(Guid executionId, string action, ExecutionState state)
-        : base(executionId, $"Cannot perform '{action}' in execution state {state}.")
+        : base(executionId, $"Cannot perform '{action}' while the execution is in state {state}.")
     {
         State = state;
     }

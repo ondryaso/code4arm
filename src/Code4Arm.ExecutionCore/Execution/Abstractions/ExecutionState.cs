@@ -9,6 +9,7 @@ public enum ExecutionState
     Ready,
     Running,
     Paused,
+    PausedBreakpoint,
     Finished,
     TerminatedManually,
     TerminatedException
