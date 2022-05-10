@@ -3,11 +3,14 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
+using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
@@ -25,12 +28,16 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     private readonly ExecutionEngine _engine;
     private readonly IUnicorn _unicorn;
     private InitializeRequestArguments? _clientInfo;
+    private CultureInfo? _clientCulture;
 
-    public DebugProvider(ExecutionEngine engine, IMediator mediator)
+    public DebugProvider(ExecutionEngine engine, DebuggerOptions options, IMediator mediator)
     {
         _engine = engine;
         _unicorn = engine.Engine;
+        Options = options;
     }
+
+    public DebuggerOptions Options { get; set; }
 
     [MemberNotNull(nameof(_clientInfo))]
     private void CheckInitialized()
@@ -98,6 +105,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     public InitializeResponse Initialize(InitializeRequestArguments clientData)
     {
         _clientInfo = clientData;
+        if (!string.IsNullOrEmpty(clientData.Locale))
+        {
+            try
+            {
+                _clientCulture = CultureInfo.GetCultureInfo(clientData.Locale);
+            }
+            catch (CultureNotFoundException)
+            {
+                _clientCulture = CultureInfo.InvariantCulture;
+            }
+        }
 
         var capabilities = this.MakeCapabilities();
 
@@ -110,7 +128,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return new[]
         {
             new ExceptionBreakpointsFilter()
-                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
+                {Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false}
         };
     }
 
@@ -178,7 +196,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     private Regex _exprRegex =
         new(
-            @"(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
+            @"(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
             RegexOptions.Compiled);
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
@@ -192,9 +210,9 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         // prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants
 
         // Direct addressing: 
-        // [address]
-        // [address, +-Ry]
-        // [address, +-Ry, shift imm]
+        // [address/symbol]
+        // [address/symbol, +-Ry]
+        // [address/symbol, +-Ry, shift imm]
 
         var match = _exprRegex.Match(expression);
 
@@ -208,7 +226,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         {
             var addrStr = match.Groups["baseA"].Value;
             var style = NumberStyles.None;
-            
+
             if (addrStr.StartsWith("0x"))
             {
                 addrStr = addrStr[2..];
@@ -242,7 +260,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             ret = val.ToString();
         }
 
-        return new EvaluateResponse() { Result = ret };
+        return new EvaluateResponse() {Result = ret};
     }
 
 
@@ -273,28 +291,126 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             InstructionPointerReference = _engine.CurrentPc.ToString()
         };
 
-        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
+        var ret = new StackTraceResponse() {StackFrames = new Container<StackFrame>(frames), TotalFrames = 1};
 
         return ret;
     }
 
+    private enum ContainerType : uint
+    {
+        Registers = 1,
+        ControlRegisters,
+        SimdRegisters,
+        Symbols,
+        Stack,
+
+        RegisterSubtypes,
+        RegisterSubtypesValues,
+        SimdRegisterSubtypes,
+        SimdRegisterSubtypesValues,
+
+        ControlFlags,
+
+        StackSubtypes,
+        StackSubtypesValues
+    }
+
+    private enum Subtype : uint
+    {
+        ByteU = 0,
+        ByteS,
+        ShortU,
+        ShortS,
+        IntU,
+        IntS,
+        LongU,
+        LongS,
+        Float,
+        Double
+    }
+
+    /// <summary>
+    /// Returns the difference between SP and stack top in bytes.
+    /// Returns 0 if the value of SP indicates it is not used as the stack pointer.
+    /// </summary>
+    private uint GetStackSize()
+    {
+        if (_engine.Options.StackPointerType != StackPointerType.FullDescending)
+            return 0; // TODO: support other stack types?
+
+        var top = _engine.StackTopAddress;
+        var currentSp = _engine.Engine.RegRead<uint>(Arm.Register.SP);
+
+        if (currentSp > top)
+            return 0;
+
+        return top - currentSp;
+    }
+
     public ScopesResponse MakeVariableScopes()
     {
-        return new ScopesResponse()
+        var ret = new List<Scope>();
+
+        if (Options.EnableRegistersVariables)
         {
-            Scopes = new Container<Scope>(new Scope()
+            ret.Add(new Scope()
             {
                 Name = "Registers",
-                NamedVariables = 15,
-                VariablesReference = 1,
+                NamedVariables = 14,
+                VariablesReference = MakeReference(ContainerType.Registers),
                 PresentationHint = "registers"
-            }, new Scope()
+            });
+        }
+
+        if (Options.EnableControlVariables)
+        {
+            // Basic: PC, CPSR, FPSCR
+            // Extended: + APSR, SPSR, ITSTATE, FPEXC, FPINST, FPINST2, FPSID, MVFR0-2 
+            var count = Options.EnableExtendedControlVariables ? 11 : 3;
+
+            ret.Add(new Scope()
             {
-                Name = "Data",
-                NamedVariables = 2,
-                VariablesReference = 2,
-                PresentationHint = "locals"
-            })
+                Name = "CPU state",
+                NamedVariables = count,
+                VariablesReference = MakeReference(ContainerType.ControlRegisters),
+                PresentationHint = "registers"
+            });
+        }
+
+        if (Options.EnableSimdVariables)
+        {
+            ret.Add(new Scope()
+            {
+                Name = "SIMD/FP registers",
+                NamedVariables = 16,
+                VariablesReference = MakeReference(ContainerType.SimdRegisters),
+                PresentationHint = "registers"
+            });
+        }
+
+        if (Options.EnableStackVariables)
+        {
+            var currentSize = this.GetStackSize();
+            if (currentSize != 0)
+            {
+                ret.Add(new Scope()
+                {
+                    Name = "Stack",
+                    IndexedVariables = currentSize / 4,
+                    VariablesReference = MakeReference(ContainerType.Stack),
+                    PresentationHint = "locals"
+                });
+            }
+        }
+
+        if (Options.EnableAutomaticDataVariables)
+        {
+            // TODO   
+        }
+
+        return new ScopesResponse()
+        {
+            Scopes = new Container<Scope>(ret)
         };
     }
 
@@ -304,95 +420,241 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
         throw new NotImplementedException();
 
-    public IEnumerable<Variable> GetChildVariables(long containerId, string parentVariableName, long? start,
-        long? count, ValueFormat? format) =>
-        Enumerable.Empty<Variable>(); // TODO
+
+    private void MakeRegistersVariables(List<Variable> ret, ValueFormat? format, int start, int count)
+    {
+        var end = start + count;
+        var isBinary = Options.VariableNumberFormat == VariableNumberFormat.Binary;
+
+        for (var i = start; i < end; i++)
+        {
+            var regValue = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(i));
+            var value = isBinary
+                ? Convert.ToString(regValue, 2)
+                : this.FormatVariable(regValue, format);
+
+            ret.Add(new Variable()
+            {
+                Name = "R" + i,
+                Type = "unsigned int",
+                Value = value,
+                VariablesReference = isBinary ? 0 : MakeReference(ContainerType.RegisterSubtypes, i)
+            });
+        }
+    }
+
+    private void MakeSubtypeValueVariables<T>(List<Variable> ret, ValueFormat? format, uint baseValue)
+        where T : struct
+    {
+        // TODO: this is not big-endian friendly
+
+        Span<uint> baseSpan = stackalloc uint[1];
+
+        baseSpan[0] = baseValue;
+
+        var values = MemoryMarshal.Cast<uint, T>(baseSpan);
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            var val = values[i];
+            var valS = this.FormatVariable(val, format);
+
+            ret.Add(new Variable()
+            {
+                Name = $"[{i}]",
+                Value = valS
+            });
+        }
+    }
+
+    private void MakeSubtypeVariables(List<Variable> ret, ValueFormat? format, uint baseValue, long baseReference,
+        ContainerType targetContainerType)
+    {
+        ret.Add(new Variable()
+        {
+            Name = "unsigned bytes",
+            Value = string.Empty,
+            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
+                Subtype.ByteU)
+        });
+
+        ret.Add(new Variable()
+        {
+            Name = "signed bytes",
+            Value = string.Empty,
+            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
+                Subtype.ByteS)
+        });
+
+        ret.Add(new Variable()
+        {
+            Name = "unsigned shorts",
+            Value = string.Empty,
+            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
+                Subtype.ShortU)
+        });
+
+        ret.Add(new Variable()
+        {
+            Name = "signed shorts",
+            Value = string.Empty,
+            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
+                Subtype.ShortS)
+        });
+
+        ret.Add(new Variable()
+        {
+            Name = "unsigned int",
+            Value = this.FormatVariable(baseValue, format)
+        });
+
+        ret.Add(new Variable()
+        {
+            Name = "signed int",
+            Value = this.FormatVariable(Unsafe.As<uint, int>(ref baseValue), format)
+        });
+
+        ret.Add(new Variable()
+        {
+            Name = "float",
+            Value = this.FormatVariable(Unsafe.As<uint, float>(ref baseValue), format)
+        });
+    }
+
+    private void MakeStackVariables(List<Variable> ret, ValueFormat? format)
+    {
+        // TODO: support other stack types?
+
+        var stack = this.GetStackSize();
+
+        if (stack == 0)
+            return;
+
+        for (var i = 0; i < stack; i += 4)
+        {
+            var address = (uint) (_engine.StackTopAddress - 4 - i);
+
+            ret.Add(new Variable()
+            {
+                Name = $"[{i}]",
+                Value = string.Empty,
+                EvaluateName = $"[SP,{i}]",
+                VariablesReference = MakeReference(ContainerType.StackSubtypes, address)
+            });
+        }
+    }
+
+    private static long MakeReference(ContainerType containerType, int regId = 0, Subtype subtype = 0)
+    {
+        var ret = (((ulong) containerType) & 0xF) | ((((ulong) subtype) & 0xF) << 4) | ((((uint) regId) & 0x1F) << 8);
+
+        return Unsafe.As<ulong, long>(ref ret);
+    }
+
+    private static long MakeReference(ContainerType containerType, uint address, Subtype subtype = 0)
+    {
+        var ret = (((ulong) containerType) & 0xF) | ((((ulong) subtype) & 0xF) << 4) | (((ulong) address) << 8);
+
+        return Unsafe.As<ulong, long>(ref ret);
+    }
+
+    private static int GetRegisterId(long variablesReference)
+        => unchecked((int) ((((ulong) variablesReference) >> 8) & 0x1F));
+
+    private static uint GetTargetAddress(long variablesReference)
+        => unchecked((uint) ((((ulong) variablesReference) >> 8) & 0xFFFFFFFF));
 
     public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
         ValueFormat? format)
     {
-        var hex = (format?.Hex ?? false) ? "x" : "";
+        var containerType = (ContainerType) (variablesReference & 0xF);
+        var typeId = (Subtype) ((variablesReference >> 4) & 0xF);
+        var regId = GetRegisterId(variablesReference);
+        var targetAddress = GetTargetAddress(variablesReference);
 
-        if (variablesReference == 1)
+        var hex = format?.Hex ?? false;
+        var ret = new List<Variable>();
+
+        switch (containerType)
         {
-            var toRet = count.HasValue ? Math.Min(count.Value, 16) : 16;
-            for (var i = 0; i < toRet; i++)
+            case ContainerType.Registers:
+                this.MakeRegistersVariables(ret, format, (int) (start ?? 0), (int) (count ?? 15));
+
+                break;
+            case ContainerType.ControlRegisters:
+                break;
+            case ContainerType.SimdRegisters:
+                break;
+            case ContainerType.Symbols:
+                break;
+            case ContainerType.Stack:
+                this.MakeStackVariables(ret, format);
+
+                break;
+            case ContainerType.RegisterSubtypes:
             {
-                yield return new Variable()
-                {
-                    Name = "R" + i,
-                    Type = "General-purpose register",
-                    Value = (_engine.Engine.RegRead<int>(Arm.Register.GetRegister(i))).ToString(hex),
-                    VariablesReference = 1000 + i
-                };
+                var regVal = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(regId));
+                this.MakeSubtypeVariables(ret, format, regVal, variablesReference,
+                    ContainerType.RegisterSubtypesValues);
+
+                break;
             }
+            case ContainerType.RegisterSubtypesValues:
+            {
+                var regVal = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(regId));
+                this.MakeSubtypeValueVariables(ret, format, regVal, typeId);
+
+                break;
+            }
+            case ContainerType.SimdRegisterSubtypes:
+                break;
+            case ContainerType.SimdRegisterSubtypesValues:
+                break;
+            case ContainerType.ControlFlags:
+                break;
+            case ContainerType.StackSubtypes:
+            {
+                var memVal = _engine.Engine.MemReadDirect<uint>(targetAddress);
+                this.MakeSubtypeVariables(ret, format, memVal, variablesReference, ContainerType.StackSubtypesValues);
+
+                break;
+            }
+            case ContainerType.StackSubtypesValues:
+            {
+                var memVal = _engine.Engine.MemReadDirect<uint>(targetAddress);
+                this.MakeSubtypeValueVariables(ret, format, memVal, typeId);
+
+                break;
+            }
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
-        if (variablesReference == 2)
+        return ret;
+    }
+
+    private void MakeSubtypeValueVariables(List<Variable> ret, ValueFormat? format, uint regVal, Subtype typeId)
+    {
+        switch (typeId)
         {
-            yield return new Variable()
-            {
-                Name = "Test 1",
-                Type = "Memory",
-                Value = (456121).ToString(hex)
-            };
+            case Subtype.ByteU:
+                this.MakeSubtypeValueVariables<byte>(ret, format, regVal);
 
-            yield return new Variable()
-            {
-                Name = "Test 2",
-                Type = "Memory",
-                Value = (787878).ToString(hex)
-            };
-        }
+                break;
+            case Subtype.ByteS:
+                this.MakeSubtypeValueVariables<sbyte>(ret, format, regVal);
 
-        if (variablesReference >= 1000)
-        {
-            var reg = variablesReference - 1000;
-            var regVal = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister((int)reg));
-            var regValB = (byte)(regVal & 0xFF);
-            var regValS = (ushort)(regVal & 0xFFFF);
+                break;
+            case Subtype.ShortU:
+                this.MakeSubtypeValueVariables<ushort>(ret, format, regVal);
 
-            yield return new Variable()
-            {
-                Name = "byte",
-                Value = regValB.ToString(hex)
-            };
+                break;
+            case Subtype.ShortS:
+                this.MakeSubtypeValueVariables<short>(ret, format, regVal);
 
-            yield return new Variable()
-            {
-                Name = "sbyte",
-                Value = Unsafe.As<byte, sbyte>(ref regValB).ToString(hex)
-            };
-
-            yield return new Variable()
-            {
-                Name = "ushort",
-                Value = regValS.ToString(hex)
-            };
-
-            yield return new Variable()
-            {
-                Name = "short",
-                Value = Unsafe.As<ushort, short>(ref regValS).ToString(hex)
-            };
-
-            yield return new Variable()
-            {
-                Name = "uint",
-                Value = regVal.ToString(hex)
-            };
-
-            yield return new Variable()
-            {
-                Name = "int",
-                Value = Unsafe.As<uint, int>(ref regVal).ToString(hex)
-            };
-
-            yield return new Variable()
-            {
-                Name = "float",
-                Value = Unsafe.As<uint, float>(ref regVal).ToString()
-            };
+                break;
+            default:
+                throw new InvalidOperationException();
         }
     }
 
@@ -400,6 +662,42 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         long? instructionOffset, long instructionCount,
         bool resolveSymbols) =>
         throw new NotImplementedException();
+
+    #region Variable Formatting
+
+    private string FormatVariable<T>(T variable, ValueFormat? format) where T : struct
+    {
+        if ((format?.Hex ?? false) || Options.VariableNumberFormat == VariableNumberFormat.Hex)
+            return this.FormatHex(variable);
+        
+        if (Options.VariableNumberFormat == VariableNumberFormat.Binary)
+        {
+            Span<long> tmp = stackalloc long[1];
+            Span<T> tmpTarget = MemoryMarshal.Cast<long, T>(tmp);
+
+            tmp[0] = 0;
+            tmpTarget[0] = variable;
+
+            return Convert.ToString(tmp[0], 2);
+        }
+
+        return variable.ToString()!;
+    }
+
+    private string FormatHex<T>(T variable) where T : struct
+    {
+        return variable switch
+        {
+            sbyte x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
+            short x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
+            int x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
+            long x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
+            float x => x.ToString(_clientCulture),
+            _ => string.Format(_clientCulture, "0x{0:x}", variable)
+        };
+    }
+
+    #endregion
 
     #region Memory
 
@@ -426,17 +724,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         if (exeSources.Count <= sourceReference)
             throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
 
-        var exeSource = exeSources[(int)sourceReference];
+        var exeSource = exeSources[(int) sourceReference];
         using var locatedFile = await exeSource.SourceFile.LocateAsync();
         var contents = await File.ReadAllTextAsync(locatedFile.FileSystemPath);
 
-        return new SourceResponse() { Content = contents };
+        return new SourceResponse() {Content = contents};
     }
 
     private int GetSourceReference(Source? source, [CallerMemberName] string caller = "")
     {
         if (source?.SourceReference is > 0)
-            return (int)source.SourceReference.Value;
+            return (int) source.SourceReference.Value;
 
         if (source?.AdapterData != null)
         {

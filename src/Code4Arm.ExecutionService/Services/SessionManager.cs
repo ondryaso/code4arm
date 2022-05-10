@@ -85,8 +85,8 @@ public class Session : IDisposable
         var remoteLoggerFactory = _manager.GetRemoteLoggerFactory(ConnectionId);
         var clientLogger = remoteLoggerFactory.CreateLogger("Code4Arm.ExecutionEngine");
 
-        _engine = new ExecutionEngine(new ExecutionOptions(), _mediator,
-            _loggerFactory.CreateLogger<ExecutionEngine>(), clientLogger);
+        _engine = new ExecutionEngine(new ExecutionOptions(), new DebuggerOptions(),
+            _mediator, _loggerFactory.CreateLogger<ExecutionEngine>(), clientLogger);
 
         return _engine;
     }

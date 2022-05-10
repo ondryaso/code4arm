@@ -1,6 +1,7 @@
 // IDebugProvider.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 
@@ -8,6 +9,8 @@ namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 
 public interface IDebugProvider
 {
+    DebuggerOptions Options { get; set; }
+
     InitializeResponse Initialize(InitializeRequestArguments clientData);
 
     IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column);
@@ -22,9 +25,6 @@ public interface IDebugProvider
     IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters();
     ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset);
     WriteMemoryResponse WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded);
-
-    IEnumerable<Variable> GetChildVariables(long containerId, string parentVariableName, long? start, long? count,
-        ValueFormat? format);
 
     IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count, ValueFormat? format);
 

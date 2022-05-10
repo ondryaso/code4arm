@@ -93,6 +93,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public uint StackTopAddress { get; private set; }
     public uint StackEndAddress { get; private set; }
 
+    internal ExecutionOptions Options => _options;
+
     public IReadOnlyList<MemorySegment> Segments =>
         _segments as IReadOnlyList<MemorySegment> ?? ImmutableList<MemorySegment>.Empty;
 
@@ -102,7 +104,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public Stream EmulatedInput => InputMemoryStream;
     public Stream EmulatedOutput => OutputMemoryStream;
 
-    public ExecutionEngine(ExecutionOptions options, IMediator mediator,
+    public ExecutionEngine(ExecutionOptions options, DebuggerOptions debuggerOptions, IMediator mediator,
         ILogger<ExecutionEngine> systemLogger, ILogger clientLogger)
     {
         _options = options;
@@ -120,7 +122,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _clientLogger = clientLogger;
         ExecutionId = Guid.NewGuid();
 
-        _debugProvider = new DebugProvider(this, _mediator);
+        _debugProvider = new DebugProvider(this, debuggerOptions, _mediator);
     }
 
     private IUnicorn MakeUnicorn()

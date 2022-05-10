@@ -57,6 +57,20 @@ public record VariablePresentationHint
     /// </summary>
     [Optional]
     public VariableVisibility? Visibility { get; init; }
+
+    /// <summary>
+    /// If true, clients can present the variable with a UI that supports a
+    /// specific gesture to trigger its evaluation.
+    /// This mechanism can be used for properties that require executing code when
+    /// retrieving their value and where the code execution can be expensive and/or
+    /// produce side-effects. A typical example are properties based on a getter
+    /// function.
+    /// Please note that in addition to the 'lazy' flag, the variable's
+    /// 'variablesReference' must refer to a variable that will provide the value
+    /// through another 'variable' request.
+    /// </summary>
+    [Optional]
+    public bool Lazy { get; init; }
 }
 
 public class VariablePresentationHintKind : StringEnum<VariablePresentationHintKind>
@@ -71,6 +85,7 @@ public class VariablePresentationHintKind : StringEnum<VariablePresentationHintK
     public static readonly VariablePresentationHintKind Interface = Create("interface");
     public static readonly VariablePresentationHintKind MostDerivedClass = Create("mostDerivedClass");
     public static readonly VariablePresentationHintKind Virtual = Create("virtual");
+
     [Obsolete("The 'hasDataBreakpoint' attribute should generally be used instead.")]
     public static readonly VariablePresentationHintKind DataBreakpoint = Create("dataBreakpoint");
 }
