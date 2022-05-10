@@ -110,7 +110,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return new[]
         {
             new ExceptionBreakpointsFilter()
-                {Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false}
+                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
         };
     }
 
@@ -134,17 +134,35 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         {
             var regId = int.Parse(variableName[1..]);
             var isHex = format?.Hex ?? false;
+            string newVal;
 
-            if (!int.TryParse(value, isHex ? NumberStyles.HexNumber : NumberStyles.Integer,
+            if (int.TryParse(value, isHex ? NumberStyles.HexNumber : NumberStyles.Integer,
                     NumberFormatInfo.InvariantInfo, out var val))
+            {
+                _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), val);
+                newVal = val.ToString(isHex ? "x" : "");
+            }
+            else if (uint.TryParse(value, isHex ? NumberStyles.HexNumber : NumberStyles.Integer,
+                         NumberFormatInfo.InvariantInfo, out var valU))
+            {
+                _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), valU);
+                newVal = valU.ToString(isHex ? "x" : "");
+            }
+            else if (float.TryParse(value, out var valF))
+            {
+                _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), valF);
+                newVal = valF.ToString();
+            }
+            else
+            {
                 throw new InvalidValueException();
-
-            _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), val);
+            }
 
             return new SetVariableResponse()
             {
-                Value = val.ToString(isHex ? "x" : ""),
-                Type = "General-purpose register"
+                Value = newVal,
+                Type = "General-purpose register",
+                VariablesReference = 1000 + regId
             };
         }
 
@@ -160,18 +178,23 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     private Regex _exprRegex =
         new(
-            @"(?:\((?<type>[\w ]*?)\))?\s*\[\s*R(?<base>[0-9]{1,2})(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
+            @"(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
             RegexOptions.Compiled);
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
     {
-        // Expression variants:
+        // Register expression variants:
         // [Rx]
         // [Rx, +-Ry]
         // [Rx, +-Ry, shift imm]
         // [Rx, +-imm]
         // prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants
+
+        // Direct addressing: 
+        // [address]
+        // [address, +-Ry]
+        // [address, +-Ry, shift imm]
 
         var match = _exprRegex.Match(expression);
 
@@ -180,12 +203,31 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         // TODO
 
-        var regStr = match.Groups["base"].Value;
+        uint address;
+        if (!match.Groups["base"].Success || match.Groups["base"].Value.Length == 0)
+        {
+            var addrStr = match.Groups["baseA"].Value;
+            var style = NumberStyles.None;
+            
+            if (addrStr.StartsWith("0x"))
+            {
+                addrStr = addrStr[2..];
+                style = NumberStyles.HexNumber;
+            }
 
-        if (!int.TryParse(regStr, out var reg) || reg < 0 || reg > 15)
-            throw new InvalidExpressionException();
+            if (!uint.TryParse(addrStr, style, null, out address))
+                throw new InvalidExpressionException();
+        }
+        else
+        {
+            var regStr = match.Groups["base"].Value;
 
-        var address = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(reg));
+            if (!int.TryParse(regStr, out var reg) || reg < 0 || reg > 15)
+                throw new InvalidExpressionException();
+
+            address = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(reg));
+        }
+
         var isUint = match.Groups["type"].Value == "uint";
         string ret;
 
@@ -200,7 +242,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             ret = val.ToString();
         }
 
-        return new EvaluateResponse() {Result = ret};
+        return new EvaluateResponse() { Result = ret };
     }
 
 
@@ -231,7 +273,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             InstructionPointerReference = _engine.CurrentPc.ToString()
         };
 
-        var ret = new StackTraceResponse() {StackFrames = new Container<StackFrame>(frames), TotalFrames = 1};
+        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
 
         return ret;
     }
@@ -269,6 +311,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
         ValueFormat? format)
     {
+        var hex = (format?.Hex ?? false) ? "x" : "";
+
         if (variablesReference == 1)
         {
             var toRet = count.HasValue ? Math.Min(count.Value, 16) : 16;
@@ -278,8 +322,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                 {
                     Name = "R" + i,
                     Type = "General-purpose register",
-                    Value = (_engine.Engine.RegRead<int>(Arm.Register.GetRegister(i)))
-                        .ToString((format?.Hex ?? false) ? "x" : "")
+                    Value = (_engine.Engine.RegRead<int>(Arm.Register.GetRegister(i))).ToString(hex),
+                    VariablesReference = 1000 + i
                 };
             }
         }
@@ -290,14 +334,64 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             {
                 Name = "Test 1",
                 Type = "Memory",
-                Value = (456121).ToString((format?.Hex ?? false) ? "x" : "")
+                Value = (456121).ToString(hex)
             };
 
             yield return new Variable()
             {
                 Name = "Test 2",
                 Type = "Memory",
-                Value = (787878).ToString((format?.Hex ?? false) ? "x" : "")
+                Value = (787878).ToString(hex)
+            };
+        }
+
+        if (variablesReference >= 1000)
+        {
+            var reg = variablesReference - 1000;
+            var regVal = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister((int)reg));
+            var regValB = (byte)(regVal & 0xFF);
+            var regValS = (ushort)(regVal & 0xFFFF);
+
+            yield return new Variable()
+            {
+                Name = "byte",
+                Value = regValB.ToString(hex)
+            };
+
+            yield return new Variable()
+            {
+                Name = "sbyte",
+                Value = Unsafe.As<byte, sbyte>(ref regValB).ToString(hex)
+            };
+
+            yield return new Variable()
+            {
+                Name = "ushort",
+                Value = regValS.ToString(hex)
+            };
+
+            yield return new Variable()
+            {
+                Name = "short",
+                Value = Unsafe.As<ushort, short>(ref regValS).ToString(hex)
+            };
+
+            yield return new Variable()
+            {
+                Name = "uint",
+                Value = regVal.ToString(hex)
+            };
+
+            yield return new Variable()
+            {
+                Name = "int",
+                Value = Unsafe.As<uint, int>(ref regVal).ToString(hex)
+            };
+
+            yield return new Variable()
+            {
+                Name = "float",
+                Value = Unsafe.As<uint, float>(ref regVal).ToString()
             };
         }
     }
@@ -332,17 +426,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         if (exeSources.Count <= sourceReference)
             throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
 
-        var exeSource = exeSources[(int) sourceReference];
+        var exeSource = exeSources[(int)sourceReference];
         using var locatedFile = await exeSource.SourceFile.LocateAsync();
         var contents = await File.ReadAllTextAsync(locatedFile.FileSystemPath);
 
-        return new SourceResponse() {Content = contents};
+        return new SourceResponse() { Content = contents };
     }
 
     private int GetSourceReference(Source? source, [CallerMemberName] string caller = "")
     {
         if (source?.SourceReference is > 0)
-            return (int) source.SourceReference.Value;
+            return (int)source.SourceReference.Value;
 
         if (source?.AdapterData != null)
         {
