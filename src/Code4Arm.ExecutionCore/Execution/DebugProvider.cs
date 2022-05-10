@@ -5,12 +5,14 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
+using Code4Arm.Unicorn.Abstractions.Extensions;
 using Code4Arm.Unicorn.Constants;
 using MediatR;
 using Newtonsoft.Json.Linq;
@@ -154,10 +156,53 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
 
-    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
-        ValueFormat? format) => throw new NotImplementedException();
-
     public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
+
+    private Regex _exprRegex =
+        new(
+            @"(?:\((?<type>[\w ]*?)\))?\s*\[\s*R(?<base>[0-9]{1,2})(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
+            RegexOptions.Compiled);
+
+    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
+        ValueFormat? format)
+    {
+        // Expression variants:
+        // [Rx]
+        // [Rx, +-Ry]
+        // [Rx, +-Ry, shift imm]
+        // [Rx, +-imm]
+        // prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants
+
+        var match = _exprRegex.Match(expression);
+
+        if (!match.Success)
+            throw new InvalidExpressionException();
+
+        // TODO
+
+        var regStr = match.Groups["base"].Value;
+
+        if (!int.TryParse(regStr, out var reg) || reg < 0 || reg > 15)
+            throw new InvalidExpressionException();
+
+        var address = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(reg));
+        var isUint = match.Groups["type"].Value == "uint";
+        string ret;
+
+        if (isUint)
+        {
+            var val = _engine.Engine.MemReadDirect<uint>(address);
+            ret = val.ToString();
+        }
+        else
+        {
+            var val = _engine.Engine.MemReadDirect<int>(address);
+            ret = val.ToString();
+        }
+
+        return new EvaluateResponse() {Result = ret};
+    }
+
 
     public async Task<StackTraceResponse> MakeStackTrace()
     {
@@ -187,6 +232,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         };
 
         var ret = new StackTraceResponse() {StackFrames = new Container<StackFrame>(frames), TotalFrames = 1};
+
         return ret;
     }
 
