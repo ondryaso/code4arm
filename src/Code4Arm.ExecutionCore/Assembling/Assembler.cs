@@ -78,6 +78,7 @@ public class Assembler : IAssembler
 
         gasStartInfo.ArgumentList.Add("-alscn");
         gasStartInfo.ArgumentList.Add("-g");
+        gasStartInfo.ArgumentList.Add("-march=armv8.6-a+fp+simd");
         gasStartInfo.ArgumentList.Add("-o");
         gasStartInfo.ArgumentList.Add(outputFile);
 

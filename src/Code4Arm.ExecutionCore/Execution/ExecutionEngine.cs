@@ -901,6 +901,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
 
         Engine.RegWrite(Arm.Register.SP, StackTopAddress);
+        
+        // VFP
+        // The first write is not needed?
+        var tmp = Engine.RegRead<uint>(Arm.Register.C1_C0_2);
+        tmp |= (0xF << 20);
+        Engine.RegWrite(Arm.Register.C1_C0_2, tmp);
+        Engine.RegWrite(Arm.Register.FPEXC, 0x40000000);
     }
 
     public async Task InitLaunch(bool debug, int enterTimeout = Timeout.Infinite, bool waitForLaunch = true)

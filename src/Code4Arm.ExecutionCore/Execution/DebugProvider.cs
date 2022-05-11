@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -11,6 +10,7 @@ using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
+using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
@@ -19,7 +19,6 @@ using Code4Arm.Unicorn.Abstractions.Extensions;
 using Code4Arm.Unicorn.Constants;
 using MediatR;
 using Newtonsoft.Json.Linq;
-using ExecutionEngineException = Code4Arm.ExecutionCore.Execution.Exceptions.ExecutionEngineException;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
@@ -29,6 +28,9 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     private readonly IUnicorn _unicorn;
     private InitializeRequestArguments? _clientInfo;
     private CultureInfo? _clientCulture;
+
+    private Dictionary<long, IVariable> _variables = new();
+    private Dictionary<string, IVariable> _topLevel = new();
 
     public DebugProvider(ExecutionEngine engine, DebuggerOptions options, IMediator mediator)
     {
@@ -128,7 +130,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return new[]
         {
             new ExceptionBreakpointsFilter()
-                {Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false}
+                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
         };
     }
 
@@ -147,44 +149,34 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     /// <returns></returns>
     public SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format)
     {
-        // TODO
-        if (containerId == 1)
+        IVariable targetVariable;
+
+        if (containerId == ReferenceUtils.MakeReference(ContainerType.Registers))
         {
-            var regId = int.Parse(variableName[1..]);
-            var isHex = format?.Hex ?? false;
-            string newVal;
+            if (!_topLevel.TryGetValue(variableName, out targetVariable!))
+                throw new InvalidVariableReferenceException();
+        }
+        else
+        {
+            if (!_variables.TryGetValue(containerId, out var parentVariable))
+                throw new InvalidVariableReferenceException();
 
-            if (int.TryParse(value, isHex ? NumberStyles.HexNumber : NumberStyles.Integer,
-                    NumberFormatInfo.InvariantInfo, out var val))
-            {
-                _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), val);
-                newVal = val.ToString(isHex ? "x" : "");
-            }
-            else if (uint.TryParse(value, isHex ? NumberStyles.HexNumber : NumberStyles.Integer,
-                         NumberFormatInfo.InvariantInfo, out var valU))
-            {
-                _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), valU);
-                newVal = valU.ToString(isHex ? "x" : "");
-            }
-            else if (float.TryParse(value, out var valF))
-            {
-                _engine.Engine.RegWrite(Arm.Register.GetRegister(regId), valF);
-                newVal = valF.ToString();
-            }
-            else
-            {
-                throw new InvalidValueException();
-            }
-
-            return new SetVariableResponse()
-            {
-                Value = newVal,
-                Type = "General-purpose register",
-                VariablesReference = 1000 + regId
-            };
+            if (!(parentVariable.Children?.TryGetValue(variableName, out targetVariable!) ?? false))
+                throw new InvalidVariableReferenceException();
         }
 
-        throw new InvalidVariableReferenceException();
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        targetVariable.Set(value, ctx);
+
+        targetVariable.Evaluate(ctx);
+
+        return new SetVariableResponse()
+        {
+            Value = targetVariable.Get(ctx),
+            Type = targetVariable.Type,
+            NamedVariables = targetVariable.Children?.Count,
+            VariablesReference = targetVariable.Reference
+        };
     }
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
@@ -272,9 +264,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             ret = val.ToString();
         }
 
-        return new EvaluateResponse() {Result = ret};
+        return new EvaluateResponse() { Result = ret };
     }
-
 
     public async Task<StackTraceResponse> MakeStackTrace()
     {
@@ -303,43 +294,16 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             InstructionPointerReference = _engine.CurrentPc.ToString()
         };
 
-        var ret = new StackTraceResponse() {StackFrames = new Container<StackFrame>(frames), TotalFrames = 1};
+        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
 
         return ret;
     }
 
-    private enum ContainerType : uint
-    {
-        Registers = 1,
-        ControlRegisters,
-        SimdRegisters,
-        Symbols,
-        Stack,
+    public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
+        throw new NotImplementedException();
 
-        RegisterSubtypes,
-        RegisterSubtypesValues,
-        SimdRegisterSubtypes,
-        SimdRegisterSubtypesValues,
-
-        ControlFlags,
-
-        StackSubtypes,
-        StackSubtypesValues
-    }
-
-    private enum Subtype : uint
-    {
-        ByteU = 0,
-        ByteS,
-        ShortU,
-        ShortS,
-        IntU,
-        IntS,
-        LongU,
-        LongS,
-        Float,
-        Double
-    }
+    public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
+        throw new NotImplementedException();
 
     /// <summary>
     /// Returns the difference between SP and stack top in bytes.
@@ -369,22 +333,22 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             {
                 Name = "Registers",
                 NamedVariables = 14,
-                VariablesReference = MakeReference(ContainerType.Registers),
+                VariablesReference = ReferenceUtils.MakeReference(ContainerType.Registers),
                 PresentationHint = "registers"
             });
         }
 
         if (Options.EnableControlVariables)
         {
-            // Basic: PC, APSR, FPSCR
-            // Extended: + CPSR, FPEXC, FPINST, FPINST2, FPSID, MVFR0-2 
+            // Basic: PC, APSR
+            // Extended: + CPSR, FPEXC, FPSCR; MVFRx are not returned by unicorn
             var count = Options.EnableExtendedControlVariables ? 11 : 3;
 
             ret.Add(new Scope()
             {
                 Name = "CPU state",
                 NamedVariables = count,
-                VariablesReference = MakeReference(ContainerType.ControlRegisters),
+                VariablesReference = ReferenceUtils.MakeReference(ContainerType.ControlRegisters),
                 PresentationHint = "registers"
             });
         }
@@ -395,7 +359,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             {
                 Name = "SIMD/FP registers",
                 NamedVariables = 16,
-                VariablesReference = MakeReference(ContainerType.SimdRegisters),
+                VariablesReference = ReferenceUtils.MakeReference(ContainerType.SimdRegisters),
                 PresentationHint = "registers"
             });
         }
@@ -409,7 +373,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                 {
                     Name = "Stack",
                     IndexedVariables = currentSize / 4,
-                    VariablesReference = MakeReference(ContainerType.Stack),
+                    VariablesReference = ReferenceUtils.MakeReference(ContainerType.Stack),
                     PresentationHint = "locals"
                 });
             }
@@ -426,309 +390,106 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         };
     }
 
-    public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
-        throw new NotImplementedException();
-
-    public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
-        throw new NotImplementedException();
-
-    private void MakeControlRegistersVariables(List<Variable> ret)
+    private void MakeControlRegistersVariables(List<Variable> ret, ValueFormat? format)
     {
-        var apsr = _engine.Engine.RegRead<uint>(Arm.Register.APSR);
-        ret.Add(new Variable()
-        {
-            Name = "APSR",
-            Type = "Application Processor State Register",
-            Value = $"0x{apsr:x}",
-            VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.APSR)
-        });
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
 
-        var pc = _engine.Engine.RegRead<uint>(Arm.Register.PC);
-        ret.Add(new Variable()
-        {
-            Name = "PC",
-            Type = "Program Counter (R15)",
-            Value = $"0x{pc:x}"
-        });
+        ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.APSR),
+            () => new ControlRegisterVariable(Arm.Register.APSR, "APSR", "Application Processor State Register",
+                new ControlRegisterFlag(31, "N", "Negative"),
+                new ControlRegisterFlag(30, "Z", "Zero"),
+                new ControlRegisterFlag(29, "C", "Carry"),
+                new ControlRegisterFlag(28, "V", "Overflow"),
+                new ControlRegisterFlag(27, "Q", "Cumulative saturation"),
+                new ControlRegisterFlag(16, 4, "GE", "Greater than or Equal")
+            ), true).GetAsProtocol(ctx, true));
+
+        ret.Add(this.GetOrAddTopLevelVariable("PC",
+                        () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
+                    .GetAsProtocol(ctx, true));
 
         if (Options.EnableExtendedControlVariables)
         {
-            // Extended: + CPSR, FPEXC, FPSCR, MVFR0-2 
+            ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR),
+                () => new ControlRegisterVariable(Arm.Register.CPSR, "CPSR", "Current Processor State Register",
+                    new ControlRegisterFlag(31, "N", "Negative"),
+                    new ControlRegisterFlag(30, "Z", "Zero"),
+                    new ControlRegisterFlag(29, "C", "Carry"),
+                    new ControlRegisterFlag(28, "V", "Overflow"),
+                    new ControlRegisterFlag(27, "Q", "Cumulative saturation"),
+                    new ControlRegisterFlag(23, "SSBS", "Speculative Store Bypass Safe"),
+                    new ControlRegisterFlag(22, "PAN", "Privileged Access Never"),
+                    new ControlRegisterFlag(21, "DIT", "Data Independent Timing"),
+                    new ControlRegisterFlag(16, 4, "GE", "Greater than or Equal"),
+                    new ControlRegisterFlag(9, "E", "Endianness state"),
+                    new ControlRegisterFlag(8, "A", "SError interrupt mask"),
+                    new ControlRegisterFlag(7, "I", "IRQ mask"),
+                    new ControlRegisterFlag(6, "F", "FIQ mask"),
+                    new ControlRegisterFlag(0, 4, "M", "Current PE mode",
+                        "User", "FIQ", "IRQ", "Supervisor", "Monitor", "Abort", "Hypervisor", "Undefined", "System")
+                ), true).GetAsProtocol(ctx, true));
 
-            var cpsr = _engine.Engine.RegRead<uint>(Arm.Register.CPSR);
-            ret.Add(new Variable()
-            {
-                Name = "CPSR",
-                Type = "Current Processor State Register",
-                Value = $"0x{cpsr:x}",
-                VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR)
-            });
+            ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPEXC),
+                () => new ControlRegisterVariable(Arm.Register.FPEXC, "FPEXC",
+                    "FP Exception Control register",
+                    new ControlRegisterFlag(31, "EX", "Exception"),
+                    new ControlRegisterFlag(30, "EN", "Enable access to SIMD/FP"),
+                    new ControlRegisterFlag(29, "DEX", "Defined synchronous exception on FP execution"),
+                    new ControlRegisterFlag(26, "TFV", "Trapped Fault Valid"),
+                    new ControlRegisterFlag(7, "IDF", "Input Denormal trapped"),
+                    new ControlRegisterFlag(4, "IXF", "Inexact trapped"),
+                    new ControlRegisterFlag(3, "UFF", "Underflow trapped"),
+                    new ControlRegisterFlag(2, "OFF", "Overflow trapped"),
+                    new ControlRegisterFlag(1, "DZF", "Divide by Zero trapped"),
+                    new ControlRegisterFlag(0, "IOF", "Invalid Operation trapped")
+                ), true).GetAsProtocol(ctx, true));
 
-            var fpexc = _engine.Engine.RegRead<uint>(Arm.Register.FPEXC);
-            ret.Add(new Variable()
-            {
-                Name = "FPEXC",
-                Type = "Floating-Point Exception Control register",
-                Value = $"0x{fpexc:x}",
-                VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR)
-            });
-
-            var fpscr = _engine.Engine.RegRead<uint>(Arm.Register.FPSCR);
-            ret.Add(new Variable()
-            {
-                Name = "FPSCR",
-                Type = "Floating-Point Status and Control Register",
-                Value = $"0x{fpscr:x}",
-                VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR)
-            });
-
-            for (var i = 0; i < 3; i++)
-            {
-                var mvfri = _engine.Engine.RegRead<uint>(Arm.Register.MVFR0 + i);
-                ret.Add(new Variable()
-                {
-                    Name = $"MVFR{i}",
-                    Type = $"Media and VFP Feature Register {i}",
-                    Value = $"0x{mvfri:x}",
-                    VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.MVFR0 + i)
-                });
-            }
-        }
-    }
-
-
-    private void MakeControlFlagsVariables(List<Variable> ret, int regId)
-    {
-        if (regId == Arm.Register.CPSR || regId == Arm.Register.APSR)
-        {
-            this.MakeCpsrFlagsVariables(ret, regId);
-        }
-
-        // Extended: FPEXC, FPSCR, MVFR0-2 
-        if (regId == Arm.Register.FPEXC)
-        {
-            this.MakeFpexcFlagsVariables(ret);
-        }
-
-        if (regId == Arm.Register.FPSCR)
-        {
-        }
-
-        if (regId == Arm.Register.MVFR0)
-        {
-        }
-
-        if (regId == Arm.Register.MVFR1)
-        {
-        }
-
-        if (regId == Arm.Register.MVFR2)
-        {
-        }
-    }
-
-    private readonly string[] _cfFlags = {"N", "Z", "C", "V", "Q", "SSBS", "PAN", "DIT", "GE", "E", "A", "I", "F", "M"};
-
-    private readonly string[] _cfNames =
-    {
-        "Negative", "Zero", "Carry", "Overflow", "Cumulative saturation",
-        "Speculative Store Bypass Safe", "Privileged Access Never", "Data Independent Timing",
-        "Greater than or Equal", "Endianness state", "SError interrupt mask", "IRQ mask", "FIQ mask", "Current PE mode"
-    };
-
-    private readonly string[] _peModeNames =
-        {"User", "FIQ", "IRQ", "Supervisor", "Monitor", "Abort", "Hypervisor", "Undefined", "System"};
-
-    private void MakeCpsrFlagsVariables(List<Variable> ret, int regId)
-    {
-        // APSR is a subset of CPSR
-        var val = _engine.Engine.RegRead<uint>(Arm.Register.CPSR);
-
-        var n = val >> 31;
-        var z = (val >> 30) & 0x1;
-        var c = (val >> 29) & 0x1;
-        var v = (val >> 28) & 0x1;
-        var q = (val >> 27) & 0x1;
-        var ssbs = (val >> 23) & 0x1;
-        var pan = (val >> 22) & 0x1;
-        var dit = (val >> 21) & 0x1;
-        var ge = (val >> 16) & 0xF;
-        var e = (val >> 9) & 0x1;
-        var a = (val >> 8) & 0x1;
-        var i = (val >> 7) & 0x1;
-        var f = (val >> 6) & 0x1;
-        var m = val & 0xF;
-
-        uint[] values = {n, z, c, v, q, ssbs, pan, dit, ge, e, a, i, f};
-
-        // N to DIT
-        for (var var = 0; var < (regId == Arm.Register.APSR ? 5 : 8); var++)
-        {
-            ret.Add(new Variable()
-            {
-                Name = _cfFlags[var],
-                Type = _cfNames[var],
-                Value = values[var].ToString()
-            });
-        }
-
-        // GE
-        ret.Add(new Variable()
-        {
-            Name = _cfFlags[8],
-            Type = _cfNames[8],
-            Value = Convert.ToString(ge, 2)
-        });
-
-        if (regId != Arm.Register.APSR)
-        {
-            // E-F
-            for (var var = 9; var < 13; var++)
-            {
-                ret.Add(new Variable()
-                {
-                    Name = _cfFlags[var],
-                    Type = _cfNames[var],
-                    Value = values[var].ToString()
-                });
-            }
-
-            // M
-            ret.Add(new Variable()
-            {
-                Name = _cfFlags[13],
-                Type = _cfNames[13],
-                Value = _peModeNames[m]
-            });
-        }
-    }
-
-    private readonly string[] _fpexcFlags =
-        {"EX", "EN", "DEX", "TFV", "IDF", "IXF", "UFF", "OFF", "DZF", "IOF"};
-
-    private readonly string[] _fpexcNames =
-    {
-        "Exception", "Enable access to SIMD/FP", "Defined synchronous exception on FP execution", "Trapped Fault Valid",
-        "Input Denormal trapped", "Inexact trapped", "Underflow trapped", "Overflow trapped", "Dividy by Zero trapped",
-        "Invalid Operation trapped"
-    };
-
-    private void MakeFpexcFlagsVariables(List<Variable> ret)
-    {
-        var fpexc = _engine.Engine.RegRead<uint>(Arm.Register.FPEXC);
-        uint[] values =
-        {
-            fpexc >> 31, (fpexc >> 30) & 0x1, (fpexc >> 29) & 0x1, (fpexc >> 26) & 0x1, (fpexc >> 7) & 0x1,
-            (fpexc >> 4) & 0x1, (fpexc >> 3) & 0x1, (fpexc >> 2) & 0x1, (fpexc >> 1) & 0x1, (fpexc & 0x1)
-        };
-
-        for (var i = 0; i < values.Length; i++)
-        {
-            ret.Add(new Variable()
-            {
-                Name = _fpexcFlags[i],
-                Type = _fpexcNames[i],
-                Value = values[i].ToString()
-            });
+            ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR),
+                () => new ControlRegisterVariable(Arm.Register.FPSCR, "FPSCR",
+                    "FP Status and Control Register",
+                    new ControlRegisterFlag(31, "N", "Negative"),
+                    new ControlRegisterFlag(30, "Z", "Zero"),
+                    new ControlRegisterFlag(29, "C", "Carry"),
+                    new ControlRegisterFlag(28, "V", "Overflow"),
+                    new ControlRegisterFlag(27, "QC", "Cumulative saturation"),
+                    new ControlRegisterFlag(26, "AHP", "Alternative half-precision", "IEEE (0)", "Alternative (1)"),
+                    new ControlRegisterFlag(25, "DN", "Default NaN"),
+                    new ControlRegisterFlag(24, "FZ", "Flush-to-zero"),
+                    new ControlRegisterFlag(22, 2, "RMode", "Rounding Mode", "To Nearest (00)", "Towards +Inf (01)",
+                        "Towards -Inf (10)", "Towards Zero (11)"),
+                    new ControlRegisterFlag(19, "FZ16", "Flush-to-zero mode on half-precision data-processing"),
+                    new ControlRegisterFlag(15, "IDE", "Input Denormal trap enable"),
+                    new ControlRegisterFlag(12, "IXE", "Inexact trap enable"),
+                    new ControlRegisterFlag(11, "UFE", "Underflow trap enable"),
+                    new ControlRegisterFlag(10, "OFE", "Overflow trap enable"),
+                    new ControlRegisterFlag(9, "DZE", "Divide by Zero trap enable"),
+                    new ControlRegisterFlag(8, "IOE", "Invalid Operation trap enable"),
+                    new ControlRegisterFlag(7, "IDC", "Input Denormal exception"),
+                    new ControlRegisterFlag(4, "IXC", "Inexact Cumulative exception"),
+                    new ControlRegisterFlag(3, "UFC", "Underflow Cumulative exception"),
+                    new ControlRegisterFlag(2, "OFC", "Overflow Cumulative exception"),
+                    new ControlRegisterFlag(1, "DZC", "Divide by Zero Cumulative exception"),
+                    new ControlRegisterFlag(0, "IOC", "Invalid Operation Cumulative exception")
+                ), true).GetAsProtocol(ctx, true));
         }
     }
 
     private void MakeRegistersVariables(List<Variable> ret, ValueFormat? format, int start, int count)
     {
         var end = start + count;
-        var isBinary = Options.VariableNumberFormat == VariableNumberFormat.Binary;
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
 
         for (var i = start; i < end; i++)
         {
-            var regValue = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(i));
-            var value = this.FormatVariable(regValue, format);
+            var regNumber = i;
 
-            ret.Add(new Variable()
-            {
-                Name = "R" + i,
-                Type = "unsigned int",
-                Value = value,
-                VariablesReference = isBinary ? 0 : MakeReference(ContainerType.RegisterSubtypes, i)
-            });
+            var unicornId = Arm.Register.GetRegister(i);
+            var reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, unicornId);
+            var v = this.GetOrAddVariable(reference,
+                () => new RegisterVariable(unicornId, $"R{regNumber}", Options.RegistersSubtypes), true);
+
+            ret.Add(v.GetAsProtocol(ctx, true));
         }
-    }
-
-    private void MakeSubtypeValueVariables<T>(List<Variable> ret, ValueFormat? format, uint baseValue)
-        where T : struct
-    {
-        // TODO: this is not big-endian friendly
-
-        Span<uint> baseSpan = stackalloc uint[1];
-
-        baseSpan[0] = baseValue;
-
-        var values = MemoryMarshal.Cast<uint, T>(baseSpan);
-
-        for (var i = 0; i < values.Length; i++)
-        {
-            var val = values[i];
-            var valS = this.FormatVariable(val, format);
-
-            ret.Add(new Variable()
-            {
-                Name = $"[{i}]",
-                Value = valS
-            });
-        }
-    }
-
-    private void MakeSubtypeVariables(List<Variable> ret, ValueFormat? format, uint baseValue, long baseReference,
-        ContainerType targetContainerType)
-    {
-        ret.Add(new Variable()
-        {
-            Name = "unsigned bytes",
-            Value = string.Empty,
-            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
-                Subtype.ByteU)
-        });
-
-        ret.Add(new Variable()
-        {
-            Name = "signed bytes",
-            Value = string.Empty,
-            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
-                Subtype.ByteS)
-        });
-
-        ret.Add(new Variable()
-        {
-            Name = "unsigned shorts",
-            Value = string.Empty,
-            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
-                Subtype.ShortU)
-        });
-
-        ret.Add(new Variable()
-        {
-            Name = "signed shorts",
-            Value = string.Empty,
-            VariablesReference = MakeReference(targetContainerType, GetTargetAddress(baseReference),
-                Subtype.ShortS)
-        });
-
-        ret.Add(new Variable()
-        {
-            Name = "unsigned int",
-            Value = this.FormatVariable(baseValue, format)
-        });
-
-        ret.Add(new Variable()
-        {
-            Name = "signed int",
-            Value = this.FormatVariable(Unsafe.As<uint, int>(ref baseValue), format)
-        });
-
-        ret.Add(new Variable()
-        {
-            Name = "float",
-            Value = this.FormatVariable(Unsafe.As<uint, float>(ref baseValue), format)
-        });
     }
 
     private void MakeStackVariables(List<Variable> ret, ValueFormat? format)
@@ -740,59 +501,44 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         if (stack == 0)
             return;
 
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+
         for (var i = 0; i < stack; i += 4)
         {
-            var address = (uint) (_engine.StackTopAddress - 4 - i);
+            var fieldIndex = i;
 
-            ret.Add(new Variable()
-            {
-                Name = $"[{i}]",
-                Value = string.Empty,
-                EvaluateName = $"[SP,{i}]",
-                VariablesReference = MakeReference(ContainerType.StackSubtypes, address)
-            });
+            var address = (uint)(_engine.StackTopAddress - 4 - i);
+            var reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
+            var v = this.GetOrAddVariable(reference,
+                () => new StackVariable(address, fieldIndex, Options.StackVariablesSubtypes), true);
+
+            ret.Add(v.GetAsProtocol(ctx, true));
         }
     }
-
-    private static long MakeReference(ContainerType containerType, int regId = 0, Subtype subtype = 0)
-    {
-        var ret = (((ulong) containerType) & 0xF) | ((((ulong) subtype) & 0xF) << 4) | ((((uint) regId) & 0x1F) << 8);
-
-        return Unsafe.As<ulong, long>(ref ret);
-    }
-
-    private static long MakeReference(ContainerType containerType, uint address, Subtype subtype = 0)
-    {
-        var ret = (((ulong) containerType) & 0xF) | ((((ulong) subtype) & 0xF) << 4) | (((ulong) address) << 8);
-
-        return Unsafe.As<ulong, long>(ref ret);
-    }
-
-    private static int GetRegisterId(long variablesReference)
-        => unchecked((int) ((((ulong) variablesReference) >> 8) & 0x1F));
-
-    private static uint GetTargetAddress(long variablesReference)
-        => unchecked((uint) ((((ulong) variablesReference) >> 8) & 0xFFFFFFFF));
 
     public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
         ValueFormat? format)
     {
-        var containerType = (ContainerType) (variablesReference & 0xF);
-        var typeId = (Subtype) ((variablesReference >> 4) & 0xF);
-        var regId = GetRegisterId(variablesReference);
-        var targetAddress = GetTargetAddress(variablesReference);
+        if (_variables.TryGetValue(variablesReference, out var variable) && variable.Children != null)
+        {
+            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+            variable.Evaluate(ctx);
 
-        var hex = format?.Hex ?? false;
+            return variable.Children.Values.Select(v =>
+                v.GetAsProtocol(ctx));
+        }
+
+        var containerType = (ContainerType)(variablesReference & 0xF);
         var ret = new List<Variable>();
 
         switch (containerType)
         {
             case ContainerType.Registers:
-                this.MakeRegistersVariables(ret, format, (int) (start ?? 0), (int) (count ?? 15));
+                this.MakeRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 15));
 
                 break;
             case ContainerType.ControlRegisters:
-                this.MakeControlRegistersVariables(ret);
+                this.MakeControlRegistersVariables(ret, format);
 
                 break;
             case ContainerType.SimdRegisters:
@@ -803,43 +549,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                 this.MakeStackVariables(ret, format);
 
                 break;
-            case ContainerType.RegisterSubtypes:
-            {
-                var regVal = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(regId));
-                this.MakeSubtypeVariables(ret, format, regVal, variablesReference,
-                    ContainerType.RegisterSubtypesValues);
-
-                break;
-            }
-            case ContainerType.RegisterSubtypesValues:
-            {
-                var regVal = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(regId));
-                this.MakeSubtypeValueVariables(ret, format, regVal, typeId);
-
-                break;
-            }
             case ContainerType.SimdRegisterSubtypes:
                 break;
             case ContainerType.SimdRegisterSubtypesValues:
                 break;
-            case ContainerType.ControlFlags:
-                this.MakeControlFlagsVariables(ret, regId);
-
-                break;
             case ContainerType.StackSubtypes:
-            {
-                var memVal = _engine.Engine.MemReadDirect<uint>(targetAddress);
-                this.MakeSubtypeVariables(ret, format, memVal, variablesReference, ContainerType.StackSubtypesValues);
-
-                break;
-            }
             case ContainerType.StackSubtypesValues:
-            {
-                var memVal = _engine.Engine.MemReadDirect<uint>(targetAddress);
-                this.MakeSubtypeValueVariables(ret, format, memVal, typeId);
+            case ContainerType.ControlFlags:
+            case ContainerType.RegisterSubtypes:
+            case ContainerType.RegisterSubtypesValues:
+                throw new Exception("????");
 
-                break;
-            }
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -847,82 +567,77 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return ret;
     }
 
-    private void MakeSubtypeValueVariables(List<Variable> ret, ValueFormat? format, uint regVal, Subtype typeId)
+    private void RemoveVariable(IVariable variable)
     {
-        switch (typeId)
+        if (variable.Reference == 0)
+            return;
+
+        _variables.Remove(variable.Reference);
+        if (variable.Children != null)
         {
-            case Subtype.ByteU:
-                this.MakeSubtypeValueVariables<byte>(ret, format, regVal);
-
-                break;
-            case Subtype.ByteS:
-                this.MakeSubtypeValueVariables<sbyte>(ret, format, regVal);
-
-                break;
-            case Subtype.ShortU:
-                this.MakeSubtypeValueVariables<ushort>(ret, format, regVal);
-
-                break;
-            case Subtype.ShortS:
-                this.MakeSubtypeValueVariables<short>(ret, format, regVal);
-
-                break;
-            default:
-                throw new InvalidOperationException();
+            foreach (var child in variable.Children.Values)
+            {
+                this.RemoveVariable(child);
+            }
         }
+    }
+
+    private void AddOrUpdateVariable(IVariable variable)
+    {
+        if (variable.Reference == 0)
+            return;
+
+        if (_variables.ContainsKey(variable.Reference))
+            this.RemoveVariable(variable);
+
+        _variables[variable.Reference] = variable;
+
+        if (variable.Children != null)
+        {
+            foreach (var child in variable.Children.Values)
+            {
+                this.AddOrUpdateVariable(child);
+            }
+        }
+    }
+
+    private IVariable GetOrAddVariable(long reference, Func<IVariable> factory, bool topLevel = false)
+    {
+        if (_variables.TryGetValue(reference, out var val))
+            return val;
+
+        var newVariable = factory();
+
+        if (newVariable.Reference != reference)
+            throw new InvalidOperationException("The reference of a created variable doesn't match the provided one.");
+
+        this.AddOrUpdateVariable(newVariable);
+
+        if (topLevel)
+            _topLevel[newVariable.Name] = newVariable;
+
+        return newVariable;
+    }
+
+    private IVariable GetOrAddTopLevelVariable(string name, Func<IVariable> factory)
+    {
+        if (_topLevel.TryGetValue(name, out var val))
+            return val;
+
+        var newVariable = factory();
+
+        if (newVariable.Reference != 0)
+            throw new InvalidOperationException("The reference of a created top-level sole variable isn't 0.");
+
+        _topLevel[newVariable.Name] = newVariable;
+
+        return newVariable;
     }
 
     public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
         long? instructionOffset, long instructionCount,
         bool resolveSymbols) =>
         throw new NotImplementedException();
-
-    #region Variable Formatting
-
-    private string FormatVariable(uint variable, ValueFormat? format)
-    {
-        if ((format?.Hex ?? false) || Options.VariableNumberFormat == VariableNumberFormat.Hex)
-            return this.FormatHexSigned(variable);
-
-        if (Options.VariableNumberFormat == VariableNumberFormat.Binary)
-            return Convert.ToString(variable, 2);
-
-        return variable.ToString();
-    }
-
-    private string FormatVariable<T>(T variable, ValueFormat? format) where T : struct
-    {
-        if ((format?.Hex ?? false) || Options.VariableNumberFormat == VariableNumberFormat.Hex)
-            return this.FormatHexSigned(variable);
-
-        if (Options.VariableNumberFormat == VariableNumberFormat.Binary)
-        {
-            Span<long> tmp = stackalloc long[1];
-            Span<T> tmpTarget = MemoryMarshal.Cast<long, T>(tmp);
-
-            tmp[0] = 0;
-            tmpTarget[0] = variable;
-
-            return Convert.ToString(tmp[0], 2);
-        }
-
-        return variable.ToString()!;
-    }
-
-    private string FormatHexSigned<T>(T variable) where T : struct
-    {
-        return variable switch
-        {
-            sbyte x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
-            short x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
-            int x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
-            long x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
-            float x => x.ToString(_clientCulture),
-            _ => string.Format(_clientCulture, "0x{0:x}", variable)
-        };
-    }
-
-    #endregion
 
     #region Memory
 
@@ -949,17 +664,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         if (exeSources.Count <= sourceReference)
             throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
 
-        var exeSource = exeSources[(int) sourceReference];
+        var exeSource = exeSources[(int)sourceReference];
         using var locatedFile = await exeSource.SourceFile.LocateAsync();
         var contents = await File.ReadAllTextAsync(locatedFile.FileSystemPath);
 
-        return new SourceResponse() {Content = contents};
+        return new SourceResponse() { Content = contents };
     }
 
     private int GetSourceReference(Source? source, [CallerMemberName] string caller = "")
     {
         if (source?.SourceReference is > 0)
-            return (int) source.SourceReference.Value;
+            return (int)source.SourceReference.Value;
 
         if (source?.AdapterData != null)
         {
