@@ -196,7 +196,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     private Regex _exprRegex =
         new(
-            @"(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
+            @"^(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
             RegexOptions.Compiled);
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
@@ -207,12 +207,24 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         // [Rx, +-Ry]
         // [Rx, +-Ry, shift imm]
         // [Rx, +-imm]
-        // prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants
+        // type prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants & (string) - reads a C-string
 
         // Direct addressing: 
         // [address/symbol]
         // [address/symbol, +-Ry]
         // [address/symbol, +-Ry, shift imm]
+        // type prefixes: same as above
+
+        // Register access:
+        // Rx / Sx / Qx / Dx
+        // {anything defined in Arm.Registers}
+        // !{unicorn reg id}
+        // type prefixes: same as above without (string).
+
+        // all expressions may end with a display format specifier:
+        // :x (unsigned hex)
+        // :b (binary)
+        // if type prefix is string, this has no effect
 
         var match = _exprRegex.Match(expression);
 
@@ -364,8 +376,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         if (Options.EnableControlVariables)
         {
-            // Basic: PC, CPSR, FPSCR
-            // Extended: + APSR, SPSR, ITSTATE, FPEXC, FPINST, FPINST2, FPSID, MVFR0-2 
+            // Basic: PC, APSR, FPSCR
+            // Extended: + CPSR, FPEXC, FPINST, FPINST2, FPSID, MVFR0-2 
             var count = Options.EnableExtendedControlVariables ? 11 : 3;
 
             ret.Add(new Scope()
@@ -420,6 +432,206 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
         throw new NotImplementedException();
 
+    private void MakeControlRegistersVariables(List<Variable> ret)
+    {
+        var apsr = _engine.Engine.RegRead<uint>(Arm.Register.APSR);
+        ret.Add(new Variable()
+        {
+            Name = "APSR",
+            Type = "Application Processor State Register",
+            Value = $"0x{apsr:x}",
+            VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.APSR)
+        });
+
+        var pc = _engine.Engine.RegRead<uint>(Arm.Register.PC);
+        ret.Add(new Variable()
+        {
+            Name = "PC",
+            Type = "Program Counter (R15)",
+            Value = $"0x{pc:x}"
+        });
+
+        if (Options.EnableExtendedControlVariables)
+        {
+            // Extended: + CPSR, FPEXC, FPSCR, MVFR0-2 
+
+            var cpsr = _engine.Engine.RegRead<uint>(Arm.Register.CPSR);
+            ret.Add(new Variable()
+            {
+                Name = "CPSR",
+                Type = "Current Processor State Register",
+                Value = $"0x{cpsr:x}",
+                VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR)
+            });
+
+            var fpexc = _engine.Engine.RegRead<uint>(Arm.Register.FPEXC);
+            ret.Add(new Variable()
+            {
+                Name = "FPEXC",
+                Type = "Floating-Point Exception Control register",
+                Value = $"0x{fpexc:x}",
+                VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR)
+            });
+
+            var fpscr = _engine.Engine.RegRead<uint>(Arm.Register.FPSCR);
+            ret.Add(new Variable()
+            {
+                Name = "FPSCR",
+                Type = "Floating-Point Status and Control Register",
+                Value = $"0x{fpscr:x}",
+                VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR)
+            });
+
+            for (var i = 0; i < 3; i++)
+            {
+                var mvfri = _engine.Engine.RegRead<uint>(Arm.Register.MVFR0 + i);
+                ret.Add(new Variable()
+                {
+                    Name = $"MVFR{i}",
+                    Type = $"Media and VFP Feature Register {i}",
+                    Value = $"0x{mvfri:x}",
+                    VariablesReference = MakeReference(ContainerType.ControlFlags, Arm.Register.MVFR0 + i)
+                });
+            }
+        }
+    }
+
+
+    private void MakeControlFlagsVariables(List<Variable> ret, int regId)
+    {
+        if (regId == Arm.Register.CPSR || regId == Arm.Register.APSR)
+        {
+            this.MakeCpsrFlagsVariables(ret, regId);
+        }
+
+        // Extended: FPEXC, FPSCR, MVFR0-2 
+        if (regId == Arm.Register.FPEXC)
+        {
+            this.MakeFpexcFlagsVariables(ret);
+        }
+
+        if (regId == Arm.Register.FPSCR)
+        {
+        }
+
+        if (regId == Arm.Register.MVFR0)
+        {
+        }
+
+        if (regId == Arm.Register.MVFR1)
+        {
+        }
+
+        if (regId == Arm.Register.MVFR2)
+        {
+        }
+    }
+
+    private readonly string[] _cfFlags = {"N", "Z", "C", "V", "Q", "SSBS", "PAN", "DIT", "GE", "E", "A", "I", "F", "M"};
+
+    private readonly string[] _cfNames =
+    {
+        "Negative", "Zero", "Carry", "Overflow", "Cumulative saturation",
+        "Speculative Store Bypass Safe", "Privileged Access Never", "Data Independent Timing",
+        "Greater than or Equal", "Endianness state", "SError interrupt mask", "IRQ mask", "FIQ mask", "Current PE mode"
+    };
+
+    private readonly string[] _peModeNames =
+        {"User", "FIQ", "IRQ", "Supervisor", "Monitor", "Abort", "Hypervisor", "Undefined", "System"};
+
+    private void MakeCpsrFlagsVariables(List<Variable> ret, int regId)
+    {
+        // APSR is a subset of CPSR
+        var val = _engine.Engine.RegRead<uint>(Arm.Register.CPSR);
+
+        var n = val >> 31;
+        var z = (val >> 30) & 0x1;
+        var c = (val >> 29) & 0x1;
+        var v = (val >> 28) & 0x1;
+        var q = (val >> 27) & 0x1;
+        var ssbs = (val >> 23) & 0x1;
+        var pan = (val >> 22) & 0x1;
+        var dit = (val >> 21) & 0x1;
+        var ge = (val >> 16) & 0xF;
+        var e = (val >> 9) & 0x1;
+        var a = (val >> 8) & 0x1;
+        var i = (val >> 7) & 0x1;
+        var f = (val >> 6) & 0x1;
+        var m = val & 0xF;
+
+        uint[] values = {n, z, c, v, q, ssbs, pan, dit, ge, e, a, i, f};
+
+        // N to DIT
+        for (var var = 0; var < (regId == Arm.Register.APSR ? 5 : 8); var++)
+        {
+            ret.Add(new Variable()
+            {
+                Name = _cfFlags[var],
+                Type = _cfNames[var],
+                Value = values[var].ToString()
+            });
+        }
+
+        // GE
+        ret.Add(new Variable()
+        {
+            Name = _cfFlags[8],
+            Type = _cfNames[8],
+            Value = Convert.ToString(ge, 2)
+        });
+
+        if (regId != Arm.Register.APSR)
+        {
+            // E-F
+            for (var var = 9; var < 13; var++)
+            {
+                ret.Add(new Variable()
+                {
+                    Name = _cfFlags[var],
+                    Type = _cfNames[var],
+                    Value = values[var].ToString()
+                });
+            }
+
+            // M
+            ret.Add(new Variable()
+            {
+                Name = _cfFlags[13],
+                Type = _cfNames[13],
+                Value = _peModeNames[m]
+            });
+        }
+    }
+
+    private readonly string[] _fpexcFlags =
+        {"EX", "EN", "DEX", "TFV", "IDF", "IXF", "UFF", "OFF", "DZF", "IOF"};
+
+    private readonly string[] _fpexcNames =
+    {
+        "Exception", "Enable access to SIMD/FP", "Defined synchronous exception on FP execution", "Trapped Fault Valid",
+        "Input Denormal trapped", "Inexact trapped", "Underflow trapped", "Overflow trapped", "Dividy by Zero trapped",
+        "Invalid Operation trapped"
+    };
+
+    private void MakeFpexcFlagsVariables(List<Variable> ret)
+    {
+        var fpexc = _engine.Engine.RegRead<uint>(Arm.Register.FPEXC);
+        uint[] values =
+        {
+            fpexc >> 31, (fpexc >> 30) & 0x1, (fpexc >> 29) & 0x1, (fpexc >> 26) & 0x1, (fpexc >> 7) & 0x1,
+            (fpexc >> 4) & 0x1, (fpexc >> 3) & 0x1, (fpexc >> 2) & 0x1, (fpexc >> 1) & 0x1, (fpexc & 0x1)
+        };
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            ret.Add(new Variable()
+            {
+                Name = _fpexcFlags[i],
+                Type = _fpexcNames[i],
+                Value = values[i].ToString()
+            });
+        }
+    }
 
     private void MakeRegistersVariables(List<Variable> ret, ValueFormat? format, int start, int count)
     {
@@ -429,9 +641,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         for (var i = start; i < end; i++)
         {
             var regValue = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(i));
-            var value = isBinary
-                ? Convert.ToString(regValue, 2)
-                : this.FormatVariable(regValue, format);
+            var value = this.FormatVariable(regValue, format);
 
             ret.Add(new Variable()
             {
@@ -582,6 +792,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
                 break;
             case ContainerType.ControlRegisters:
+                this.MakeControlRegistersVariables(ret);
+
                 break;
             case ContainerType.SimdRegisters:
                 break;
@@ -611,6 +823,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             case ContainerType.SimdRegisterSubtypesValues:
                 break;
             case ContainerType.ControlFlags:
+                this.MakeControlFlagsVariables(ret, regId);
+
                 break;
             case ContainerType.StackSubtypes:
             {
@@ -665,11 +879,22 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     #region Variable Formatting
 
+    private string FormatVariable(uint variable, ValueFormat? format)
+    {
+        if ((format?.Hex ?? false) || Options.VariableNumberFormat == VariableNumberFormat.Hex)
+            return this.FormatHexSigned(variable);
+
+        if (Options.VariableNumberFormat == VariableNumberFormat.Binary)
+            return Convert.ToString(variable, 2);
+
+        return variable.ToString();
+    }
+
     private string FormatVariable<T>(T variable, ValueFormat? format) where T : struct
     {
         if ((format?.Hex ?? false) || Options.VariableNumberFormat == VariableNumberFormat.Hex)
-            return this.FormatHex(variable);
-        
+            return this.FormatHexSigned(variable);
+
         if (Options.VariableNumberFormat == VariableNumberFormat.Binary)
         {
             Span<long> tmp = stackalloc long[1];
@@ -684,7 +909,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return variable.ToString()!;
     }
 
-    private string FormatHex<T>(T variable) where T : struct
+    private string FormatHexSigned<T>(T variable) where T : struct
     {
         return variable switch
         {
