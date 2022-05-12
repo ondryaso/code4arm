@@ -5,7 +5,7 @@ using Code4Arm.Unicorn.Abstractions;
 
 namespace Code4Arm.Unicorn;
 
-internal class UnicornContext : IUnicornContext
+internal sealed class UnicornContext : IUnicornContext
 {
     internal bool Disposed;
 
@@ -45,6 +45,32 @@ internal class UnicornContext : IUnicornContext
         Unicorn.CheckResult(result);
 
         return value;
+    }
+
+    public unsafe void RegWrite(int registerId, ReadOnlySpan<byte> bytes)
+    {
+        this.EnsureNotDisposed();
+        int result;
+
+        fixed (byte* pinned = bytes)
+        {
+            result = Native.uc_reg_write(Context, registerId, pinned);
+        }
+
+        Unicorn.CheckResult(result);
+    }
+
+    public unsafe void RegRead(int registerId, Span<byte> target)
+    {
+        this.EnsureNotDisposed();
+        int result;
+
+        fixed (byte* pinned = target)
+        {
+            result = Native.uc_reg_read(Context, registerId, pinned);
+        }
+
+        Unicorn.CheckResult(result);
     }
 
     public unsafe void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged
@@ -171,7 +197,7 @@ internal class UnicornContext : IUnicornContext
         GC.SuppressFinalize(this);
     }
 
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         if (Disposed)
             return;

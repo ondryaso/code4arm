@@ -22,7 +22,7 @@ public class Unicorn : IUnicorn
     private readonly Dictionary<Delegate, IntPtr> _nativeHookFunctionPointers = new(8);
     private readonly Dictionary<nuint, Delegate?> _customNativeHooks = new();
 
-    private int _nextAddedManagedHookId = 0;
+    private int _nextAddedManagedHookId;
     private readonly object HookAddingLocker = new();
 
     private bool _disposed;
@@ -128,6 +128,32 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
 
         return value;
+    }
+
+    public unsafe void RegWrite(int registerId, ReadOnlySpan<byte> bytes)
+    {
+        this.EnsureEngine();
+        int result;
+
+        fixed (byte* pinned = bytes)
+        {
+            result = Native.uc_reg_write(_engine, registerId, pinned);
+        }
+
+        this.CheckResult(result);
+    }
+
+    public unsafe void RegRead(int registerId, Span<byte> target)
+    {
+        this.EnsureEngine();
+        int result;
+
+        fixed (byte* pinned = target)
+        {
+            result = Native.uc_reg_read(_engine, registerId, pinned);
+        }
+
+        this.CheckResult(result);
     }
 
     public unsafe void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged

@@ -108,6 +108,8 @@ public interface IUnicornContext : IDisposable
 {
     void RegWrite<T>(int registerId, T value) where T : unmanaged;
     T RegRead<T>(int registerId) where T : unmanaged;
+    void RegWrite(int registerId, ReadOnlySpan<byte> bytes);
+    void RegRead(int registerId, Span<byte> target);
     void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged;
     void RegBatchWrite<T>(int[] registerIds, ReadOnlySpan<T> values) where T : unmanaged;
     void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged;
