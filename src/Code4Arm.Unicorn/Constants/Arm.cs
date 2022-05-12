@@ -173,6 +173,21 @@ public static class Arm
                 _ => throw new ArgumentException("Value must be between 0 and 15.", nameof(registerIndex))
             };
         }
+
+        public static int GetSRegister(int registerIndex)
+            => (registerIndex is >= 0 and <= 31)
+                ? (S0 + registerIndex)
+                : throw new ArgumentException("Value must be between 0 and 31.", nameof(registerIndex));
+
+        public static int GetDRegister(int registerIndex)
+            => (registerIndex is >= 0 and <= 31)
+                ? (D0 + registerIndex)
+                : throw new ArgumentException("Value must be between 0 and 31.", nameof(registerIndex));
+
+        public static int GetQRegister(int registerIndex)
+            => (registerIndex is >= 0 and <= 15)
+                ? (Q0 + registerIndex)
+                : throw new ArgumentException("Value must be between 0 and 15.", nameof(registerIndex));
     }
 
     public static class Cpu
