@@ -27,5 +27,6 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
     public override void SetUInt(uint value, VariableContext context)
     {
         context.Engine.Engine.RegWrite(UnicornRegisterId, value);
+        CurrentValue = value;
     }
 }

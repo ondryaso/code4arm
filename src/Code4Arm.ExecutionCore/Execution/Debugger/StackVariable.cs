@@ -28,6 +28,7 @@ public class StackVariable : UIntBackedVariable
     public override void SetUInt(uint value, VariableContext context)
     {
         context.Engine.Engine.MemWriteSafe(_address, value);
+        CurrentValue = value;
     }
 
     public override void Evaluate(VariableContext context)

@@ -14,13 +14,14 @@ public abstract class UIntBackedVariable : IVariable
     public abstract string? Type { get; }
     public abstract long Reference { get; }
     public bool CanSet => true;
+    public bool EvaluateParentForChildren => true;
     public virtual IReadOnlyDictionary<string, IVariable> Children => ChildrenInternal;
 
 
     public abstract void SetUInt(uint value, VariableContext context);
     public abstract void Evaluate(VariableContext context);
 
-    public uint GetUInt()
+    public virtual uint GetUInt()
     {
         return CurrentValue;
     }
@@ -92,6 +93,7 @@ public class UIntBackedSubtypeVariable : IVariable
     public string? Type { get; }
     public long Reference { get; }
     public bool CanSet { get; }
+    public bool EvaluateParentForChildren => true;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
 
     public void Evaluate(VariableContext context)
@@ -172,6 +174,7 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
     public string? Type { get; }
     public long Reference { get; }
     public bool CanSet { get; }
+    public bool EvaluateParentForChildren => true;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
 
     public void Evaluate(VariableContext context)

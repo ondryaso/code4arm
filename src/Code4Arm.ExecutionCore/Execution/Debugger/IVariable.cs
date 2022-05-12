@@ -9,6 +9,10 @@ public interface IVariable
     string? Type { get; }
     long Reference { get; }
     bool CanSet { get; }
+    /// <summary>
+    /// If true, the Evaluate() method of a parent variable should be called to make this variable's value.
+    /// </summary>
+    bool EvaluateParentForChildren { get; }
     IReadOnlyDictionary<string, IVariable>? Children { get; }
 
     void Evaluate(VariableContext context);

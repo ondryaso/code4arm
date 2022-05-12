@@ -13,6 +13,13 @@ public enum VariableNumberFormat
     Binary
 }
 
+public enum SimdRegisterLevel
+{
+    S32,
+    D64,
+    Q128
+}
+
 public class DebuggerOptions
 {
     /// <summary>
@@ -76,4 +83,14 @@ public class DebuggerOptions
         Subtype.ByteU, /*Subtype.ByteS, Subtype.CharAscii, Subtype.ShortU,
         Subtype.ShortS,*/ Subtype.IntU, Subtype.IntS, Subtype.Float
     };
+
+    /// <summary>
+    /// Controls which class of SIMD register is returned in the top-level 'SIMD/FP' variables scope.
+    /// </summary>
+    public SimdRegisterLevel TopSimdRegistersLevel { get; set; } = SimdRegisterLevel.Q128;
+
+    /// <summary>
+    /// If true, D and S registers will be interpreted as floating point numbers in their corresponding variables.
+    /// </summary>
+    public bool ShowSimdRegistersAsFp { get; set; } = true;
 }

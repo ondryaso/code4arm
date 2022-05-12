@@ -54,7 +54,7 @@ internal static class FormattingUtils
     public static uint ParseNumber32U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
-        var numberStyle = NumberStyles.Number;
+        var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
         if (value.StartsWith("0x"))
         {
@@ -76,24 +76,15 @@ internal static class FormattingUtils
             return Unsafe.As<float, uint>(ref f);
 
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
-        {
-            if (uint.TryParse(span, numberStyle, CultureInfo.InvariantCulture, out u))
-                return u;
-
-            if (int.TryParse(span, numberStyle, CultureInfo.InvariantCulture, out i))
-                return Unsafe.As<int, uint>(ref i);
-
-            if (float.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out f))
-                return Unsafe.As<float, uint>(ref f);
-        }
+            return ParseNumber32U(value, CultureInfo.InvariantCulture);
 
         throw new FormatException();
     }
 
-    public static int ParseNumber32S(string value, IFormatProvider? formatProvider)
+    public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
-        var numberStyle = NumberStyles.Number;
+        var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
         if (value.StartsWith("0x"))
         {
@@ -104,7 +95,37 @@ internal static class FormattingUtils
         {
             span = value.AsSpan();
         }
-        
+
+        if (ulong.TryParse(span, numberStyle, formatProvider, out var u))
+            return u;
+
+        if (long.TryParse(span, numberStyle, formatProvider, out var i))
+            return Unsafe.As<long, ulong>(ref i);
+
+        if (double.TryParse(span, NumberStyles.Float, formatProvider, out var f))
+            return Unsafe.As<double, ulong>(ref f);
+
+        if (!Equals(formatProvider, CultureInfo.InvariantCulture))
+            return ParseNumber64U(value, CultureInfo.InvariantCulture);
+
+        throw new FormatException();
+    }
+
+    public static int ParseNumber32S(string value, IFormatProvider? formatProvider)
+    {
+        ReadOnlySpan<char> span;
+        var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
+
+        if (value.StartsWith("0x"))
+        {
+            span = value.AsSpan()[2..];
+            numberStyle = NumberStyles.HexNumber;
+        }
+        else
+        {
+            span = value.AsSpan();
+        }
+
         if (int.TryParse(span, numberStyle, formatProvider, out var i))
             return i;
 
@@ -115,16 +136,7 @@ internal static class FormattingUtils
             return Unsafe.As<float, int>(ref f);
 
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
-        {
-            if (int.TryParse(span, numberStyle, CultureInfo.InvariantCulture, out i))
-                return i;
-
-            if (uint.TryParse(span, numberStyle, CultureInfo.InvariantCulture, out u))
-                return Unsafe.As<uint, int>(ref u);
-
-            if (float.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out f))
-                return Unsafe.As<float, int>(ref f);
-        }
+            return ParseNumber32S(value, CultureInfo.InvariantCulture);
 
         throw new FormatException();
     }

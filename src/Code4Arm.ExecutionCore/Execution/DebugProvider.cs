@@ -4,7 +4,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
@@ -15,7 +14,6 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
-using Code4Arm.Unicorn.Abstractions.Extensions;
 using Code4Arm.Unicorn.Constants;
 using MediatR;
 using Newtonsoft.Json.Linq;
@@ -151,7 +149,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     {
         IVariable targetVariable;
 
-        if (containerId == ReferenceUtils.MakeReference(ContainerType.Registers))
+        if (ReferenceUtils.IsTopLevelContainer(containerId))
         {
             if (!_topLevel.TryGetValue(variableName, out targetVariable!))
                 throw new InvalidVariableReferenceException();
@@ -216,6 +214,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         // all expressions may end with a display format specifier:
         // :x (unsigned hex)
         // :b (binary)
+        // :ieee (only for 32b and 64b values -> show sign/exponent/mantissa
         // if type prefix is string, this has no effect
 
         var match = _exprRegex.Match(expression);
@@ -224,47 +223,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             throw new InvalidExpressionException();
 
         // TODO
-
-        uint address;
-        if (!match.Groups["base"].Success || match.Groups["base"].Value.Length == 0)
-        {
-            var addrStr = match.Groups["baseA"].Value;
-            var style = NumberStyles.None;
-
-            if (addrStr.StartsWith("0x"))
-            {
-                addrStr = addrStr[2..];
-                style = NumberStyles.HexNumber;
-            }
-
-            if (!uint.TryParse(addrStr, style, null, out address))
-                throw new InvalidExpressionException();
-        }
-        else
-        {
-            var regStr = match.Groups["base"].Value;
-
-            if (!int.TryParse(regStr, out var reg) || reg < 0 || reg > 15)
-                throw new InvalidExpressionException();
-
-            address = _engine.Engine.RegRead<uint>(Arm.Register.GetRegister(reg));
-        }
-
-        var isUint = match.Groups["type"].Value == "uint";
-        string ret;
-
-        if (isUint)
-        {
-            var val = _engine.Engine.MemReadDirect<uint>(address);
-            ret = val.ToString();
-        }
-        else
-        {
-            var val = _engine.Engine.MemReadDirect<int>(address);
-            ret = val.ToString();
-        }
-
-        return new EvaluateResponse() { Result = ret };
+        return new EvaluateResponse() { Result = "test" };
     }
 
     public async Task<StackTraceResponse> MakeStackTrace()
@@ -342,7 +301,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         {
             // Basic: PC, APSR
             // Extended: + CPSR, FPEXC, FPSCR; MVFRx are not returned by unicorn
-            var count = Options.EnableExtendedControlVariables ? 11 : 3;
+            var count = Options.EnableExtendedControlVariables ? 3 : 2;
 
             ret.Add(new Scope()
             {
@@ -381,7 +340,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         if (Options.EnableAutomaticDataVariables)
         {
-            // TODO   
         }
 
         return new ScopesResponse()
@@ -492,6 +450,40 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         }
     }
 
+    private void MakeSimdRegistersVariables(List<Variable> ret, ValueFormat? format, int start, int count)
+    {
+        var end = start + count;
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var topLevel = Options.TopSimdRegistersLevel;
+
+        for (var i = start; i < end; i++)
+        {
+            var regNumber = i;
+
+            var unicornId = topLevel switch
+            {
+                SimdRegisterLevel.S32 => Arm.Register.GetSRegister(i),
+                SimdRegisterLevel.D64 => Arm.Register.GetDRegister(i),
+                SimdRegisterLevel.Q128 => Arm.Register.GetQRegister(i),
+                _ => throw new InvalidOperationException()
+            };
+
+            var reference =
+                ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, unicornId, 0, (int)topLevel);
+
+            var v = this.GetOrAddVariable(reference,
+                () => topLevel switch
+                {
+                    SimdRegisterLevel.S32 => new ArmSSimdRegisterVariable(regNumber),
+                    SimdRegisterLevel.D64 => new ArmDSimdRegisterVariable(regNumber),
+                    SimdRegisterLevel.Q128 => new ArmQSimdRegisterVariable(regNumber),
+                    _ => throw new ArgumentOutOfRangeException()
+                }, true);
+
+            ret.Add(v.GetAsProtocol(ctx, true));
+        }
+    }
+
     private void MakeStackVariables(List<Variable> ret, ValueFormat? format)
     {
         // TODO: support other stack types?
@@ -522,10 +514,12 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         if (_variables.TryGetValue(variablesReference, out var variable) && variable.Children != null)
         {
             var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
-            variable.Evaluate(ctx);
+
+            if (variable.EvaluateParentForChildren)
+                variable.Evaluate(ctx);
 
             return variable.Children.Values.Select(v =>
-                v.GetAsProtocol(ctx));
+                v.GetAsProtocol(ctx, !variable.EvaluateParentForChildren));
         }
 
         var containerType = (ContainerType)(variablesReference & 0xF);
@@ -542,24 +536,25 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
                 break;
             case ContainerType.SimdRegisters:
+                this.MakeSimdRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 16));
+
                 break;
             case ContainerType.Symbols:
+                // TODO
+                
                 break;
             case ContainerType.Stack:
                 this.MakeStackVariables(ret, format);
 
                 break;
             case ContainerType.SimdRegisterSubtypes:
-                break;
             case ContainerType.SimdRegisterSubtypesValues:
-                break;
             case ContainerType.StackSubtypes:
             case ContainerType.StackSubtypesValues:
             case ContainerType.ControlFlags:
             case ContainerType.RegisterSubtypes:
             case ContainerType.RegisterSubtypesValues:
                 throw new Exception("????");
-
             default:
                 throw new ArgumentOutOfRangeException();
         }

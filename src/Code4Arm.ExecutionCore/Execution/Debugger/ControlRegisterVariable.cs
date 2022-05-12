@@ -58,6 +58,7 @@ public class ControlRegisterVariable : IVariable
     public string? Type { get; }
     public long Reference { get; }
     public bool CanSet { get; }
+    public bool EvaluateParentForChildren => true;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
 
     public void Evaluate(VariableContext context)
@@ -105,6 +106,8 @@ public class FlagVariable : IVariable
     public string Type => _flag.Description;
     public long Reference { get; }
     public bool CanSet { get; }
+    public bool EvaluateParentForChildren => true;
+
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
 
     public void Evaluate(VariableContext context)
