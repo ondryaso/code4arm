@@ -29,9 +29,10 @@ public class ArmQSimdRegisterVariable : IVariable
     public string Name { get; }
     public long Reference { get; }
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IVariable? Parent => null;
     public string Type => "128 b";
     public bool CanSet => true;
-    public bool EvaluateParentForChildren => true;
+    public bool IsViewOfParent => false;
 
     public void Evaluate(VariableContext context)
     {
@@ -113,9 +114,10 @@ public class ArmDSimdRegisterVariable : IVariable
     public string Name { get; }
     public long Reference { get; }
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IVariable? Parent => _parent;
     public string Type => "64 b";
     public bool CanSet => true;
-    public bool EvaluateParentForChildren => true;
+    public bool IsViewOfParent => _parent != null;
 
     public void Evaluate(VariableContext context)
     {
@@ -192,6 +194,7 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
     public override string Name { get; }
     public override string Type => "32 b";
     public override long Reference { get; }
+    public override bool IsViewOfParent => _parent != null;
 
     public override uint GetUInt()
     {
@@ -200,6 +203,8 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
 
         return CurrentValue;
     }
+
+    public override IVariable? Parent => _parent;
 
     public override void SetUInt(uint value, VariableContext context)
     {

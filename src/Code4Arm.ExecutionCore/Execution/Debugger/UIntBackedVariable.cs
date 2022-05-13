@@ -14,8 +14,9 @@ public abstract class UIntBackedVariable : IVariable
     public abstract string? Type { get; }
     public abstract long Reference { get; }
     public bool CanSet => true;
-    public bool EvaluateParentForChildren => true;
+    public abstract bool IsViewOfParent { get; }
     public virtual IReadOnlyDictionary<string, IVariable> Children => ChildrenInternal;
+    public abstract IVariable? Parent { get; }
 
 
     public abstract void SetUInt(uint value, VariableContext context);
@@ -77,7 +78,7 @@ public class UIntBackedSubtypeVariable : IVariable
             var count = (subtype is Subtype.ByteU or Subtype.ByteS or Subtype.CharAscii) ? 4 : 2;
             for (var i = 0; i < count; i++)
             {
-                var child = new UIntBackedSubtypeAtomicVariable(parent, subtype, i);
+                var child = new UIntBackedSubtypeAtomicVariable(parent, this, subtype, i);
                 c.Add(child.Name, child);
             }
 
@@ -93,8 +94,9 @@ public class UIntBackedSubtypeVariable : IVariable
     public string? Type { get; }
     public long Reference { get; }
     public bool CanSet { get; }
-    public bool EvaluateParentForChildren => true;
+    public bool IsViewOfParent => true;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IVariable Parent => _parent;
 
     public void Evaluate(VariableContext context)
     {
@@ -119,7 +121,10 @@ public class UIntBackedSubtypeVariable : IVariable
 
     public void Set(string value, VariableContext context)
     {
-        var number = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
+        var number = _subtype == Subtype.Float
+            ? FormattingUtils.ParseNumber32F(value, context.CultureInfo)
+            : FormattingUtils.ParseNumber32U(value, context.CultureInfo);
+
         _parent.SetUInt(number, context);
     }
 }
@@ -127,18 +132,21 @@ public class UIntBackedSubtypeVariable : IVariable
 public class UIntBackedSubtypeAtomicVariable : IVariable
 {
     private readonly UIntBackedVariable _parent;
+    private readonly IVariable _treeParent;
     private readonly Subtype _subtype;
 
     private readonly uint _mask;
-    private readonly int _maskI;
     private readonly int _offset;
 
-    public UIntBackedSubtypeAtomicVariable(UIntBackedVariable parent, Subtype subtype, int index)
+    private readonly int _min, _max;
+
+    public UIntBackedSubtypeAtomicVariable(UIntBackedVariable parent, IVariable treeParent, Subtype subtype, int index)
     {
         if (subtype is Subtype.IntU or Subtype.IntS or Subtype.LongU or Subtype.LongS or Subtype.Double)
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
 
         _parent = parent;
+        _treeParent = treeParent;
         _subtype = subtype;
 
         Name = $"[{index}]";
@@ -155,14 +163,23 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
         if (subtype is Subtype.ByteU or Subtype.ByteS or Subtype.CharAscii)
         {
             _mask = 0xFF;
-            _maskI = 0xFF;
             _offset = 8 * index;
         }
         else
         {
             _mask = 0xFFFF;
-            _maskI = 0xFFFF;
             _offset = 16 * index;
+        }
+
+        if (subtype is Subtype.ByteS or Subtype.ShortS)
+        {
+            _min = -((int)_mask / 2) - 1;
+            _max = (int)_mask / 2;
+        }
+        else
+        {
+            _min = 0;
+            _max = (int)_mask;
         }
 
         Reference = 0;
@@ -174,8 +191,9 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
     public string? Type { get; }
     public long Reference { get; }
     public bool CanSet { get; }
-    public bool EvaluateParentForChildren => true;
+    public bool IsViewOfParent => true;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IVariable Parent => _treeParent;
 
     public void Evaluate(VariableContext context)
     {
@@ -214,17 +232,13 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
         }
         else
         {
-            var parsed = FormattingUtils.ParseNumber32S(value, context.CultureInfo);
+            var parsed = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
+            var parsedI = unchecked((int)parsed);
 
-            if (_subtype is Subtype.ByteU or Subtype.ShortU && parsed < 0)
+            if (parsedI < _min || parsedI > _max)
                 throw new FormatException();
 
-            var masked = parsed & _maskI;
-
-            if (masked != parsed)
-                throw new FormatException();
-
-            shifted = ((uint)masked) << _offset;
+            shifted = (parsed & _mask) << _offset;
         }
 
         _parent.Evaluate(context);

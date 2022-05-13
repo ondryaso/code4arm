@@ -334,6 +334,14 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
             {Breakpoints = new Container<Breakpoint>(result)};
     }
 
+    public async Task<SetExpressionResponse> SetExpression(SetExpressionArguments arguments)
+    {
+        var dp = await this.GetDebugProvider();
+        var result = dp.SetExpression(arguments);
+
+        return result;
+    }
+    
     public async Task<SetFunctionBreakpointsResponse> SetFunctionBreakpoints(SetFunctionBreakpointsArguments arguments)
     {
         var exe = await this.GetExecution();
@@ -458,11 +466,6 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public Task<RestartFrameResponse> RestartFrame(RestartFrameArguments arguments)
     {
         throw new InvalidOperationException("Restart Frame requests are not supported.");
-    }
-
-    public Task<SetExpressionResponse> SetExpression(SetExpressionArguments arguments)
-    {
-        throw new InvalidOperationException("Set Expression requests are not supported.");
     }
 
     public Task<StepInTargetsResponse> StepInTargets(StepInTargetsArguments arguments)

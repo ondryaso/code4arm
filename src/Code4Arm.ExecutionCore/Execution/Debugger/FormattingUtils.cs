@@ -80,7 +80,18 @@ internal static class FormattingUtils
 
         throw new FormatException();
     }
+    
+    public static uint ParseNumber32F(string value, IFormatProvider? formatProvider)
+    {
+        if (float.TryParse(value, NumberStyles.Float, formatProvider, out var f))
+            return Unsafe.As<float, uint>(ref f);
 
+        if (!Equals(formatProvider, CultureInfo.InvariantCulture))
+            return ParseNumber32F(value, CultureInfo.InvariantCulture);
+
+        throw new FormatException();
+    }
+    
     public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
@@ -110,37 +121,7 @@ internal static class FormattingUtils
 
         throw new FormatException();
     }
-
-    public static int ParseNumber32S(string value, IFormatProvider? formatProvider)
-    {
-        ReadOnlySpan<char> span;
-        var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
-
-        if (value.StartsWith("0x"))
-        {
-            span = value.AsSpan()[2..];
-            numberStyle = NumberStyles.HexNumber;
-        }
-        else
-        {
-            span = value.AsSpan();
-        }
-
-        if (int.TryParse(span, numberStyle, formatProvider, out var i))
-            return i;
-
-        if (uint.TryParse(span, numberStyle, formatProvider, out var u))
-            return Unsafe.As<uint, int>(ref u);
-
-        if (float.TryParse(span, NumberStyles.Float, formatProvider, out var f))
-            return Unsafe.As<float, int>(ref f);
-
-        if (!Equals(formatProvider, CultureInfo.InvariantCulture))
-            return ParseNumber32S(value, CultureInfo.InvariantCulture);
-
-        throw new FormatException();
-    }
-
+    
     public static string FormatHexSigned<T>(T variable, CultureInfo cultureInfo) where T : struct
     {
         return variable switch

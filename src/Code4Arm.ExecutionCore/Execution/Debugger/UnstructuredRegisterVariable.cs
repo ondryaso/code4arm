@@ -18,6 +18,9 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
     public override string Name { get; }
     public override string? Type { get; }
     public override long Reference { get; }
+    public override bool IsViewOfParent => false;
+
+    public override IVariable? Parent => null;
 
     public override void Evaluate(VariableContext context)
     {

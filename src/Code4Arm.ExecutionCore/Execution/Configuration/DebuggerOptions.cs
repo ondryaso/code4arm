@@ -67,7 +67,7 @@ public class DebuggerOptions
     /// </remarks>
     public Subtype[] RegistersSubtypes { get; set; } =
     {
-        Subtype.ByteU, /*Subtype.ByteS, Subtype.CharAscii, Subtype.ShortU,
+        Subtype.ByteU, Subtype.ByteS, /*Subtype.CharAscii, Subtype.ShortU,
         Subtype.ShortS,*/ Subtype.IntU, Subtype.IntS, Subtype.Float
     };
 

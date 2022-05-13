@@ -11,7 +11,7 @@ public static class Extensions
     {
         if (evaluate)
             variable.Evaluate(context);
-
+        
         return new Variable()
         {
             Name = variable.Name,

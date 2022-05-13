@@ -77,7 +77,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsModulesRequest = false, // TODO?
             SupportsRestartFrame = false,
             SupportsRestartRequest = true,
-            SupportsSetExpression = false, // TODO?
+            SupportsSetExpression = true,
             SupportsSetVariable = true,
             SupportsStepBack = false, // TODO
             SupportsSteppingGranularity = false,
@@ -132,10 +132,186 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         };
     }
 
+    public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
+        long? instructionOffset, long instructionCount,
+        bool resolveSymbols) =>
+        throw new NotImplementedException();
+
     public IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column)
     {
         throw new NotImplementedException();
     }
+
+
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
+        throw new NotImplementedException();
+
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
+
+    public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
+
+    public async Task<StackTraceResponse> MakeStackTrace()
+    {
+        if (_engine.ExecutableInfo == null)
+            throw new InvalidOperationException(); // TODO
+
+        var frames = new StackFrame[1];
+
+        var sourceIndex = _engine.CurrentStopSourceIndex;
+        var source = _engine.State == ExecutionState.PausedBreakpoint ? _engine.CurrentBreakpoint?.Source : null;
+
+        if (source is null && _engine.ExecutableInfo.Sources.Count > sourceIndex)
+        {
+            var exeSource = _engine.ExecutableInfo.Sources[sourceIndex];
+            source = await this.GetSource(sourceIndex, exeSource);
+        }
+
+        frames[0] = new StackFrame()
+        {
+            Id = 1,
+            Line = this.LineToClient(_engine.CurrentStopLine),
+            CanRestart = false,
+            PresentationHint = StackFramePresentationHint.Normal,
+            Source = source,
+            Name = "Current execution state",
+            InstructionPointerReference = _engine.CurrentPc.ToString()
+        };
+
+        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
+
+        return ret;
+    }
+
+    public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
+        throw new NotImplementedException();
+
+    public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
+        throw new NotImplementedException();
+
+    #region Expressions
+
+    public SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format)
+    {
+        if (expression.StartsWith("!!!") && expression.Length > 3)
+        {
+            var divider = expression.IndexOf('!', 3);
+            var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
+
+            if (!long.TryParse(referenceSpan, out var reference))
+                throw new InvalidExpressionException();
+
+            if (!_variables.TryGetValue(reference, out var toSet))
+                throw new InvalidExpressionException();
+
+            if (divider != -1)
+            {
+                var childName = expression[(divider + 1)..];
+
+                if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
+                    throw new InvalidExpressionException();
+            }
+
+            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+            toSet.Set(value, ctx);
+
+            while (toSet.IsViewOfParent)
+            {
+                if (toSet.Parent == null)
+                    break;
+
+                toSet = toSet.Parent;
+            }
+
+            toSet.Evaluate(ctx);
+            var val = toSet.Get(ctx);
+
+            return new SetExpressionResponse()
+            {
+                Type = toSet.Type,
+                Value = val,
+                VariablesReference = toSet.Reference
+            };
+        }
+
+        throw new InvalidExpressionException();
+    }
+
+    private Regex _exprRegex =
+        new(
+            @"^(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
+            RegexOptions.Compiled);
+
+    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
+        ValueFormat? format)
+    {
+        if (expression.StartsWith("!!!") && expression.Length > 3)
+        {
+            var divider = expression.IndexOf('!', 3);
+            var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
+
+            if (!long.TryParse(referenceSpan, out var reference))
+                throw new InvalidExpressionException();
+
+            if (!_variables.TryGetValue(reference, out var toSet))
+                throw new InvalidExpressionException();
+
+            if (divider != -1)
+            {
+                var childName = expression[(divider + 1)..];
+
+                if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
+                    throw new InvalidExpressionException();
+            }
+
+            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+            var value = toSet.GetEvaluated(ctx);
+
+            return new EvaluateResponse()
+            {
+                Result = value,
+                Type = toSet.Type,
+                VariablesReference = toSet.Reference,
+                NamedVariables = toSet.Children?.Count ?? 0
+            };
+        }
+
+        // Register expression variants:
+        // [Rx]
+        // [Rx, +-Ry]
+        // [Rx, +-Ry, shift imm]
+        // [Rx, +-imm]
+        // type prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants & (string) - reads a C-string
+
+        // Direct addressing: 
+        // [address/symbol]
+        // [address/symbol, +-Ry]
+        // [address/symbol, +-Ry, shift imm]
+        // type prefixes: same as above
+
+        // Register access:
+        // Rx / Sx / Qx / Dx
+        // {anything defined in Arm.Registers}
+        // !{unicorn reg id}
+        // type prefixes: same as above without (string).
+
+        // all expressions may end with a display format specifier:
+        // :x (unsigned hex)
+        // :b (binary)
+        // :ieee (only for 32b and 64b values -> show sign/exponent/mantissa
+        // if type prefix is string, this has no effect
+
+        var match = _exprRegex.Match(expression);
+
+        if (!match.Success)
+            throw new InvalidExpressionException();
+
+        // TODO
+        return new EvaluateResponse() { Result = "test" };
+    }
+
+    #endregion
+
+    #region Variables
 
     /// <summary>
     /// 
@@ -177,111 +353,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         };
     }
 
-    public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
-        throw new NotImplementedException();
-
-    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
-
-    public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
-
-    private Regex _exprRegex =
-        new(
-            @"^(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
-            RegexOptions.Compiled);
-
-    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
-        ValueFormat? format)
-    {
-        // Register expression variants:
-        // [Rx]
-        // [Rx, +-Ry]
-        // [Rx, +-Ry, shift imm]
-        // [Rx, +-imm]
-        // type prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants & (string) - reads a C-string
-
-        // Direct addressing: 
-        // [address/symbol]
-        // [address/symbol, +-Ry]
-        // [address/symbol, +-Ry, shift imm]
-        // type prefixes: same as above
-
-        // Register access:
-        // Rx / Sx / Qx / Dx
-        // {anything defined in Arm.Registers}
-        // !{unicorn reg id}
-        // type prefixes: same as above without (string).
-
-        // all expressions may end with a display format specifier:
-        // :x (unsigned hex)
-        // :b (binary)
-        // :ieee (only for 32b and 64b values -> show sign/exponent/mantissa
-        // if type prefix is string, this has no effect
-
-        var match = _exprRegex.Match(expression);
-
-        if (!match.Success)
-            throw new InvalidExpressionException();
-
-        // TODO
-        return new EvaluateResponse() { Result = "test" };
-    }
-
-    public async Task<StackTraceResponse> MakeStackTrace()
-    {
-        if (_engine.ExecutableInfo == null)
-            throw new InvalidOperationException(); // TODO
-
-        var frames = new StackFrame[1];
-
-        var sourceIndex = _engine.CurrentStopSourceIndex;
-        var source = _engine.State == ExecutionState.PausedBreakpoint ? _engine.CurrentBreakpoint?.Source : null;
-
-        if (source is null && _engine.ExecutableInfo.Sources.Count > sourceIndex)
-        {
-            var exeSource = _engine.ExecutableInfo.Sources[sourceIndex];
-            source = await this.GetSource(sourceIndex, exeSource);
-        }
-
-        frames[0] = new StackFrame()
-        {
-            Id = 1,
-            Line = this.LineToClient(_engine.CurrentStopLine),
-            CanRestart = false,
-            PresentationHint = StackFramePresentationHint.Normal,
-            Source = source,
-            Name = "Current execution state",
-            InstructionPointerReference = _engine.CurrentPc.ToString()
-        };
-
-        var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
-
-        return ret;
-    }
-
-    public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
-        throw new NotImplementedException();
-
-    public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
-        throw new NotImplementedException();
-
-    /// <summary>
-    /// Returns the difference between SP and stack top in bytes.
-    /// Returns 0 if the value of SP indicates it is not used as the stack pointer.
-    /// </summary>
-    private uint GetStackSize()
-    {
-        if (_engine.Options.StackPointerType != StackPointerType.FullDescending)
-            return 0; // TODO: support other stack types?
-
-        var top = _engine.StackTopAddress;
-        var currentSp = _engine.Engine.RegRead<uint>(Arm.Register.SP);
-
-        if (currentSp > top)
-            return 0;
-
-        return top - currentSp;
-    }
-
     public ScopesResponse MakeVariableScopes()
     {
         var ret = new List<Scope>();
@@ -317,7 +388,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             ret.Add(new Scope()
             {
                 Name = "SIMD/FP registers",
-                NamedVariables = 16,
+                NamedVariables = Options.TopSimdRegistersLevel == SimdRegisterLevel.D64 ? 32 : 16,
                 VariablesReference = ReferenceUtils.MakeReference(ContainerType.SimdRegisters),
                 PresentationHint = "registers"
             });
@@ -346,6 +417,59 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         {
             Scopes = new Container<Scope>(ret)
         };
+    }
+
+    public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
+        ValueFormat? format)
+    {
+        if (_variables.TryGetValue(variablesReference, out var variable) && variable.Children != null)
+        {
+            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+
+            if (variable.IsViewOfParent || variable.Children.Any(v => v.Value.IsViewOfParent))
+                variable.Evaluate(ctx);
+
+            return variable.Children.Values.Select(v =>
+                v.GetAsProtocol(ctx, !v.IsViewOfParent));
+        }
+
+        var containerType = (ContainerType)(variablesReference & 0xF);
+        var ret = new List<Variable>();
+
+        switch (containerType)
+        {
+            case ContainerType.Registers:
+                this.MakeRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 15));
+
+                break;
+            case ContainerType.ControlRegisters:
+                this.MakeControlRegistersVariables(ret, format);
+
+                break;
+            case ContainerType.SimdRegisters:
+                this.MakeSimdRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 16));
+
+                break;
+            case ContainerType.Symbols:
+                // TODO
+
+                break;
+            case ContainerType.Stack:
+                this.MakeStackVariables(ret, format);
+
+                break;
+            case ContainerType.SimdRegisterSubtypes:
+            case ContainerType.SimdRegisterSubtypesValues:
+            case ContainerType.StackSubtypes:
+            case ContainerType.StackSubtypesValues:
+            case ContainerType.ControlFlags:
+            case ContainerType.RegisterSubtypes:
+            case ContainerType.RegisterSubtypesValues:
+            default:
+                throw new InvalidVariableReferenceException();
+        }
+
+        return ret;
     }
 
     private void MakeControlRegistersVariables(List<Variable> ret, ValueFormat? format)
@@ -508,60 +632,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         }
     }
 
-    public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
-        ValueFormat? format)
-    {
-        if (_variables.TryGetValue(variablesReference, out var variable) && variable.Children != null)
-        {
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
-
-            if (variable.EvaluateParentForChildren)
-                variable.Evaluate(ctx);
-
-            return variable.Children.Values.Select(v =>
-                v.GetAsProtocol(ctx, !variable.EvaluateParentForChildren));
-        }
-
-        var containerType = (ContainerType)(variablesReference & 0xF);
-        var ret = new List<Variable>();
-
-        switch (containerType)
-        {
-            case ContainerType.Registers:
-                this.MakeRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 15));
-
-                break;
-            case ContainerType.ControlRegisters:
-                this.MakeControlRegistersVariables(ret, format);
-
-                break;
-            case ContainerType.SimdRegisters:
-                this.MakeSimdRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 16));
-
-                break;
-            case ContainerType.Symbols:
-                // TODO
-                
-                break;
-            case ContainerType.Stack:
-                this.MakeStackVariables(ret, format);
-
-                break;
-            case ContainerType.SimdRegisterSubtypes:
-            case ContainerType.SimdRegisterSubtypesValues:
-            case ContainerType.StackSubtypes:
-            case ContainerType.StackSubtypesValues:
-            case ContainerType.ControlFlags:
-            case ContainerType.RegisterSubtypes:
-            case ContainerType.RegisterSubtypesValues:
-                throw new Exception("????");
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-
-        return ret;
-    }
-
     private void RemoveVariable(IVariable variable)
     {
         if (variable.Reference == 0)
@@ -629,10 +699,25 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return newVariable;
     }
 
-    public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
-        long? instructionOffset, long instructionCount,
-        bool resolveSymbols) =>
-        throw new NotImplementedException();
+    /// <summary>
+    /// Returns the difference between SP and stack top in bytes.
+    /// Returns 0 if the value of SP indicates it is not used as the stack pointer.
+    /// </summary>
+    private uint GetStackSize()
+    {
+        if (_engine.Options.StackPointerType != StackPointerType.FullDescending)
+            return 0; // TODO: support other stack types?
+
+        var top = _engine.StackTopAddress;
+        var currentSp = _engine.Engine.RegRead<uint>(Arm.Register.SP);
+
+        if (currentSp > top)
+            return 0;
+
+        return top - currentSp;
+    }
+
+    #endregion
 
     #region Memory
 

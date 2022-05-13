@@ -22,8 +22,11 @@ public class StackVariable : UIntBackedVariable
     public override string Name { get; }
     public override string? Type { get; }
     public override long Reference { get; }
+    public override bool IsViewOfParent => false;
 
     public override string Get(VariableContext context) => string.Empty;
+
+    public override IVariable? Parent => null;
 
     public override void SetUInt(uint value, VariableContext context)
     {

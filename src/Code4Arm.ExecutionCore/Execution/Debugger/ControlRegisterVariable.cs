@@ -58,9 +58,10 @@ public class ControlRegisterVariable : IVariable
     public string? Type { get; }
     public long Reference { get; }
     public bool CanSet { get; }
-    public bool EvaluateParentForChildren => true;
+    public bool IsViewOfParent => false;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
-
+    public IVariable? Parent => null;
+    
     public void Evaluate(VariableContext context)
     {
         _currentValue = context.Engine.Engine.RegRead<uint>(_unicornRegisterId);
@@ -106,9 +107,10 @@ public class FlagVariable : IVariable
     public string Type => _flag.Description;
     public long Reference { get; }
     public bool CanSet { get; }
-    public bool EvaluateParentForChildren => true;
+    public bool IsViewOfParent => true;
 
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IVariable Parent => _parent;
 
     public void Evaluate(VariableContext context)
     {
