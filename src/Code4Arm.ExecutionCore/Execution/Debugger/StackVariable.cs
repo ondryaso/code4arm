@@ -9,7 +9,7 @@ public class StackVariable : UIntBackedVariable
 {
     private readonly uint _address;
 
-    public StackVariable(uint address, int index, Subtype[] allowedSubtypes)
+    public StackVariable(uint address, int index, DebuggerVariableType[] allowedSubtypes)
     {
         _address = address;
         Name = $"[{index}]";
@@ -39,7 +39,7 @@ public class StackVariable : UIntBackedVariable
         CurrentValue = context.Engine.Engine.MemReadSafe<uint>(_address);
     }
     
-    private void MakeChildren(Subtype[] allowedSubtypes)
+    private void MakeChildren(DebuggerVariableType[] allowedSubtypes)
     {
         foreach (var type in allowedSubtypes)
         {

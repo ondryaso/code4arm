@@ -80,7 +80,7 @@ internal static class FormattingUtils
 
         throw new FormatException();
     }
-    
+
     public static uint ParseNumber32F(string value, IFormatProvider? formatProvider)
     {
         if (float.TryParse(value, NumberStyles.Float, formatProvider, out var f))
@@ -91,7 +91,7 @@ internal static class FormattingUtils
 
         throw new FormatException();
     }
-    
+
     public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
@@ -121,7 +121,18 @@ internal static class FormattingUtils
 
         throw new FormatException();
     }
-    
+
+    public static ulong ParseNumber64F(string value, IFormatProvider? formatProvider)
+    {
+        if (double.TryParse(value, NumberStyles.Float, formatProvider, out var d))
+            return Unsafe.As<double, uint>(ref d);
+
+        if (!Equals(formatProvider, CultureInfo.InvariantCulture))
+            return ParseNumber64F(value, CultureInfo.InvariantCulture);
+
+        throw new FormatException();
+    }
+
     public static string FormatHexSigned<T>(T variable, CultureInfo cultureInfo) where T : struct
     {
         return variable switch

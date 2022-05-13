@@ -44,11 +44,11 @@ public abstract class UIntBackedVariable : IVariable
 public class UIntBackedSubtypeVariable : IVariable
 {
     private readonly UIntBackedVariable _parent;
-    private readonly Subtype _subtype;
+    private readonly DebuggerVariableType _subtype;
 
-    public UIntBackedSubtypeVariable(UIntBackedVariable parent, Subtype subtype, long reference)
+    public UIntBackedSubtypeVariable(UIntBackedVariable parent, DebuggerVariableType subtype, long reference)
     {
-        if (subtype is Subtype.LongU or Subtype.LongS or Subtype.Double)
+        if (subtype is DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double)
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
 
         _parent = parent;
@@ -56,26 +56,26 @@ public class UIntBackedSubtypeVariable : IVariable
 
         Name = subtype switch
         {
-            Subtype.ByteU => "unsigned bytes",
-            Subtype.ByteS => "signed bytes",
-            Subtype.CharAscii => "chars",
-            Subtype.ShortU => "unsigned shorts",
-            Subtype.ShortS => "signed shorts",
-            Subtype.IntU => "unsigned int",
-            Subtype.IntS => "signed int",
-            Subtype.Float => "float",
+            DebuggerVariableType.ByteU => "unsigned bytes",
+            DebuggerVariableType.ByteS => "signed bytes",
+            DebuggerVariableType.CharAscii => "chars",
+            DebuggerVariableType.ShortU => "unsigned shorts",
+            DebuggerVariableType.ShortS => "signed shorts",
+            DebuggerVariableType.IntU => "unsigned int",
+            DebuggerVariableType.IntS => "signed int",
+            DebuggerVariableType.Float => "float",
             _ => throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null)
         };
 
         Type = null;
-        CanSet = subtype is Subtype.IntU or Subtype.IntS or Subtype.Float;
+        CanSet = subtype is DebuggerVariableType.IntU or DebuggerVariableType.IntS or DebuggerVariableType.Float;
         Reference = reference;
         Children = null;
 
         if (!CanSet)
         {
             var c = new Dictionary<string, IVariable>();
-            var count = (subtype is Subtype.ByteU or Subtype.ByteS or Subtype.CharAscii) ? 4 : 2;
+            var count = (subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii) ? 4 : 2;
             for (var i = 0; i < count; i++)
             {
                 var child = new UIntBackedSubtypeAtomicVariable(parent, this, subtype, i);
@@ -105,23 +105,23 @@ public class UIntBackedSubtypeVariable : IVariable
 
     public string Get(VariableContext context)
     {
-        if (_subtype is Subtype.ByteU or Subtype.ByteS or Subtype.CharAscii or Subtype.ShortU or Subtype.ShortS)
+        if (_subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii or DebuggerVariableType.ShortU or DebuggerVariableType.ShortS)
             return string.Empty;
 
         var value = _parent.GetUInt();
 
         return _subtype switch
         {
-            Subtype.IntU => FormattingUtils.FormatVariable(value, context),
-            Subtype.IntS => FormattingUtils.FormatVariable(unchecked((int)value), context),
-            Subtype.Float => Unsafe.As<uint, float>(ref value).ToString(context.CultureInfo),
+            DebuggerVariableType.IntU => FormattingUtils.FormatVariable(value, context),
+            DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)value), context),
+            DebuggerVariableType.Float => Unsafe.As<uint, float>(ref value).ToString(context.CultureInfo),
             _ => string.Empty
         };
     }
 
     public void Set(string value, VariableContext context)
     {
-        var number = _subtype == Subtype.Float
+        var number = _subtype == DebuggerVariableType.Float
             ? FormattingUtils.ParseNumber32F(value, context.CultureInfo)
             : FormattingUtils.ParseNumber32U(value, context.CultureInfo);
 
@@ -133,16 +133,16 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
 {
     private readonly UIntBackedVariable _parent;
     private readonly IVariable _treeParent;
-    private readonly Subtype _subtype;
+    private readonly DebuggerVariableType _subtype;
 
     private readonly uint _mask;
     private readonly int _offset;
 
     private readonly int _min, _max;
 
-    public UIntBackedSubtypeAtomicVariable(UIntBackedVariable parent, IVariable treeParent, Subtype subtype, int index)
+    public UIntBackedSubtypeAtomicVariable(UIntBackedVariable parent, IVariable treeParent, DebuggerVariableType subtype, int index)
     {
-        if (subtype is Subtype.IntU or Subtype.IntS or Subtype.LongU or Subtype.LongS or Subtype.Double)
+        if (subtype is DebuggerVariableType.IntU or DebuggerVariableType.IntS or DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double)
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
 
         _parent = parent;
@@ -152,15 +152,15 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
         Name = $"[{index}]";
         Type = subtype switch
         {
-            Subtype.ByteU => "unsigned byte",
-            Subtype.ByteS => "signed byte",
-            Subtype.CharAscii => "char",
-            Subtype.ShortU => "unsigned short",
-            Subtype.ShortS => "signed short",
+            DebuggerVariableType.ByteU => "unsigned byte",
+            DebuggerVariableType.ByteS => "signed byte",
+            DebuggerVariableType.CharAscii => "char",
+            DebuggerVariableType.ShortU => "unsigned short",
+            DebuggerVariableType.ShortS => "signed short",
             _ => throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null)
         };
 
-        if (subtype is Subtype.ByteU or Subtype.ByteS or Subtype.CharAscii)
+        if (subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii)
         {
             _mask = 0xFF;
             _offset = 8 * index;
@@ -171,7 +171,7 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
             _offset = 16 * index;
         }
 
-        if (subtype is Subtype.ByteS or Subtype.ShortS)
+        if (subtype is DebuggerVariableType.ByteS or DebuggerVariableType.ShortS)
         {
             _min = -((int)_mask / 2) - 1;
             _max = (int)_mask / 2;
@@ -206,10 +206,10 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
 
         return _subtype switch
         {
-            Subtype.ByteU or Subtype.ShortU => FormattingUtils.FormatVariable(value, context),
-            Subtype.ByteS => FormattingUtils.FormatVariable((int)unchecked((sbyte)value), context),
-            Subtype.CharAscii => $"'{(char)value}'",
-            Subtype.ShortS => FormattingUtils.FormatVariable((int)unchecked((short)value), context),
+            DebuggerVariableType.ByteU or DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(value, context),
+            DebuggerVariableType.ByteS => FormattingUtils.FormatVariable((int)unchecked((sbyte)value), context),
+            DebuggerVariableType.CharAscii => $"'{(char)value}'",
+            DebuggerVariableType.ShortS => FormattingUtils.FormatVariable((int)unchecked((short)value), context),
             _ => throw new Exception()
         };
     }
@@ -218,7 +218,7 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
     {
         uint shifted;
 
-        if (_subtype == Subtype.CharAscii)
+        if (_subtype == DebuggerVariableType.CharAscii)
         {
             if (value.Length != 1)
                 throw new FormatException();

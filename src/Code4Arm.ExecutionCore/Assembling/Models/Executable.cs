@@ -2,6 +2,8 @@
 // Author: Ondřej Ondryáš
 
 using System.Collections.Immutable;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using ELFSharp.ELF;
@@ -22,11 +24,13 @@ public class Executable : IExecutableInfo, IDisposable
     private readonly ImmutableList<ExecutableSource> _sources;
 
     public IReadOnlyList<AssembledObject> SourceObjects => _sourceObjects;
+    public IReadOnlyList<long> DataSectionStarts { get; }
 
     public IAsmMakeTarget MakeTarget { get; }
     public ELF<uint> Elf => _elf;
 
-    internal Executable(IAsmMakeTarget makeTarget, string filePath, ELF<uint> elf, List<AssembledObject> sourceObjects,
+    internal Executable(IAsmMakeTarget makeTarget, string filePath, string linkerOutput, ELF<uint> elf,
+        List<AssembledObject> sourceObjects,
         IEnumerable<BoundFunctionSimulator>? functionSimulators, ILogger<Executable> logger)
     {
         MakeTarget = makeTarget;
@@ -53,6 +57,7 @@ public class Executable : IExecutableInfo, IDisposable
 
         this.MakeSegments();
         this.DetermineCodeRange();
+        DataSectionStarts = this.DetermineDataSectionsStarts(linkerOutput).ToList();
     }
 
     public IReadOnlyList<MemorySegment> Segments => _segments;
@@ -190,6 +195,26 @@ public class Executable : IExecutableInfo, IDisposable
         }
 
         LastInstructionAddress = textSectionEnd;
+    }
+
+    private static readonly Regex DataSectionRegex = new(@"\.data\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)\s+(\S*)$",
+        RegexOptions.Multiline);
+
+    private IEnumerable<long> DetermineDataSectionsStarts(string linkerOutput)
+    {
+        var matches = DataSectionRegex.Matches(linkerOutput);
+        var starts = matches
+                     .Where(m => m.Groups[2].Value != "0")
+                     .ToDictionary(m => m.Groups[3].Value,
+                         m => ulong.Parse(m.Groups[1].Value, NumberStyles.AllowHexSpecifier));
+
+        foreach (var source in _sourceObjects)
+        {
+            if (starts.TryGetValue(source.ObjectFilePath, out var start))
+                yield return unchecked((uint)(start & 0xFFFFFFFF));
+            else
+                yield return -1;
+        }
     }
 
     /// <summary>

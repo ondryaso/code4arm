@@ -24,24 +24,9 @@ public enum ContainerType : uint
     StackSubtypesValues
 }
 
-public enum Subtype : uint
-{
-    ByteU = 0,
-    ByteS,
-    CharAscii,
-    ShortU,
-    ShortS,
-    IntU,
-    IntS,
-    LongU,
-    LongS,
-    Float,
-    Double
-}
-
 internal static class ReferenceUtils
 {
-    public static long MakeReference(ContainerType containerType, int regId = 0, Subtype subtype = 0, int simdLevel = 0)
+    public static long MakeReference(ContainerType containerType, int regId = 0, DebuggerVariableType subtype = 0, int simdLevel = 0)
     {
         var ret = (((ulong)containerType) & 0xF) | ((((ulong)subtype) & 0xF) << 4) | ((((uint)regId) & 0xFF) << 8)
             | ((((uint)simdLevel) & 0x3) << 16);
@@ -49,7 +34,7 @@ internal static class ReferenceUtils
         return Unsafe.As<ulong, long>(ref ret);
     }
 
-    public static long MakeReference(ContainerType containerType, uint address, Subtype subtype = 0)
+    public static long MakeReference(ContainerType containerType, uint address, DebuggerVariableType subtype = 0)
     {
         var ret = (((ulong)containerType) & 0xF) | ((((ulong)subtype) & 0xF) << 4) | (((ulong)address) << 8);
 

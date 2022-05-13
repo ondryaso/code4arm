@@ -5,7 +5,7 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public class RegisterVariable : UnstructuredRegisterVariable
 {
-    public RegisterVariable(int unicornRegisterId, string name, Subtype[] allowedSubtypes)
+    public RegisterVariable(int unicornRegisterId, string name, DebuggerVariableType[] allowedSubtypes)
         : base(unicornRegisterId, name, null)
     {
         Reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, unicornRegisterId);
@@ -15,7 +15,7 @@ public class RegisterVariable : UnstructuredRegisterVariable
 
     public override long Reference { get; }
 
-    private void MakeChildren(Subtype[] allowedSubtypes)
+    private void MakeChildren(DebuggerVariableType[] allowedSubtypes)
     {
         foreach (var type in allowedSubtypes)
         {

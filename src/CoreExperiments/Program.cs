@@ -2,6 +2,7 @@
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
@@ -10,6 +11,7 @@ using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Constants;
+using ELFSharp.ELF.Sections;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using MediatR;
@@ -64,10 +66,13 @@ public class Program
         }
 
         var exe = res.Executable!;
-        await Emulate(exe, loggerFactory.CreateLogger<ExecutionEngine>());
+
+      
+
         exe.Dispose();
     }
 
+#if false
     private static async Task Emulate(Executable exe, ILogger<ExecutionEngine> logger)
     {
         var execution = new ExecutionEngine(new ExecutionOptions() { UseStrictMemoryAccess = true },
@@ -170,6 +175,7 @@ public class Program
 
         execution.Dispose();
     }
+#endif
 
     private static readonly string ToolchainBin = Environment.OSVersion.Platform == PlatformID.Unix
         ? "/home/ondryaso/Projects/bp/gcc-arm-none-linux-gnueabihf/bin/"

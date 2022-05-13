@@ -62,26 +62,26 @@ public class DebuggerOptions
     /// Different subtypes to break general-purpose register values into. 
     /// </summary>
     /// <remarks>
-    /// <see cref="Subtype.LongS"/>, <see cref="Subtype.LongU"/> and <see cref="Subtype.Double"/> cannot be used here
+    /// <see cref="DebuggerVariableType.LongS"/>, <see cref="DebuggerVariableType.LongU"/> and <see cref="DebuggerVariableType.Double"/> cannot be used here
     /// because the registers are 32 bits wide.
     /// </remarks>
-    public Subtype[] RegistersSubtypes { get; set; } =
+    public DebuggerVariableType[] RegistersSubtypes { get; set; } =
     {
-        Subtype.ByteU, Subtype.ByteS, /*Subtype.CharAscii, Subtype.ShortU,
-        Subtype.ShortS,*/ Subtype.IntU, Subtype.IntS, Subtype.Float
+        DebuggerVariableType.ByteU, DebuggerVariableType.ByteS, /*DebuggerVariableType.CharAscii, DebuggerVariableType.ShortU,
+        DebuggerVariableType.ShortS,*/ DebuggerVariableType.IntU, DebuggerVariableType.IntS, DebuggerVariableType.Float
     };
 
     /// <summary>
     /// Different subtypes to break stack values into. 
     /// </summary>
     /// <remarks>
-    /// <see cref="Subtype.LongS"/>, <see cref="Subtype.LongU"/> and <see cref="Subtype.Double"/> cannot be used here
+    /// <see cref="DebuggerVariableType.LongS"/>, <see cref="DebuggerVariableType.LongU"/> and <see cref="DebuggerVariableType.Double"/> cannot be used here
     /// because the stack is read as an array of 32bit values.
     /// </remarks>
-    public Subtype[] StackVariablesSubtypes { get; set; } =
+    public DebuggerVariableType[] StackVariablesSubtypes { get; set; } =
     {
-        Subtype.ByteU, /*Subtype.ByteS, Subtype.CharAscii, Subtype.ShortU,
-        Subtype.ShortS,*/ Subtype.IntU, Subtype.IntS, Subtype.Float
+        DebuggerVariableType.ByteU, /*DebuggerVariableType.ByteS, DebuggerVariableType.CharAscii, DebuggerVariableType.ShortU,
+        DebuggerVariableType.ShortS,*/ DebuggerVariableType.IntU, DebuggerVariableType.IntS, DebuggerVariableType.Float
     };
 
     /// <summary>

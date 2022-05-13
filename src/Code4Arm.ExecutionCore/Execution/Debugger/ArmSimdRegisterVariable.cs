@@ -180,7 +180,7 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
         Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 0);
 
         // TODO: make this configurable
-        this.MakeChildren(new[] { Subtype.Float, Subtype.IntS, Subtype.IntU });
+        this.MakeChildren(new[] { DebuggerVariableType.Float, DebuggerVariableType.IntS, DebuggerVariableType.IntU });
     }
 
     internal ArmSSimdRegisterVariable(int index, ArmDSimdRegisterVariable parent, int parentOffset)
@@ -242,7 +242,7 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
         return $"0x{value:x}";
     }
 
-    private void MakeChildren(IEnumerable<Subtype> allowedSubtypes)
+    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes)
     {
         foreach (var type in allowedSubtypes)
         {

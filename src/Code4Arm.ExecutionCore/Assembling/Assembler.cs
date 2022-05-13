@@ -78,7 +78,6 @@ public class Assembler : IAssembler
 
         gasStartInfo.ArgumentList.Add("-alscn");
         gasStartInfo.ArgumentList.Add("-g");
-        gasStartInfo.ArgumentList.Add("-march=armv8.6-a+fp+simd");
         gasStartInfo.ArgumentList.Add("-o");
         gasStartInfo.ArgumentList.Add(outputFile);
 
@@ -229,7 +228,7 @@ public class Assembler : IAssembler
         // Link
         var ldStartInfo = new ProcessStartInfo(LinkerOptions.LdPath)
         {
-            // RedirectStandardOutput = true,
+            RedirectStandardOutput = true,
             RedirectStandardError = true
         };
 
@@ -253,6 +252,7 @@ public class Assembler : IAssembler
         ldStartInfo.ArgumentList.Add(outputFile);
         ldStartInfo.ArgumentList.Add("-z"); // Page size
         ldStartInfo.ArgumentList.Add("common-page-size=4096");
+        ldStartInfo.ArgumentList.Add("-M"); // Print linker map
 
         if (_linkerScriptPath != null) // Linker script for function simulators (if we have one)
             ldStartInfo.ArgumentList.Add(_linkerScriptPath);
@@ -292,6 +292,7 @@ public class Assembler : IAssembler
             throw new Exception("LD process timed out.", e);
         }
 
+        var stdout = await ldProcess.StandardOutput.ReadToEndAsync();
         var stderr = await ldProcess.StandardError.ReadToEndAsync();
 
         if (!string.IsNullOrWhiteSpace(stderr))
@@ -308,7 +309,7 @@ public class Assembler : IAssembler
         Executable? retExe = null;
         if (success)
         {
-            retExe = this.MakeExecutable(asmMakeTarget, validObjects, outputFile);
+            retExe = this.MakeExecutable(asmMakeTarget, stdout, validObjects, outputFile);
             foreach (var assembledObject in validObjects)
             {
                 assembledObject.DeleteFile();
@@ -324,12 +325,13 @@ public class Assembler : IAssembler
             validObjects, null, stderr);
     }
 
-    private Executable MakeExecutable(IAsmMakeTarget makeTarget, List<AssembledObject> assembledObjects, string elfPath)
+    private Executable MakeExecutable(IAsmMakeTarget makeTarget, string linkerOutput,
+        List<AssembledObject> assembledObjects, string elfPath)
     {
         if (!ELFReader.TryLoad(elfPath, out ELF<uint> elf))
             throw new Exception("Cannot load linked ELF file.");
 
-        var exe = new Executable(makeTarget, elfPath, elf, assembledObjects, _functionSimulators,
+        var exe = new Executable(makeTarget, elfPath, linkerOutput, elf, assembledObjects, _functionSimulators,
             _loggerFactory.CreateLogger<Executable>());
 
         return exe;

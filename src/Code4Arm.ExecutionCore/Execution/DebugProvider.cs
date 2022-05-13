@@ -15,6 +15,7 @@ using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Constants;
+using ELFSharp.ELF.Sections;
 using MediatR;
 using Newtonsoft.Json.Linq;
 
@@ -411,6 +412,12 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         if (Options.EnableAutomaticDataVariables)
         {
+            ret.Add(new Scope()
+            {
+                Name = "Symbols",
+                VariablesReference = ReferenceUtils.MakeReference(ContainerType.Symbols),
+                PresentationHint = "locals"
+            });
         }
 
         return new ScopesResponse()
@@ -451,7 +458,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
                 break;
             case ContainerType.Symbols:
-                // TODO
+                this.MakeSymbolsVariables(ret, format);
 
                 break;
             case ContainerType.Stack:
@@ -632,6 +639,43 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         }
     }
 
+    private enum TypedSymbolType
+    {
+        Byte,
+        Short,
+        Int,
+        Float,
+        Double,
+        String
+    }
+
+    private record struct TypedSymbol(string Name, uint Address, TypedSymbolType Type);
+    private List<TypedSymbol> _symbolsForVariables = new();
+
+    private void MakeSymbolsVariables(List<Variable> ret, ValueFormat? format)
+    {
+        if (_symbolsForVariables.Count == 0)
+            this.DetermineDataSymbols();
+
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        // TODO
+        foreach (var typedSymbol in _symbolsForVariables.Where(s => s.Type != TypedSymbolType.String))
+        {
+            var v = this.GetOrAddTopLevelVariable(typedSymbol.Name, () => new MemoryVariable(typedSymbol.Name,
+                typedSymbol.Type switch
+                {
+                    TypedSymbolType.Byte => DebuggerVariableType.ByteU,
+                    TypedSymbolType.Short => DebuggerVariableType.ShortU,
+                    TypedSymbolType.Int => DebuggerVariableType.IntU,
+                    TypedSymbolType.Float => DebuggerVariableType.Float,
+                    TypedSymbolType.Double => DebuggerVariableType.Double,
+                    _ => throw new ArgumentOutOfRangeException()
+                }, typedSymbol.Address));
+
+            ret.Add(v.GetAsProtocol(ctx, true));
+        }
+    }
+
     private void RemoveVariable(IVariable variable)
     {
         if (variable.Reference == 0)
@@ -715,6 +759,58 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             return 0;
 
         return top - currentSp;
+    }
+
+    private void DetermineDataSymbols()
+    {
+        if (_engine.ExecutableInfo is not Executable exe)
+            return;
+
+        if (exe.Elf.Sections.FirstOrDefault(s => s.Type == SectionType.SymbolTable) is not SymbolTable<uint> symTab)
+            return;
+
+        var dataSection = exe.Elf.Sections.FirstOrDefault(s => s.Name == ".data");
+
+        if (dataSection == null)
+            return;
+
+        var symbols = symTab.Entries.Where(s => s.Type is SymbolType.Object or SymbolType.NotSpecified)
+                            .Where(s => s.PointedSection == dataSection && !s.Name.StartsWith('$'))
+                            .GroupBy(s => s.Value)
+                            .ToDictionary(s => s.Key, s => s);
+
+        for (var objI = 0; objI < exe.SourceObjects.Count; objI++)
+        {
+            var dataBaseAddress = exe.DataSectionStarts[objI];
+
+            if (dataBaseAddress == -1)
+                continue;
+
+            var dataBaseAddressU = (uint)dataBaseAddress;
+
+            var obj = exe.SourceObjects[objI];
+            foreach (var (address, type) in obj.PossibleDataFields)
+            {
+                var a = dataBaseAddressU + address;
+                if (symbols.TryGetValue(a, out var syms))
+                {
+                    symbols.Remove(a);
+                    foreach (var sym in syms)
+                    {
+                        _symbolsForVariables.Add(new TypedSymbol(sym.Name, sym.Value, type switch
+                        {
+                            "float" or "single" => TypedSymbolType.Float,
+                            "double" => TypedSymbolType.Double,
+                            "word" or "long" or "int" => TypedSymbolType.Int,
+                            "short" or "hword" => TypedSymbolType.Short,
+                            "byte" => TypedSymbolType.Byte,
+                            "ascii" or "asciz" => TypedSymbolType.String,
+                            _ => throw new InvalidOperationException()
+                        }));
+                    }
+                }
+            }
+        }
     }
 
     #endregion

@@ -1,6 +1,7 @@
 // AssembledObject.cs
 // Author: Ondřej Ondryáš
 
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,8 @@ public class AssembledObject : IDisposable
     public bool[]? IsProgramLine { get; }
     public int ProgramLines { get; }
 
+    public Dictionary<uint, string> PossibleDataFields { get; }
+
     internal AssembledObject(IAsmFile sourceFile, int sourceVersion, string buildFilePath, string objectFilePath,
         string gasOut, string gasErr, bool successful, ILogger<AssembledObject> logger)
     {
@@ -35,6 +38,7 @@ public class AssembledObject : IDisposable
         ObjectFilePath = objectFilePath;
         AssemblerOutput = gasOut;
         AssemblerErrors = gasErr;
+        PossibleDataFields = new Dictionary<uint, string>();
 
         if (successful)
         {
@@ -64,7 +68,11 @@ public class AssembledObject : IDisposable
     }
 
     private static readonly Regex ProgramLineRegex =
-        new(@"^\s*(\d+)\s+[0-9a-f]{4,8}\s+[0-9A-F]{8}\s*[\w\.:]+", RegexOptions.Compiled);
+        new(@"^\s*(\d+)\s+([0-9a-f]{4,8})\s+[0-9A-F]{8}\s*[\w\.:]+", RegexOptions.Compiled);
+
+    private static readonly Regex DataDirectiveRegex = new(
+        @"\.(float|single|double|word|long|int|short|hword|byte|ascii|asciz)\s.*",
+        RegexOptions.Compiled);
 
     private bool[] DetermineProgramLines()
     {
@@ -86,6 +94,13 @@ public class AssembledObject : IDisposable
                 linesWithCode.Add(lineNumber);
                 if (lineNumber > maxLine)
                     maxLine = lineNumber;
+
+                var dataDirectiveMatch = DataDirectiveRegex.Match(line);
+                if (dataDirectiveMatch.Success)
+                {
+                    var address = int.Parse(match.Groups[2].Value, NumberStyles.AllowHexSpecifier);
+                    PossibleDataFields[(uint)address] = dataDirectiveMatch.Groups[1].Value;
+                }
             }
         }
 
