@@ -130,6 +130,19 @@ public class Unicorn : IUnicorn
         return value;
     }
 
+    public unsafe void RegRead<T>(int registerId, ref T target) where T : unmanaged
+    {
+        this.EnsureEngine();
+        int result;
+
+        fixed (void* value = &target)
+        {
+            result = Native.uc_reg_read(_engine, registerId, &value);
+        }
+
+        this.CheckResult(result);
+    }
+
     public unsafe void RegWrite(int registerId, ReadOnlySpan<byte> bytes)
     {
         this.EnsureEngine();

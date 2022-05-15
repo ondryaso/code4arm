@@ -47,6 +47,19 @@ internal sealed class UnicornContext : IUnicornContext
         return value;
     }
 
+    public unsafe void RegRead<T>(int registerId, ref T target) where T : unmanaged
+    {
+        this.EnsureNotDisposed();
+        int result;
+
+        fixed (void* value = &target)
+        {
+            result = Native.uc_context_reg_read(Context, registerId, &value);
+        }
+
+        Unicorn.CheckResult(result);
+    }
+
     public unsafe void RegWrite(int registerId, ReadOnlySpan<byte> bytes)
     {
         this.EnsureNotDisposed();
@@ -54,7 +67,7 @@ internal sealed class UnicornContext : IUnicornContext
 
         fixed (byte* pinned = bytes)
         {
-            result = Native.uc_reg_write(Context, registerId, pinned);
+            result = Native.uc_context_reg_write(Context, registerId, pinned);
         }
 
         Unicorn.CheckResult(result);
@@ -67,7 +80,7 @@ internal sealed class UnicornContext : IUnicornContext
 
         fixed (byte* pinned = target)
         {
-            result = Native.uc_reg_read(Context, registerId, pinned);
+            result = Native.uc_context_reg_read(Context, registerId, pinned);
         }
 
         Unicorn.CheckResult(result);
