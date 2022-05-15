@@ -1,5 +1,7 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using System.Runtime.InteropServices;
+
 namespace Code4Arm.Unicorn.Constants;
 
 public static class Arm
@@ -234,5 +236,22 @@ public static class Arm
         /// initialization function from qemu/target/arm/cpu.c.
         /// </remarks>
         public const int MAX = 33;
+    }
+
+    /// <summary>
+    /// Used together with <see cref="Register.CP_REG"/> to access 'coprocessor registers'.
+    /// Maps to uc_arm_cp_reg.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CoprocessorRegister
+    {
+        public uint CoprocessorId;
+        public uint Is64Bit;
+        public uint SecurityState;
+        public uint Crn;
+        public uint Crm;
+        public uint Opcode1;
+        public uint Opcode2;
+        public ulong Value;
     }
 }
