@@ -77,10 +77,9 @@ public interface IUnicorn : IUnicornContext
 
     UnicornHookRegistration AddBlockHook(CodeHookCallback callback, ulong startAddress, ulong endAddress);
 
-    UnicornHookRegistration AddInterruptHook(InterruptHookCallback callback, ulong startAddress, ulong endAddress);
+    UnicornHookRegistration AddInterruptHook(InterruptHookCallback callback);
 
-    UnicornHookRegistration AddInvalidInstructionHook(InvalidInstructionHookCallback callback, ulong startAddress,
-        ulong endAddress);
+    UnicornHookRegistration AddInvalidInstructionHook(InvalidInstructionHookCallback callback);
 
     UnicornHookRegistration AddMemoryHook(MemoryHookCallback callback, MemoryHookType hookType, ulong startAddress,
         ulong endAddress);

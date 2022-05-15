@@ -747,22 +747,24 @@ public class Unicorn : IUnicorn
             callback, startAddress, endAddress);
     }
 
-    public UnicornHookRegistration AddInterruptHook(InterruptHookCallback callback, ulong startAddress,
-        ulong endAddress)
+    public UnicornHookRegistration AddInterruptHook(InterruptHookCallback callback)
     {
         _interruptNativeDelegate ??= this.InterruptHookHandler;
 
+        // When invoking interrupt hook callbacks, Unicorn doesn't check for address bounds.
+        // See cpu-exec.c -> cpu_handle_exception(CPUState *cpu, int *ret).
         return this.AddHook(UniConst.Hook.Intr, _interruptNativeDelegate,
-            callback, startAddress, endAddress);
+            callback, 1, 0);
     }
 
-    public UnicornHookRegistration AddInvalidInstructionHook(InvalidInstructionHookCallback callback,
-        ulong startAddress, ulong endAddress)
+    public UnicornHookRegistration AddInvalidInstructionHook(InvalidInstructionHookCallback callback)
     {
         _invalidInstructionNativeDelegate ??= this.InvalidInstructionHookHandler;
 
+        // When invoking invalid instruction hook callbacks, Unicorn doesn't check for address bounds.
+        // See cpu-exec.c -> cpu_handle_exception(CPUState *cpu, int *ret).
         return this.AddHook(UniConst.Hook.InsnInvalid, _invalidInstructionNativeDelegate,
-            callback, startAddress, endAddress);
+            callback, 1, 0);
     }
 
     public UnicornHookRegistration AddMemoryHook(MemoryHookCallback callback, MemoryHookType hookType,
