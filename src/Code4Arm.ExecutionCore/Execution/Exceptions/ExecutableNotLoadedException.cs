@@ -1,14 +1,14 @@
-﻿// ExecutableNotLoadedException.cs
+// ExecutableNotLoadedException.cs
 // Author: Ondřej Ondryáš
 
 namespace Code4Arm.ExecutionCore.Execution.Exceptions;
 
-public class ExecutableNotLoadedException : ExecutionEngineException
+public class ExecutableNotLoadedException : DebuggerException
 {
-    public ExecutableNotLoadedException(Guid? executionId, string action)
-        : base(executionId, $"Cannot perform '{action}' because no executable is loaded in the execution engine.")
+    public ExecutableNotLoadedException(string description = ExceptionMessages.ExecutableNotLoaded,
+        Exception? innerException = null) : base(ExceptionCodes.ExecutableNotLoadedId,
+        ExceptionCodes.ExecutableNotLoaded,
+        DebuggerExceptionType.InvalidRequest, description, innerException)
     {
     }
-
-    public override string ErrorType => "executableNotLoaded";
 }

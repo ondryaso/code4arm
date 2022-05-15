@@ -30,12 +30,21 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         public uint Address { get; init; }
     }
 
-    private enum UnexpectedStopCause
+    private enum StopCause
     {
         Normal,
-        StrictAccessHook,
+        Interrupt,
+        InvalidInstruction,
+        InvalidMemoryAccess,
         TrampolineUnbound,
         TimeoutOrExternalCancellation
+    }
+
+    private struct StopData
+    {
+        public uint InterruptNumber;
+        public MemoryAccessType AccessType;
+        public uint InvalidAddress;
     }
 
     public const long ThreadId = 1;
@@ -53,11 +62,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     internal int CurrentStopLine;
     internal int CurrentStopSourceIndex;
 
-    private UnexpectedStopCause _lastStopCause = UnexpectedStopCause.Normal;
-    private MemoryAccessType _disallowedStrictAccessType;
+    private StopCause _lastStopCause = StopCause.Normal;
+    private StopData _stopData;
 
     private readonly ILogger<ExecutionEngine> _logger;
-    private readonly ILogger _clientLogger;
     private Executable? _exe;
     private List<MemorySegment>? _segments;
     private MemorySegment? _stackSegment;
@@ -105,7 +113,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public Stream EmulatedOutput => OutputMemoryStream;
 
     public ExecutionEngine(ExecutionOptions options, DebuggerOptions debuggerOptions, IMediator mediator,
-        ILogger<ExecutionEngine> systemLogger, ILogger clientLogger)
+        ILogger<ExecutionEngine> systemLogger)
     {
         _options = options;
         _mediator = mediator;
@@ -119,7 +127,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _arrayPool = ArrayPool<byte>.Shared;
 
         _logger = systemLogger;
-        _clientLogger = clientLogger;
         ExecutionId = Guid.NewGuid();
 
         _debugProvider = new DebugProvider(this, debuggerOptions, _mediator);
@@ -151,8 +158,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw new InvalidOperationException("_segments must be initialized.");
 
         var stOpt = _options.StackPlacementOptions;
-        var addressOpts = (int) stOpt & ((int) StackPlacementOptions.FixedAddress +
-            (int) StackPlacementOptions.RandomizeAddress + (int) StackPlacementOptions.AlwaysKeepFirstAddress);
+        var addressOpts = (int)stOpt & ((int)StackPlacementOptions.FixedAddress +
+            (int)StackPlacementOptions.RandomizeAddress + (int)StackPlacementOptions.AlwaysKeepFirstAddress);
 
         if ((addressOpts & (addressOpts - 1)) != 0) // Has more than one set bit (~ is power of 2)
             throw new InvalidOperationException(
@@ -193,7 +200,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _ => throw new ArgumentOutOfRangeException()
         };
 
-        var newStackSegment = new MemorySegment(stackSegmentBegin, StackSize) {IsStack = true};
+        var newStackSegment = new MemorySegment(stackSegmentBegin, StackSize) { IsStack = true };
         _segments.Add(newStackSegment);
 
         if (_stackSegment == null)
@@ -224,7 +231,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (stOpt.HasFlag(StackPlacementOptions.KeepData))
             {
-                keptStackData = rented ? _arrayPool.Rent((int) keptSize) : new byte[keptSize];
+                keptStackData = rented ? _arrayPool.Rent((int)keptSize) : new byte[keptSize];
                 Engine.MemRead(_stackSegment.StartAddress, keptStackData, keptSize);
             }
 
@@ -265,8 +272,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             // If there was a starting address, use it first and set it to value other than -1
             // so that it's not used the next time
             stackSegmentBegin = initial == -1
-                ? (uint) _rnd.NextInt64(0, uint.MaxValue - StackSize - 4096)
-                : (uint) initial;
+                ? (uint)_rnd.NextInt64(0, uint.MaxValue - StackSize - 4096)
+                : (uint)initial;
             initial = 0;
 
             stackSegmentBegin -= (stackSegmentBegin % 4096);
@@ -314,6 +321,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         this.MapMemoryFromExecutable();
         this.InitTrampolineHook();
+        this.InitHooks();
 
         State = ExecutionState.Ready;
 
@@ -373,7 +381,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (segment.IsTrampoline)
             {
-                var jumpBackInstruction = new byte[] {0x1e, 0xff, 0x2f, 0xe1};
+                var jumpBackInstruction = new byte[] { 0x1e, 0xff, 0x2f, 0xe1 };
                 var span = jumpBackInstruction.AsSpan();
 
                 for (var address = segment.ContentsStartAddress; address < segment.ContentsEndAddress; address += 4)
@@ -389,14 +397,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             {
                 if (segment.StartAddress != segment.ContentsStartAddress)
                 {
-                    _strictAccessHooks.Add(Engine.AddMemoryHook(this.StrictAccessHook,
+                    _strictAccessHooks.Add(Engine.AddMemoryHook(this.StrictAccessHandler,
                         MemoryHookType.Read | MemoryHookType.Write | MemoryHookType.Fetch,
                         segment.StartAddress, segment.ContentsStartAddress - 1));
                 }
 
                 if (segment.EndAddress != segment.ContentsEndAddress)
                 {
-                    _strictAccessHooks.Add(Engine.AddMemoryHook(this.StrictAccessHook,
+                    _strictAccessHooks.Add(Engine.AddMemoryHook(this.StrictAccessHandler,
                         MemoryHookType.Read | MemoryHookType.Write | MemoryHookType.Fetch,
                         segment.ContentsEndAddress, segment.EndAddress - 1));
                 }
@@ -423,29 +431,24 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             return;
         }
 
-        _trampolineHookRegistration = Engine.AddCodeHook(this.TrampolineHookHandler, trampoline.ContentsStartAddress,
+        _trampolineHookRegistration = Engine.AddCodeHook(this.TrampolineHandler, trampoline.ContentsStartAddress,
             trampoline.ContentsEndAddress);
     }
 
-    private void TrampolineHookHandler(IUnicorn engine, ulong address, uint size)
+    private void InitHooks()
     {
-        if (_exe is not {FunctionSimulators: { }} ||
-            !_exe.FunctionSimulators.TryGetValue((uint) address, out var simulator))
+        this.CheckLoaded();
+
+        foreach (var executableSegment in _segments.Where(s => s.Permissions.HasFlag(MemorySegmentPermissions.Execute)))
         {
-            Engine.EmuStop();
-
-            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", ExecutionId, address);
-            _clientLogger.LogError(
-                "Program attempted to fetch from the function simulator memory segment on address {Address:x8} which is not bound to any simulated function.",
-                address);
-
-            _lastStopCause = UnexpectedStopCause.TrampolineUnbound;
-
-            return;
+            Engine.AddInterruptHook(this.InterruptHookHandler, executableSegment.StartAddress,
+                executableSegment.EndAddress);
+            Engine.AddInvalidInstructionHook(this.InvalidInstructionHandler, executableSegment.StartAddress,
+                executableSegment.EndAddress);
         }
 
-        CurrentPc = (uint) address;
-        simulator.FunctionSimulator.Run(this);
+        Engine.AddInvalidMemoryAccessHook(this.InvalidMemoryAccessHandler, MemoryHookType.AllInvalidEvents, 0,
+            uint.MaxValue);
     }
 
     /// <summary>
@@ -455,7 +458,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// This is used just before emulation is started. It overwrites the current contents of virtual memory with data
     /// from the executable and zeroes out BSS sections.
     /// </remarks>
-    public void InitMemoryFromExecutable()
+    private void InitMemoryFromExecutable()
     {
         this.CheckLoaded();
 
@@ -490,7 +493,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // but I prefer this version which takes (much?) more CPU cycles but allocates MaxStackAllocatedSize B max 
 
         var bufferSize = Math.Min(size, MaxStackAllocatedSize);
-        Span<byte> buffer = stackalloc byte[(int) bufferSize];
+        Span<byte> buffer = stackalloc byte[(int)bufferSize];
         var end = start + size;
 
         for (var address = start; address < end; address += bufferSize)
@@ -505,7 +508,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // Same as in RandomizeMemory()
 
         var bufferSize = Math.Min(size, MaxStackAllocatedSize);
-        Span<byte> buffer = stackalloc byte[(int) bufferSize];
+        Span<byte> buffer = stackalloc byte[(int)bufferSize];
         buffer.Clear();
         var end = start + size;
 
@@ -515,14 +518,78 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
     }
 
-    private void StrictAccessHook(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
+    #region Unicorn hook handlers
+
+    private void StrictAccessHandler(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
         long value)
     {
-        _logger.LogTrace("Execution {Id}: virtually unmapped access to memory at {Address:x8}.", ExecutionId, address);
+        _logger.LogTrace(
+            "Execution {Id}: Access ({AccessType}) to a side chunk of memory around a segment at {Address:x8}.",
+            ExecutionId, memoryAccessType, address);
+
+        _lastStopCause = StopCause.InvalidMemoryAccess;
+        _stopData.AccessType = memoryAccessType;
+        _stopData.InvalidAddress = (uint)address;
+
         Engine.EmuStop();
-        _lastStopCause = UnexpectedStopCause.StrictAccessHook;
-        _disallowedStrictAccessType = memoryAccessType;
     }
+
+    private void TrampolineHandler(IUnicorn engine, ulong address, uint size)
+    {
+        if (_exe is not { FunctionSimulators: { } } ||
+            !_exe.FunctionSimulators.TryGetValue((uint)address, out var simulator))
+        {
+            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", ExecutionId, address);
+
+            _lastStopCause = StopCause.TrampolineUnbound;
+            _stopData.InvalidAddress = (uint)address;
+
+            Engine.EmuStop();
+
+            return;
+        }
+
+        CurrentPc = (uint)address;
+        simulator.FunctionSimulator.Run(this);
+    }
+
+    private void InterruptHookHandler(IUnicorn engine, uint interruptNumber)
+    {
+        _logger.LogTrace("Execution {Id}: Interrupt {Interrupt:x}.", ExecutionId, interruptNumber);
+
+        _lastStopCause = StopCause.Interrupt;
+        _stopData.InterruptNumber = interruptNumber;
+
+        Engine.EmuStop();
+    }
+
+    private bool InvalidInstructionHandler(IUnicorn engine)
+    {
+        _logger.LogTrace("Execution {Id}: Invalid instruction.", ExecutionId);
+
+        _lastStopCause = StopCause.InvalidInstruction;
+
+        Engine.EmuStop();
+
+        return false;
+    }
+
+    private bool InvalidMemoryAccessHandler(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
+        long value)
+    {
+        _logger.LogTrace("Execution {Id}: Invalid memory access ({AccessType}) at {Address:x8}.", ExecutionId,
+            memoryAccessType, address);
+
+        _lastStopCause = StopCause.InvalidMemoryAccess;
+        _stopData.AccessType = memoryAccessType;
+        _stopData.InvalidAddress = (uint)address;
+
+        Engine.EmuStop();
+
+        return false;
+    }
+
+    #endregion
 
     /// <summary>
     /// Finds a line in a given source on which a breakpoint can be set, starting the search on a given line and going
@@ -569,12 +636,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var sourceCompilationPath = _debugProvider.GetCompilationPathForSource(file);
         var sourceObject = _debugProvider.GetObjectForSource(file);
 
-        if (sourceObject == null)
-        {
-            _clientLogger.LogError("Cannot place breakpoint in file {File}.", file.Name);
-
-            return Enumerable.Empty<Breakpoint>();
-        }
+        if (sourceCompilationPath == null || sourceObject == null)
+            throw new InvalidSourceException($"Cannot set breakpoints in file {file.Name ?? file.Path}.");
 
         _currentBreakpoints.Clear();
         var ret = new List<Breakpoint>();
@@ -691,14 +754,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         await this.SendEvent(new TerminatedEvent());
         await Task.Delay(500);
-        await this.SendEvent(new ExitedEvent() {ExitCode = 0}); // TODO read exit code
+        await this.SendEvent(new ExitedEvent() { ExitCode = 0 }); // TODO read exit code
     }
 
     private void DetermineCurrentStopPositions()
     {
         CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
         var lineInfo = _lineResolver!.GetSourceLine(CurrentPc, out var _);
-        CurrentStopLine = (int) lineInfo.Line - 1; // in DWARF, the lines are numbered from 1
+        CurrentStopLine = (int)lineInfo.Line - 1; // in DWARF, the lines are numbered from 1
 
         var i = 0;
         foreach (var exeSource in _exe!.Sources)
@@ -733,10 +796,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             try
             {
-                if (_lastStopCause != UnexpectedStopCause.Normal)
+                if (_lastStopCause != StopCause.Normal)
                 {
                     await this.HandleStopCause();
-                    _lastStopCause = UnexpectedStopCause.Normal;
+                    _lastStopCause = StopCause.Normal;
                 }
                 else if (_currentBreakpoints.TryGetValue(CurrentPc, out var breakpoint))
                 {
@@ -798,12 +861,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         switch (_lastStopCause)
         {
-            case UnexpectedStopCause.Normal:
+            case StopCause.Normal:
                 State = ExecutionState.Finished;
 
                 break;
-            case UnexpectedStopCause.StrictAccessHook:
-                await this.HandleUnicornError(_disallowedStrictAccessType switch
+            case StopCause.InvalidMemoryAccess:
+                await this.HandleUnicornError(_stopData.AccessType switch
                 {
                     MemoryAccessType.Fetch or MemoryAccessType.FetchProtected => UnicornError.FetchUnmapped,
                     MemoryAccessType.Read or MemoryAccessType.ReadProtected => UnicornError.ReadUnmapped,
@@ -812,12 +875,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 });
 
                 break;
-            case UnexpectedStopCause.TrampolineUnbound:
+            case StopCause.TrampolineUnbound:
                 await this.HandleUnicornError(UnicornError.FetchUnmapped);
                 // TODO?
 
                 break;
-            case UnexpectedStopCause.TimeoutOrExternalCancellation:
+            case StopCause.TimeoutOrExternalCancellation:
                 State = ExecutionState.TerminatedException;
 
                 break;
@@ -868,7 +931,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             AllThreadsStopped = true
         });
     }
-
+    
     private void InitRegisters()
     {
         if (_options.RegisterInitOptions != RegisterInitOptions.Keep
@@ -895,18 +958,17 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
 
             if (_options.RegisterInitOptions is RegisterInitOptions.Randomize or RegisterInitOptions.RandomizeFirst)
-                Engine.RegWrite(Arm.Register.LR, (uint) _rnd.Next(int.MaxValue));
+                Engine.RegWrite(Arm.Register.LR, (uint)_rnd.Next(int.MaxValue));
             else
                 Engine.RegWrite(Arm.Register.LR, 0u);
         }
 
         Engine.RegWrite(Arm.Register.SP, StackTopAddress);
-        
+
         // VFP
         // The first write is not needed?
-        var tmp = Engine.RegRead<uint>(Arm.Register.C1_C0_2);
-        tmp |= (0xF << 20);
-        Engine.RegWrite(Arm.Register.C1_C0_2, tmp);
+        
+        
         Engine.RegWrite(Arm.Register.FPEXC, 0x40000000);
     }
 
@@ -923,9 +985,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (!entered)
         {
             _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", ExecutionId);
-            _clientLogger.LogError("Cannot launch while the previous launch hasn't finished.");
 
-            throw new InvalidExecutionStateException(ExecutionId, nameof(this.InitLaunch), State);
+            throw new Exception(); // TODO
         }
 
         DebuggingEnabled = debug;
@@ -938,14 +999,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             this.InitRegisters();
             this.MakeExits();
 
-            _lastStopCause = UnexpectedStopCause.Normal;
+            _lastStopCause = StopCause.Normal;
 
             _currentCts?.Dispose();
             _currentCts = new CancellationTokenSource();
             _currentCts.CancelAfter(_options.Timeout);
             _currentCts.Token.Register(() =>
             {
-                _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+                _lastStopCause = StopCause.TimeoutOrExternalCancellation;
                 Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
             });
         }
@@ -1009,7 +1070,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task ExitOnTimeout()
     {
-        _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+        _lastStopCause = StopCause.TimeoutOrExternalCancellation;
 
         try
         {
@@ -1050,9 +1111,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (!entered)
         {
             _logger.LogTrace("Execution {Id}: Attempt to continue when not paused.", ExecutionId);
-            _clientLogger.LogError("Cannot continue when the execution isn't paused.");
 
-            throw new InvalidExecutionStateException(ExecutionId, nameof(this.InitLaunch), State);
+            throw new Exception(); // TODO
         }
 
         // Launch semaphore acquired
@@ -1079,14 +1139,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 this.MakeExits();
             }
 
-            _lastStopCause = UnexpectedStopCause.Normal;
+            _lastStopCause = StopCause.Normal;
 
             _currentCts?.Dispose();
             _currentCts = new CancellationTokenSource();
             _currentCts.CancelAfter(_options.Timeout);
             _currentCts.Token.Register(() =>
             {
-                _lastStopCause = UnexpectedStopCause.TimeoutOrExternalCancellation;
+                _lastStopCause = StopCause.TimeoutOrExternalCancellation;
                 Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
             });
         }
@@ -1133,7 +1193,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (!entered)
         {
             _logger.LogTrace("Execution {Id}: Attempt to step while running.", ExecutionId);
-            _clientLogger.LogError("Cannot step, execution is running.");
 
             throw new InvalidOperationException("Cannot step, execution is running.");
         }

@@ -1,10 +1,10 @@
 ﻿// ExecutionEngineExceptionHubFilter.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.ExecutionCore.Execution.Exceptions;
+using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
-using Code4Arm.ExecutionService.Exceptions;
 using Microsoft.AspNetCore.SignalR;
-using ExecutionEngineException = Code4Arm.ExecutionCore.Execution.Exceptions.ExecutionEngineException;
 
 namespace Code4Arm.ExecutionService.Hubs;
 
@@ -13,7 +13,6 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
     public class DebuggerResponse
     {
         public bool Success { get; init; }
-
         public string? Message { get; init; }
         public object? Body { get; init; }
     }
@@ -34,55 +33,66 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
 
             return new DebuggerResponse() { Success = true, Body = body };
         }
-        catch (ExecutionEngineException executionEngineException)
+        catch (DebuggerException debuggerException)
         {
-            var logger = _loggerFactory.CreateLogger("Code4Arm.ExecutionCore.Execution");
-            logger.LogWarning(executionEngineException,
-                "Execution {Id}: {Message}",
-                executionEngineException.ExecutionId?.ToString() ?? "unknown", executionEngineException.Message);
+            var message = new Message()
+            {
+                Format = debuggerException.Message,
+                Id = debuggerException.ErrorId,
+                ShowUser = debuggerException.ErrorType == DebuggerExceptionType.User
+            };
+
+            if (debuggerException.ErrorType == DebuggerExceptionType.Log)
+            {
+                var outputEvent = new OutputEvent()
+                {
+                    Category = OutputEventCategory.Console,
+                    Output = debuggerException.Message,
+                };
+
+                await invocationContext.Hub.Clients.Caller.SendCoreAsync("HandleEvent",
+                    new object[] { EventNames.Output, outputEvent });
+            }
 
             return new DebuggerResponse()
             {
                 Success = false,
-                Message = executionEngineException.ErrorType,
+                Message = debuggerException.ErrorMessage,
                 Body = new
                 {
-                    error = this.MakeErrorMessageForException(executionEngineException.ErrorType,
-                        executionEngineException.Message)
+                    error = message
                 }
             };
         }
-        catch (DebuggerException debuggerException)
+        catch (Exception e)
         {
+            var logger = _loggerFactory.CreateLogger<DebuggerSessionHub>();
+            var correlationId = Guid.NewGuid();
+            logger.LogWarning(e,
+                "Unhandled execution/debugger exception. Connection ID: {Id}. Correlation ID: {Correlation}.",
+                invocationContext.Context.ConnectionId, correlationId);
+
             return new DebuggerResponse()
             {
                 Success = false,
-                Message = debuggerException.Code,
+                Message = ExceptionCodes.UnexpectedError,
                 Body = new
                 {
                     error = new Message()
                     {
-                        Format = debuggerException.FullMessageFormat ?? debuggerException.Code,
-                        Id = debuggerException.Id,
-                        ShowUser = debuggerException.ShowUser,
-                        SendTelemetry = debuggerException.SendTelemetry,
-                        Variables = debuggerException.Variables,
+                        Format =
+                            "Unexpected execution service error. Connection ID: {connId}. Correlation ID: {corrId}.",
+                        Id = ExceptionCodes.UnexpectedErrorId,
+                        ShowUser = false,
+                        SendTelemetry = true,
+                        Variables = new Dictionary<string, string>()
+                        {
+                            { "connId", invocationContext.Context.ConnectionId },
+                            { "corrId", correlationId.ToString() }
+                        }
                     }
                 }
             };
         }
-    }
-
-    private Message MakeErrorMessageForException(string errorType, string? message)
-    {
-        // TODO
-
-        return new Message()
-        {
-            Format = message ?? errorType,
-            Id = 0, // TODO
-            ShowUser = true,
-            SendTelemetry = false
-        };
     }
 }

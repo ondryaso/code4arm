@@ -1,14 +1,13 @@
-﻿// InvalidExpression.cs
+// InvalidExpressionException.cs
 // Author: Ondřej Ondryáš
 
 namespace Code4Arm.ExecutionCore.Execution.Exceptions;
 
-public class InvalidExpressionException : ExecutionEngineException
+public class InvalidExpressionException : DebuggerException
 {
-    public override string ErrorType => "invalidExpression";
-
-    public InvalidExpressionException()
-        : base("Invalid expression.")
+    public InvalidExpressionException(string description = ExceptionMessages.InvalidExpression,
+        Exception? innerException = null) : base(ExceptionCodes.InvalidExpressionId,
+        ExceptionCodes.InvalidExpression, DebuggerExceptionType.UserImplicit, description, innerException)
     {
     }
 }

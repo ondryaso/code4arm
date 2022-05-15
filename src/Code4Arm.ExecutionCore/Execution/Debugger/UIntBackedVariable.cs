@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Runtime.CompilerServices;
+using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
@@ -210,7 +211,7 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
             DebuggerVariableType.ByteS => FormattingUtils.FormatVariable((int)unchecked((sbyte)value), context),
             DebuggerVariableType.CharAscii => $"'{(char)value}'",
             DebuggerVariableType.ShortS => FormattingUtils.FormatVariable((int)unchecked((short)value), context),
-            _ => throw new Exception()
+            _ => throw new Exception("Invalid state.")
         };
     }
 
@@ -221,12 +222,12 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
         if (_subtype == DebuggerVariableType.CharAscii)
         {
             if (value.Length != 1)
-                throw new FormatException();
+                throw new InvalidVariableFormatException("Invalid format. Expected an ASCII char.");
 
             var c = value[0];
 
             if (c < 0 || c > 255)
-                throw new FormatException();
+                throw new InvalidVariableFormatException("Invalid format. Expected an ASCII char.");
 
             shifted = ((uint)c) << _offset;
         }
@@ -236,7 +237,7 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
             var parsedI = unchecked((int)parsed);
 
             if (parsedI < _min || parsedI > _max)
-                throw new FormatException();
+                throw new InvalidVariableFormatException($"Invalid format. The number must be between {_min} and {_max}.");
 
             shifted = (parsed & _mask) << _offset;
         }

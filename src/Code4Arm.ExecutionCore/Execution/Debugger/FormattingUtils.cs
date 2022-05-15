@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Code4Arm.ExecutionCore.Execution.Configuration;
+using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
@@ -78,7 +79,8 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber32U(value, CultureInfo.InvariantCulture);
 
-        throw new FormatException();
+        throw new InvalidVariableFormatException(
+            "Invalid format. Expected 32b integer (decimal or hex, prefixed with 0x) or float (32b floating-point number).");
     }
 
     public static uint ParseNumber32F(string value, IFormatProvider? formatProvider)
@@ -89,7 +91,7 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber32F(value, CultureInfo.InvariantCulture);
 
-        throw new FormatException();
+        throw new InvalidVariableFormatException("Invalid format. Expected 32b float (32b floating-point number).");
     }
 
     public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
@@ -119,7 +121,8 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber64U(value, CultureInfo.InvariantCulture);
 
-        throw new FormatException();
+        throw new InvalidVariableFormatException(
+            "Invalid format. Expected 64b integer (decimal or hex, prefixed with 0x) or float (32b floating-point number).");
     }
 
     public static ulong ParseNumber64F(string value, IFormatProvider? formatProvider)
@@ -130,7 +133,7 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber64F(value, CultureInfo.InvariantCulture);
 
-        throw new FormatException();
+        throw new InvalidVariableFormatException("Invalid format. Expected double (64b floating-point number).");
     }
 
     public static string FormatHexSigned<T>(T variable, CultureInfo cultureInfo) where T : struct

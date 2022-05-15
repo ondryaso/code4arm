@@ -1,6 +1,8 @@
 // ControlRegisterVariable.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.ExecutionCore.Execution.Exceptions;
+
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public readonly struct ControlRegisterFlag
@@ -157,7 +159,7 @@ public class FlagVariable : IVariable
         }
 
         if (valU > _mask)
-            throw new FormatException();
+            throw new InvalidVariableFormatException($"Invalid format. The maximum value is {_mask:x}.");
 
         _parent.Evaluate(context);
         var currentVal = _parent.Value;

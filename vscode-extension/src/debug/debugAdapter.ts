@@ -145,7 +145,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
 
     protected async dispatchRequest(request: DebugProtocol.Request) {
         if (!(await this.ensureConnected())) {
-            const response = this.makeErrorResponse(request, 'remoteConnectionError', 'Cannot connect to the execution service.', 100);
+            const response = this.makeErrorResponse(request, 'remoteConnectionError', 'Cannot connect to the execution service.', 1001);
             this.sendResponse(response);
             this.sendEvent(new TerminatedEvent());
             return;
@@ -176,7 +176,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             this.sendResponse(response);
         } catch (err) {
             this.logError(err);
-            const response = this.makeErrorResponse(request, 'remoteError', 'Unhandled execution service error.', 101, false);
+            const response = this.makeErrorResponse(request, 'unexpectedError', 'Unexpected execution service error. Connection ID: ' + this.connection.connectionId, 1000, false);
             this.sendResponse(response);
         }
     }

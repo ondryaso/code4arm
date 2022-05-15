@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.Unicorn.Constants;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
@@ -63,7 +64,7 @@ public class ArmQSimdRegisterVariable : IVariable
         }
 
         if (!BigInteger.TryParse(span, numberStyle, context.CultureInfo, out var i))
-            throw new FormatException();
+            throw new InvalidVariableFormatException("Invalid format. Expected integer (decimal or hex, prefixed with 0x).");
 
         var valuesSpan = MemoryMarshal.Cast<ulong, byte>(Values);
         valuesSpan.Clear();

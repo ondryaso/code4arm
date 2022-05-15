@@ -3,13 +3,11 @@
 
 namespace Code4Arm.ExecutionCore.Execution.Exceptions;
 
-public class InvalidSourceException : ExecutionEngineException
+public class InvalidSourceException : DebuggerException
 {
-    public override string ErrorType => "invalidSourceReference";
-
-    public InvalidSourceException(Guid? executionId, string action)
-        : base(executionId,
-            $"Cannot perform '{action}' because the provided Source object is not valid in the current context (invalid reference or adapter data).")
+    public InvalidSourceException(string description = ExceptionMessages.InvalidSource,
+        Exception? innerException = null) : base(ExceptionCodes.InvalidSourceId, ExceptionCodes.InvalidSource,
+        DebuggerExceptionType.InvalidRequest, description, innerException)
     {
     }
 }

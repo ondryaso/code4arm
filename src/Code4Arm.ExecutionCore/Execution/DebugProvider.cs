@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
@@ -13,7 +12,6 @@ using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
-using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
 using MediatR;
@@ -24,27 +22,27 @@ namespace Code4Arm.ExecutionCore.Execution;
 internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 {
     private readonly ExecutionEngine _engine;
-    private readonly IUnicorn _unicorn;
     private InitializeRequestArguments? _clientInfo;
     private CultureInfo? _clientCulture;
 
     private Dictionary<long, IVariable> _variables = new();
     private Dictionary<string, IVariable> _topLevel = new();
 
+    private Executable Executable => (_engine.ExecutableInfo as Executable) ?? throw new ExecutableNotLoadedException();
+
     public DebugProvider(ExecutionEngine engine, DebuggerOptions options, IMediator mediator)
     {
         _engine = engine;
-        _unicorn = engine.Engine;
         Options = options;
     }
 
     public DebuggerOptions Options { get; set; }
 
-    [MemberNotNull(nameof(_clientInfo))]
+    [MemberNotNull(nameof(_clientInfo), nameof(_clientCulture))]
     private void CheckInitialized()
     {
-        if (_clientInfo == null)
-            throw new InvalidOperationException("The debug provider has not been initialized.");
+        if (_clientInfo == null || _clientCulture == null)
+            throw new NotInitializedException();
     }
 
     public int LineToClient(int local)
@@ -106,6 +104,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     public InitializeResponse Initialize(InitializeRequestArguments clientData)
     {
         _clientInfo = clientData;
+
         if (!string.IsNullOrEmpty(clientData.Locale))
         {
             try
@@ -143,7 +142,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         throw new NotImplementedException();
     }
 
-
     public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
         throw new NotImplementedException();
 
@@ -153,17 +151,16 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     public async Task<StackTraceResponse> MakeStackTrace()
     {
-        if (_engine.ExecutableInfo == null)
-            throw new InvalidOperationException(); // TODO
+        this.CheckInitialized();
 
         var frames = new StackFrame[1];
 
         var sourceIndex = _engine.CurrentStopSourceIndex;
         var source = _engine.State == ExecutionState.PausedBreakpoint ? _engine.CurrentBreakpoint?.Source : null;
 
-        if (source is null && _engine.ExecutableInfo.Sources.Count > sourceIndex)
+        if (source is null && Executable.Sources.Count > sourceIndex)
         {
-            var exeSource = _engine.ExecutableInfo.Sources[sourceIndex];
+            var exeSource = Executable.Sources[sourceIndex];
             source = await this.GetSource(sourceIndex, exeSource);
         }
 
@@ -193,6 +190,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     public SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format)
     {
+        this.CheckInitialized();
+
         if (expression.StartsWith("!!!") && expression.Length > 3)
         {
             var divider = expression.IndexOf('!', 3);
@@ -237,7 +236,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         throw new InvalidExpressionException();
     }
 
-    private Regex _exprRegex =
+    private static readonly Regex ExpressionRegex =
         new(
             @"^(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
             RegexOptions.Compiled);
@@ -301,7 +300,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         // :ieee (only for 32b and 64b values -> show sign/exponent/mantissa
         // if type prefix is string, this has no effect
 
-        var match = _exprRegex.Match(expression);
+        var match = ExpressionRegex.Match(expression);
 
         if (!match.Success)
             throw new InvalidExpressionException();
@@ -317,30 +316,32 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     /// <summary>
     /// 
     /// </summary>
-    /// <param name="containerId">The Variables reference number.</param>
+    /// <param name="parentVariablesReference">The Variables reference number.</param>
     /// <param name="variableName"></param>
     /// <param name="value"></param>
     /// <param name="format"></param>
     /// <returns></returns>
-    public SetVariableResponse SetVariable(long containerId, string variableName, string value, ValueFormat? format)
+    public SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value, ValueFormat? format)
     {
+        this.CheckInitialized();
+
         IVariable targetVariable;
 
-        if (ReferenceUtils.IsTopLevelContainer(containerId))
+        if (ReferenceUtils.IsTopLevelContainer(parentVariablesReference))
         {
             if (!_topLevel.TryGetValue(variableName, out targetVariable!))
-                throw new InvalidVariableReferenceException();
+                throw new InvalidVariableException();
         }
         else
         {
-            if (!_variables.TryGetValue(containerId, out var parentVariable))
-                throw new InvalidVariableReferenceException();
+            if (!_variables.TryGetValue(parentVariablesReference, out var parentVariable))
+                throw new InvalidVariableException();
 
             if (!(parentVariable.Children?.TryGetValue(variableName, out targetVariable!) ?? false))
-                throw new InvalidVariableReferenceException();
+                throw new InvalidVariableException();
         }
 
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         targetVariable.Set(value, ctx);
 
         targetVariable.Evaluate(ctx);
@@ -354,9 +355,15 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         };
     }
 
+    /// <summary>
+    /// Creates top-level variable scopes for general-purpose registers, CPU state registers, SIMD/FP registers,
+    /// stack variables and data symbol variables. The enabled ones 
+    /// </summary>
     public ScopesResponse MakeVariableScopes()
     {
-        var ret = new List<Scope>();
+        this.CheckInitialized();
+
+        var ret = new List<Scope>(5);
 
         if (Options.EnableRegistersVariables)
         {
@@ -426,45 +433,68 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         };
     }
 
-    public IEnumerable<Variable> GetChildVariables(long variablesReference, long? start, long? count,
+    /// <summary>
+    /// Returns children variables for a given Variables Reference.
+    /// </summary>
+    /// <param name="parentVariablesReference"></param>
+    /// <param name="start"></param>
+    /// <param name="count"></param>
+    /// <param name="format"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidVariableException"></exception>
+    public IEnumerable<Variable> GetChildVariables(long parentVariablesReference, int? start, int? count,
         ValueFormat? format)
     {
-        if (_variables.TryGetValue(variablesReference, out var variable) && variable.Children != null)
+        this.CheckInitialized();
+
+        if (_variables.TryGetValue(parentVariablesReference, out var variable) && variable.Children != null)
         {
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+            var ctx = new VariableContext(_engine, _clientCulture, Options, format);
 
-            if (variable.IsViewOfParent || variable.Children.Any(v => v.Value.IsViewOfParent))
+            var targetVariables = variable.Children.Values;
+            if (start.HasValue)
+                targetVariables = targetVariables.Skip(start.Value);
+            if (count.HasValue)
+                targetVariables = targetVariables.Take(count.Value);
+
+            var retArray = new Variable[(count ?? variable.Children.Count) - (start ?? 0)];
+            var evaluated = false;
+
+            if (variable.IsViewOfParent)
+            {
                 variable.Evaluate(ctx);
+                evaluated = true;
+            }
 
-            return variable.Children.Values.Select(v =>
-                v.GetAsProtocol(ctx, !v.IsViewOfParent));
+            var i = 0;
+            foreach (var childVariable in targetVariables)
+            {
+                if (childVariable.IsViewOfParent && !evaluated)
+                {
+                    variable.Evaluate(ctx);
+                    evaluated = true;
+                }
+
+                retArray[i++] = childVariable.GetAsProtocol(ctx, !childVariable.IsViewOfParent);
+            }
+
+            return retArray;
         }
 
-        var containerType = (ContainerType)(variablesReference & 0xF);
-        var ret = new List<Variable>();
+        var containerType = ReferenceUtils.GetContainerType(parentVariablesReference);
 
         switch (containerType)
         {
             case ContainerType.Registers:
-                this.MakeRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 15));
-
-                break;
+                return this.MakeRegistersVariables(format, start ?? 0, count ?? 15);
             case ContainerType.ControlRegisters:
-                this.MakeControlRegistersVariables(ret, format);
-
-                break;
+                return this.MakeControlRegistersVariables(format);
             case ContainerType.SimdRegisters:
-                this.MakeSimdRegistersVariables(ret, format, (int)(start ?? 0), (int)(count ?? 16));
-
-                break;
+                return this.MakeSimdRegistersVariables(format, start ?? 0, count ?? 16);
             case ContainerType.Symbols:
-                this.MakeSymbolsVariables(ret, format);
-
-                break;
+                return this.MakeSymbolsVariables(format);
             case ContainerType.Stack:
-                this.MakeStackVariables(ret, format);
-
-                break;
+                return this.MakeStackVariables(format);
             case ContainerType.SimdRegisterSubtypes:
             case ContainerType.SimdRegisterSubtypesValues:
             case ContainerType.StackSubtypes:
@@ -473,17 +503,22 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             case ContainerType.RegisterSubtypes:
             case ContainerType.RegisterSubtypesValues:
             default:
-                throw new InvalidVariableReferenceException();
+                throw new InvalidVariableException();
         }
-
-        return ret;
     }
 
-    private void MakeControlRegistersVariables(List<Variable> ret, ValueFormat? format)
+    /// <summary>
+    /// Creates Variables for CPU control/status registers. If 
+    /// <see cref="DebuggerOptions.EnableExtendedControlVariables"/> is set to true, more registers are returned.
+    /// </summary>
+    private IEnumerable<Variable> MakeControlRegistersVariables(ValueFormat? format)
     {
         var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var retArray = new Variable[Options.EnableExtendedControlVariables ? 5 : 2];
+        var i = 0;
 
-        ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.APSR),
+        retArray[i++] = this.GetOrAddVariable(
+            ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.APSR),
             () => new ControlRegisterVariable(Arm.Register.APSR, "APSR", "Application Processor State Register",
                 new ControlRegisterFlag(31, "N", "Negative"),
                 new ControlRegisterFlag(30, "Z", "Zero"),
@@ -491,15 +526,16 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                 new ControlRegisterFlag(28, "V", "Overflow"),
                 new ControlRegisterFlag(27, "Q", "Cumulative saturation"),
                 new ControlRegisterFlag(16, 4, "GE", "Greater than or Equal")
-            ), true).GetAsProtocol(ctx, true));
+            ), true).GetAsProtocol(ctx, true);
 
-        ret.Add(this.GetOrAddTopLevelVariable("PC",
-                        () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
-                    .GetAsProtocol(ctx, true));
+        retArray[i++] = this.GetOrAddTopLevelVariable("PC",
+                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
+                            .GetAsProtocol(ctx, true);
 
         if (Options.EnableExtendedControlVariables)
         {
-            ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR),
+            retArray[i++] = this.GetOrAddVariable(
+                ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.CPSR),
                 () => new ControlRegisterVariable(Arm.Register.CPSR, "CPSR", "Current Processor State Register",
                     new ControlRegisterFlag(31, "N", "Negative"),
                     new ControlRegisterFlag(30, "Z", "Zero"),
@@ -516,9 +552,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                     new ControlRegisterFlag(6, "F", "FIQ mask"),
                     new ControlRegisterFlag(0, 4, "M", "Current PE mode",
                         "User", "FIQ", "IRQ", "Supervisor", "Monitor", "Abort", "Hypervisor", "Undefined", "System")
-                ), true).GetAsProtocol(ctx, true));
+                ), true).GetAsProtocol(ctx, true);
 
-            ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPEXC),
+            retArray[i++] = this.GetOrAddVariable(
+                ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPEXC),
                 () => new ControlRegisterVariable(Arm.Register.FPEXC, "FPEXC",
                     "FP Exception Control register",
                     new ControlRegisterFlag(31, "EX", "Exception"),
@@ -531,9 +568,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                     new ControlRegisterFlag(2, "OFF", "Overflow trapped"),
                     new ControlRegisterFlag(1, "DZF", "Divide by Zero trapped"),
                     new ControlRegisterFlag(0, "IOF", "Invalid Operation trapped")
-                ), true).GetAsProtocol(ctx, true));
+                ), true).GetAsProtocol(ctx, true);
 
-            ret.Add(this.GetOrAddVariable(ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR),
+            retArray[i] = this.GetOrAddVariable(
+                ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR),
                 () => new ControlRegisterVariable(Arm.Register.FPSCR, "FPSCR",
                     "FP Status and Control Register",
                     new ControlRegisterFlag(31, "N", "Negative"),
@@ -559,14 +597,22 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                     new ControlRegisterFlag(2, "OFC", "Overflow Cumulative exception"),
                     new ControlRegisterFlag(1, "DZC", "Divide by Zero Cumulative exception"),
                     new ControlRegisterFlag(0, "IOC", "Invalid Operation Cumulative exception")
-                ), true).GetAsProtocol(ctx, true));
+                ), true).GetAsProtocol(ctx, true);
         }
+
+        return retArray;
     }
 
-    private void MakeRegistersVariables(List<Variable> ret, ValueFormat? format, int start, int count)
+    /// <summary>
+    /// Creates Variables for general-purpose registers (R0 to R14). They also create children Variables that present
+    /// a typed view over the register. These are specified by <see cref="DebuggerOptions.RegistersSubtypes"/>.
+    /// Doesn't check if the debugger is initialized.
+    /// </summary>
+    private IEnumerable<Variable> MakeRegistersVariables(ValueFormat? format, int start, int count)
     {
         var end = start + count;
         var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var retArray = new Variable[count];
 
         for (var i = start; i < end; i++)
         {
@@ -577,15 +623,24 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             var v = this.GetOrAddVariable(reference,
                 () => new RegisterVariable(unicornId, $"R{regNumber}", Options.RegistersSubtypes), true);
 
-            ret.Add(v.GetAsProtocol(ctx, true));
+            retArray[i - start] = v.GetAsProtocol(ctx, true);
         }
+
+        return retArray;
     }
 
-    private void MakeSimdRegistersVariables(List<Variable> ret, ValueFormat? format, int start, int count)
+    /// <summary>
+    /// Creates top-level SIMD/FP registers Variables. The topmost register length is controlled by
+    /// <see cref="DebuggerOptions.TopSimdRegistersLevel"/>.
+    /// Doesn't check if the debugger is initialized.
+    /// </summary>
+    /// <exception cref="InvalidOperationException"><see cref="DebuggerOptions.TopSimdRegistersLevel"/> is set to an invalid value.</exception>
+    private IEnumerable<Variable> MakeSimdRegistersVariables(ValueFormat? format, int start, int count)
     {
         var end = start + count;
         var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
         var topLevel = Options.TopSimdRegistersLevel;
+        var retArray = new Variable[count];
 
         for (var i = start; i < end; i++)
         {
@@ -596,7 +651,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                 SimdRegisterLevel.S32 => Arm.Register.GetSRegister(i),
                 SimdRegisterLevel.D64 => Arm.Register.GetDRegister(i),
                 SimdRegisterLevel.Q128 => Arm.Register.GetQRegister(i),
-                _ => throw new InvalidOperationException()
+                _ => throw new ConfigurationException("Invalid TopSimdRegistersLevel.")
             };
 
             var reference =
@@ -608,22 +663,29 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                     SimdRegisterLevel.S32 => new ArmSSimdRegisterVariable(regNumber),
                     SimdRegisterLevel.D64 => new ArmDSimdRegisterVariable(regNumber),
                     SimdRegisterLevel.Q128 => new ArmQSimdRegisterVariable(regNumber),
-                    _ => throw new ArgumentOutOfRangeException()
+                    _ => throw new ConfigurationException("Invalid TopSimdRegistersLevel.")
                 }, true);
 
-            ret.Add(v.GetAsProtocol(ctx, true));
+            retArray[i - start] = v.GetAsProtocol(ctx, true);
         }
+
+        return retArray;
     }
 
-    private void MakeStackVariables(List<Variable> ret, ValueFormat? format)
+    /// <summary>
+    /// Creates Variables for stack items. Always presumes that all values on the stack are 4 bytes long.
+    /// Doesn't check if the debugger is initialized.
+    /// </summary>
+    private IEnumerable<Variable> MakeStackVariables(ValueFormat? format)
     {
-        // TODO: support other stack types?
+        // IMPROVEMENT: Support other stack types
 
         var stack = this.GetStackSize();
 
         if (stack == 0)
-            return;
+            return Enumerable.Empty<Variable>();
 
+        var retArray = new Variable[stack];
         var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
 
         for (var i = 0; i < stack; i += 4)
@@ -635,30 +697,69 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             var v = this.GetOrAddVariable(reference,
                 () => new StackVariable(address, fieldIndex, Options.StackVariablesSubtypes), true);
 
-            ret.Add(v.GetAsProtocol(ctx, true));
+            retArray[i / 4] = v.GetAsProtocol(ctx, true);
         }
+
+        return retArray;
     }
 
+    /// <summary>
+    /// A data type specifier for data emitted by an assembler.
+    /// </summary>
     private enum TypedSymbolType
     {
-        Byte,
+        /// <summary>
+        /// 8 bits, .byte
+        /// </summary>
+        Byte = 1,
+
+        /// <summary>
+        /// 16 bits, .short, .hword
+        /// </summary>
         Short,
+
+        /// <summary>
+        /// 32 bits, .word, .long, .int
+        /// </summary>
         Int,
+
+        /// <summary>
+        /// 32 bits, .float, .single
+        /// </summary>
         Float,
+
+        /// <summary>
+        /// 64 bits, .double
+        /// </summary>
         Double,
+
+        /// <summary>
+        /// .asciz
+        /// </summary>
         String
     }
 
+    /// <summary>
+    /// Describes a data symbol with recognized type. See <see cref="DebugProvider.DetermineDataSymbols"/>.
+    /// </summary>
     private record struct TypedSymbol(string Name, uint Address, TypedSymbolType Type);
-    private List<TypedSymbol> _symbolsForVariables = new();
 
-    private void MakeSymbolsVariables(List<Variable> ret, ValueFormat? format)
+    private readonly List<TypedSymbol> _symbolsForVariables = new();
+
+    /// <summary>
+    /// Creates Variables for data symbols. Calls <see cref="DetermineDataSymbols"/> to determine the symbols and their
+    /// types.
+    /// Doesn't check if the debugger is initialized.
+    /// </summary>
+    private IEnumerable<Variable> MakeSymbolsVariables(ValueFormat? format)
     {
         if (_symbolsForVariables.Count == 0)
             this.DetermineDataSymbols();
 
         var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
-        // TODO
+        var retArray = new Variable[_symbolsForVariables.Count];
+        var i = 0;
+
         foreach (var typedSymbol in _symbolsForVariables.Where(s => s.Type != TypedSymbolType.String))
         {
             var v = this.GetOrAddTopLevelVariable(typedSymbol.Name, () => new MemoryVariable(typedSymbol.Name,
@@ -669,13 +770,19 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                     TypedSymbolType.Int => DebuggerVariableType.IntU,
                     TypedSymbolType.Float => DebuggerVariableType.Float,
                     TypedSymbolType.Double => DebuggerVariableType.Double,
-                    _ => throw new ArgumentOutOfRangeException()
+                    _ => throw new Exception("Invalid debugger state: unexpected typed symbol type.")
                 }, typedSymbol.Address));
 
-            ret.Add(v.GetAsProtocol(ctx, true));
+            retArray[i++] = v.GetAsProtocol(ctx, true);
         }
+
+        return retArray;
     }
 
+    /// <summary>
+    /// Recursively removes a given <see cref="IVariable"/> and its children from the variable cache.
+    /// </summary>
+    /// <param name="variable">The <see cref="IVariable"/> to remove.</param>
     private void RemoveVariable(IVariable variable)
     {
         if (variable.Reference == 0)
@@ -691,6 +798,11 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         }
     }
 
+    /// <summary>
+    /// Recursively stores a given <see cref="IVariable"/> and its children to the variable cache, identified by their
+    /// Variables Reference numbers.
+    /// </summary>
+    /// <param name="variable">The <see cref="IVariable"/> to store.</param>
     private void AddOrUpdateVariable(IVariable variable)
     {
         if (variable.Reference == 0)
@@ -710,6 +822,17 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         }
     }
 
+    /// <summary>
+    /// Retrieves an <see cref="IVariable"/> identified by a Variables Reference number.
+    /// If it doesn't exist, invokes <paramref name="factory"/> to create it, and stores it and its children.
+    /// </summary>
+    /// <param name="reference">The Variables Reference number of the variable.</param>
+    /// <param name="factory">A factory method to create the variable if it doesn't exist.</param>
+    /// <param name="topLevel">If true, the created variable will be considered top-level (a direct descendant of a
+    /// scope created by <see cref="MakeVariableScopes"/>) and also stored under its name which must be unique.</param>
+    /// <returns>A cached or new instance of <see cref="IVariable"/>.</returns>
+    /// <exception cref="InvalidOperationException">The provided <paramref cref="reference"/> doesn't correspond to the
+    /// Variables Reference generated by an <see cref="IVariable"/> created by <paramref name="factory"/>.</exception>
     private IVariable GetOrAddVariable(long reference, Func<IVariable> factory, bool topLevel = false)
     {
         if (_variables.TryGetValue(reference, out var val))
@@ -728,6 +851,22 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return newVariable;
     }
 
+    /// <summary>
+    /// Retrieves a childless, top-level <see cref="IVariable"/> identified by its name.
+    /// If it doesn't exist, invokes <paramref name="factory"/> to create it, and stores it.
+    /// </summary>
+    /// <remarks>
+    /// A top-level variable is one that's a direct descendant of a scope created by <see cref="MakeVariableScopes"/>.
+    /// It is globally identified by its name.
+    /// This method is used to store such variables that don't have children so their Variables Reference is zero.
+    /// Top-level variables with children must be accessed using <see cref="GetOrAddVariable"/> which also handles
+    /// caching the children variables.
+    /// </remarks>
+    /// <param name="name">The name of the variable.</param>
+    /// <param name="factory">A factory method to create the variable if it doesn't exist.</param>
+    /// <returns>A cached or new instance of <see cref="IVariable"/>.</returns>
+    /// <exception cref="InvalidOperationException">An <see cref="IVariable"/> created by <paramref name="factory"/>
+    /// has a non-zero Variables Reference.</exception>
     private IVariable GetOrAddTopLevelVariable(string name, Func<IVariable> factory)
     {
         if (_topLevel.TryGetValue(name, out var val))
@@ -761,10 +900,14 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return top - currentSp;
     }
 
+    /// <summary>
+    /// Goes through the loaded executable's symbol table and attempts to determine the types of symbols defined in the
+    /// data section based on the assembly listing and linker map. Fills <see cref="_symbolsForVariables"/> with records
+    /// of symbols' names, addresses and determined types.
+    /// </summary>
     private void DetermineDataSymbols()
     {
-        if (_engine.ExecutableInfo is not Executable exe)
-            return;
+        var exe = Executable;
 
         if (exe.Elf.Sections.FirstOrDefault(s => s.Type == SectionType.SymbolTable) is not SymbolTable<uint> symTab)
             return;
@@ -779,35 +922,39 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
                             .GroupBy(s => s.Value)
                             .ToDictionary(s => s.Key, s => s);
 
-        for (var objI = 0; objI < exe.SourceObjects.Count; objI++)
+        for (var objectIndex = 0; objectIndex < exe.SourceObjects.Count; objectIndex++)
         {
-            var dataBaseAddress = exe.DataSectionStarts[objI];
+            var dataBaseAddress = exe.DataSectionStarts[objectIndex];
 
             if (dataBaseAddress == -1)
                 continue;
 
             var dataBaseAddressU = (uint)dataBaseAddress;
 
-            var obj = exe.SourceObjects[objI];
-            foreach (var (address, type) in obj.PossibleDataFields)
+            var obj = exe.SourceObjects[objectIndex];
+            foreach (var (objectAddress, type) in obj.PossibleDataFields)
             {
-                var a = dataBaseAddressU + address;
-                if (symbols.TryGetValue(a, out var syms))
+                var actualAddress = dataBaseAddressU + objectAddress;
+
+                if (!symbols.TryGetValue(actualAddress, out var symbolsOnAddress))
+                    continue;
+
+                symbols.Remove(actualAddress);
+                foreach (var sym in symbolsOnAddress)
                 {
-                    symbols.Remove(a);
-                    foreach (var sym in syms)
+                    var symbol = new TypedSymbol(sym.Name, sym.Value, type switch
                     {
-                        _symbolsForVariables.Add(new TypedSymbol(sym.Name, sym.Value, type switch
-                        {
-                            "float" or "single" => TypedSymbolType.Float,
-                            "double" => TypedSymbolType.Double,
-                            "word" or "long" or "int" => TypedSymbolType.Int,
-                            "short" or "hword" => TypedSymbolType.Short,
-                            "byte" => TypedSymbolType.Byte,
-                            "ascii" or "asciz" => TypedSymbolType.String,
-                            _ => throw new InvalidOperationException()
-                        }));
-                    }
+                        "float" or "single" => TypedSymbolType.Float,
+                        "double" => TypedSymbolType.Double,
+                        "word" or "long" or "int" => TypedSymbolType.Int,
+                        "short" or "hword" => TypedSymbolType.Short,
+                        "byte" => TypedSymbolType.Byte,
+                        "asciz" => TypedSymbolType.String,
+                        _ => 0
+                    });
+
+                    if (symbol.Type != 0)
+                        _symbolsForVariables.Add(symbol);
                 }
             }
         }
@@ -832,13 +979,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     {
         sourceReference -= 1; // Source references are indices in the executable sources array offset by +1
 
-        var exeSources = _engine.ExecutableInfo?.Sources;
-
-        if (exeSources is null)
-            throw new ExecutableNotLoadedException(_engine.ExecutionId, nameof(GetSourceContents));
+        var exeSources = Executable.Sources;
 
         if (exeSources.Count <= sourceReference)
-            throw new InvalidSourceException(_engine.ExecutionId, nameof(GetSourceContents));
+            throw new InvalidSourceException();
 
         var exeSource = exeSources[(int)sourceReference];
         using var locatedFile = await exeSource.SourceFile.LocateAsync();
@@ -847,7 +991,50 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return new SourceResponse() { Content = contents };
     }
 
-    private int GetSourceReference(Source? source, [CallerMemberName] string caller = "")
+    public async Task<SourceResponse> GetSourceContents(Source source)
+    {
+        var reference = this.GetSourceReference(source);
+
+        return await this.GetSourceContents(reference);
+    }
+
+    public async Task<IEnumerable<Source>> GetSources()
+    {
+        var exeSources = Executable.Sources;
+
+        var ret = new Source[exeSources.Count];
+        var i = 0;
+
+        foreach (var exeSource in exeSources)
+        {
+            ret[i] = await this.GetSource(i, exeSource);
+            i++;
+        }
+
+        return ret;
+    }
+
+    public string? GetCompilationPathForSource(Source source)
+    {
+        var exeSources = Executable.Sources;
+
+        // Source references are indices in the executable sources array offset by +1
+        var reference = this.GetSourceReference(source) - 1;
+
+        return exeSources.Count <= reference ? null : exeSources[reference].BuildPath;
+    }
+
+    public AssembledObject? GetObjectForSource(Source source)
+    {
+        var exeSourceObjects = Executable.SourceObjects;
+
+        // Source references are indices in the executable sources array offset by +1
+        var reference = this.GetSourceReference(source) - 1;
+
+        return exeSourceObjects.Count <= reference ? null : exeSourceObjects[reference];
+    }
+
+    private int GetSourceReference(Source? source)
     {
         if (source?.SourceReference is > 0)
             return (int)source.SourceReference.Value;
@@ -865,10 +1052,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         }
 
         if (source?.Path == null)
-            throw new InvalidSourceException(_engine.ExecutionId, caller);
+            throw new InvalidSourceException();
 
         var i = 1;
-        foreach (var exeSource in _engine.ExecutableInfo!.Sources)
+        foreach (var exeSource in Executable.Sources)
         {
             if (exeSource.ClientPath == null || source.Path == null)
                 continue;
@@ -880,14 +1067,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             i++;
         }
 
-        throw new InvalidSourceException(_engine.ExecutionId, caller);
-    }
-
-    public async Task<SourceResponse> GetSourceContents(Source source)
-    {
-        var reference = this.GetSourceReference(source);
-
-        return await this.GetSourceContents(reference);
+        throw new InvalidSourceException();
     }
 
     private async Task<Source> GetSource(int sourceIndex, ExecutableSource exeSource)
@@ -904,57 +1084,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             Checksums = await MakeChecksums(exeSource),
             AdapterData = new JValue(sourceIndex + 1)
         };
-    }
-
-    public async Task<IEnumerable<Source>> GetSources()
-    {
-        var exeSources = _engine.ExecutableInfo?.Sources;
-
-        if (exeSources is null)
-            return Enumerable.Empty<Source>();
-
-        var ret = new Source[exeSources.Count];
-        var i = 0;
-
-        foreach (var exeSource in exeSources)
-        {
-            ret[i] = await this.GetSource(i, exeSource);
-            i++;
-        }
-
-        return ret;
-    }
-
-    public string? GetCompilationPathForSource(Source source)
-    {
-        if (_engine.ExecutableInfo is null)
-            throw new ExecutableNotLoadedException(_engine.ExecutionId, nameof(GetSourceContents));
-
-        if (_engine.ExecutableInfo is not Executable exe)
-            return null;
-
-        var exeSources = exe.Sources;
-
-        // Source references are indices in the executable sources array offset by +1
-        var reference = this.GetSourceReference(source) - 1;
-
-        return exeSources.Count <= reference ? null : exeSources[reference].BuildPath;
-    }
-
-    public AssembledObject? GetObjectForSource(Source source)
-    {
-        if (_engine.ExecutableInfo is null)
-            throw new ExecutableNotLoadedException(_engine.ExecutionId, nameof(GetSourceContents));
-
-        if (_engine.ExecutableInfo is not Executable exe)
-            return null;
-
-        var exeSourceObjects = exe.SourceObjects;
-
-        // Source references are indices in the executable sources array offset by +1
-        var reference = this.GetSourceReference(source) - 1;
-
-        return exeSourceObjects.Count <= reference ? null : exeSourceObjects[reference];
     }
 
     private static async Task<Checksum[]> MakeChecksums(ExecutableSource exeSource)

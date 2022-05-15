@@ -9,7 +9,6 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
-using Code4Arm.ExecutionService.Exceptions;
 using Code4Arm.ExecutionService.HubRequests;
 using Code4Arm.ExecutionService.Services;
 using MediatR;
@@ -43,7 +42,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var execution = session.GetEngine();
 
         if (checkLoaded && (execution.State == ExecutionState.Unloaded))
-            throw new ExecutableNotLoadedException(null, caller);
+            throw new ExecutableNotLoadedException();
 
         return execution;
     }
@@ -92,7 +91,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var dp = await this.GetDebugProvider();
         var result = dp.GetBreakpointLocations(arguments);
 
-        return new BreakpointLocationsResponse() {Breakpoints = new Container<BreakpointLocation>(result)};
+        return new BreakpointLocationsResponse() { Breakpoints = new Container<BreakpointLocation>(result) };
     }
 
     public async Task<ConfigurationDoneResponse> ConfigurationDone(ConfigurationDoneArguments arguments)
@@ -125,7 +124,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var dp = await this.GetDebugProvider();
         var result = dp.Disassemble(arguments);
 
-        return new DisassembleResponse() {Instructions = new Container<DisassembledInstruction>(result)};
+        return new DisassembleResponse() { Instructions = new Container<DisassembledInstruction>(result) };
     }
 
     public async Task<DisconnectResponse> Disconnect(DisconnectArguments arguments)
@@ -164,7 +163,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var dp = await this.GetDebugProvider();
         var result = dp.GetGotoTargets(arguments);
 
-        return new GotoTargetsResponse() {Targets = new Container<GotoTarget>(result)};
+        return new GotoTargetsResponse() { Targets = new Container<GotoTarget>(result) };
     }
 
     public async Task<InitializeResponse> Initialize(InitializeRequestArguments arguments)
@@ -190,7 +189,8 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         }
         else
         {
-            throw new DebuggerException("noTarget", 200,
+            throw new DebuggerException(ErrorCodes.NoLaunchTargetId, ErrorCodes.NoLaunchTarget,
+                DebuggerExceptionType.User,
                 "No build target specified. Either 'sourceDirectory' or 'sourceFiles' must be present in launch.json");
         }
 
@@ -210,7 +210,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
                     invalidObject.AssemblerErrors);
             }
 
-            throw new DebuggerException("assemble", 201,
+            throw new DebuggerException(ErrorCodes.AssembleId, ErrorCodes.Assemble, DebuggerExceptionType.User,
                 $"Cannot assemble {build.InvalidObjects?.Count} source(s). Check output for error details.");
         }
 
@@ -220,7 +220,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
                 await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, 202,
                     "link", build.LinkerError);
 
-            throw new DebuggerException("link", 202,
+            throw new DebuggerException(ErrorCodes.LinkId, ErrorCodes.Link, DebuggerExceptionType.User,
                 "Cannot link assembled objects. Check output for more details.");
         }
 
@@ -245,7 +245,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var sl = await this.GetSourceLocator();
         var sources = await sl.GetSources();
 
-        return new LoadedSourcesResponse() {Sources = new Container<Source>(sources)};
+        return new LoadedSourcesResponse() { Sources = new Container<Source>(sources) };
     }
 
     public async Task<NextResponse> Next(NextArguments arguments)
@@ -312,7 +312,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetBreakpoints(arguments.Source, arguments.Breakpoints);
 
         return new SetBreakpointsResponse()
-            {Breakpoints = new Container<Breakpoint>(result)};
+            { Breakpoints = new Container<Breakpoint>(result) };
     }
 
     public async Task<SetDataBreakpointsResponse> SetDataBreakpoints(SetDataBreakpointsArguments arguments)
@@ -321,7 +321,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetDataBreakpoints(arguments.Breakpoints);
 
         return new SetDataBreakpointsResponse()
-            {Breakpoints = new Container<Breakpoint>(result)};
+            { Breakpoints = new Container<Breakpoint>(result) };
     }
 
     public async Task<SetExceptionBreakpointsResponse> SetExceptionBreakpoints(
@@ -331,7 +331,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetExceptionBreakpoints(arguments.Filters);
 
         return new SetExceptionBreakpointsResponse()
-            {Breakpoints = new Container<Breakpoint>(result)};
+            { Breakpoints = new Container<Breakpoint>(result) };
     }
 
     public async Task<SetExpressionResponse> SetExpression(SetExpressionArguments arguments)
@@ -341,14 +341,14 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
 
         return result;
     }
-    
+
     public async Task<SetFunctionBreakpointsResponse> SetFunctionBreakpoints(SetFunctionBreakpointsArguments arguments)
     {
         var exe = await this.GetExecution();
         var result = exe.SetFunctionBreakpoints(arguments.Breakpoints);
 
         return new SetFunctionBreakpointsResponse()
-            {Breakpoints = new Container<Breakpoint>(result)};
+            { Breakpoints = new Container<Breakpoint>(result) };
     }
 
     public async Task<SetInstructionBreakpointsResponse> SetInstructionBreakpoints(
@@ -358,7 +358,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = exe.SetInstructionBreakpoints(arguments.Breakpoints);
 
         return new SetInstructionBreakpointsResponse()
-            {Breakpoints = new Container<Breakpoint>(result)};
+            { Breakpoints = new Container<Breakpoint>(result) };
     }
 
     public async Task<SetVariableResponse> SetVariable(SetVariableArguments arguments)
@@ -421,7 +421,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public Task<ThreadsResponse> Threads(ThreadsArguments arguments)
     {
         return Task.FromResult(new ThreadsResponse()
-            {Threads = new Container<Thread>(new Thread() {Id = ExecutionEngine.ThreadId, Name = "Emulated CPU"})});
+            { Threads = new Container<Thread>(new Thread() { Id = ExecutionEngine.ThreadId, Name = "Emulated CPU" }) });
     }
 
     public async Task<VariablesResponse> Variables(VariablesArguments arguments)
@@ -430,7 +430,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         var result = dp.GetChildVariables(arguments);
 
         return new VariablesResponse()
-            {Variables = new Container<Variable>(result)};
+            { Variables = new Container<Variable>(result) };
     }
 
     public async Task<WriteMemoryResponse> WriteMemory(WriteMemoryArguments arguments)
