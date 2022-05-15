@@ -31,5 +31,12 @@ public enum MemoryHookType
 
     // Hook memory read events, but only successful access.
     // The callback will be triggered after successful read.
-    AfterRead = 1 << 13
+    AfterRead = 1 << 13,
+
+    AllUnmappedEvents = ReadUnmapped | WriteUnmapped | FetchUnmapped,
+    AllProtectedEvents = ReadProtected | WriteProtected | FetchProtected,
+    AllInvalidEvents = AllUnmappedEvents | AllProtectedEvents,
+    AllValidAccessEvents = Read | Write | Fetch,
+    AllPreEvents = AllUnmappedEvents | AllProtectedEvents | AllInvalidEvents | AllValidAccessEvents,
+    All = AllPreEvents | AfterRead
 }
