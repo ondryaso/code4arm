@@ -14,13 +14,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<AssemblerOptions>(options =>
 {
     // TODO
-    options.GasPath = @"C:\Users\ondry\Projects\bp-utils\gcc-arm-none-linux-gnueabihf\bin\arm-none-linux-gnueabihf-as.exe";
+    options.GasPath = "/home/ondryaso/Projects/bp/gcc-arm-none-linux-gnueabihf/bin/arm-none-linux-gnueabihf-as";
 });
 
 builder.Services.Configure<LinkerOptions>(options =>
 {
     // TODO
-    options.LdPath = @"C:\Users\ondry\Projects\bp-utils\gcc-arm-none-linux-gnueabihf\bin\arm-none-linux-gnueabihf-ld.exe";
+    options.LdPath = "/home/ondryaso/Projects/bp/gcc-arm-none-linux-gnueabihf/bin/arm-none-linux-gnueabihf-ld";
 });
 
 builder.Services.AddMediatR(typeof(Program));

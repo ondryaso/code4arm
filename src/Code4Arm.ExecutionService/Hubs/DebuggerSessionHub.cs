@@ -206,8 +206,8 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
 
             foreach (var invalidObject in build.InvalidObjects)
             {
-                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, 201, "assemble",
-                    invalidObject.AssemblerErrors);
+                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, ErrorCodes.AssembleId, 
+                    ErrorCodes.Assemble, invalidObject.AssemblerErrors + "\n");
             }
 
             throw new DebuggerException(ErrorCodes.AssembleId, ErrorCodes.Assemble, DebuggerExceptionType.User,
@@ -217,8 +217,8 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         if (build.State == MakeResultState.LinkingError)
         {
             if (build.LinkerError != null)
-                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, 202,
-                    "link", build.LinkerError);
+                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, ErrorCodes.LinkId,
+                    ErrorCodes.Link, build.LinkerError + "\n");
 
             throw new DebuggerException(ErrorCodes.LinkId, ErrorCodes.Link, DebuggerExceptionType.User,
                 "Cannot link assembled objects. Check output for more details.");
@@ -229,6 +229,15 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
             _logger.LogError("Build successful but executable is null.");
 
             throw new HubException("Unexpected execution service error (Executable null).");
+        }
+
+        foreach (var validObject in build.ValidObjects)
+        {
+            if (!string.IsNullOrWhiteSpace(validObject.AssemblerErrors))
+            {
+                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Warning, ErrorCodes.AssembleId,
+                    ErrorCodes.Assemble, validObject.AssemblerErrors + "\n");
+            }
         }
 
         var exe = session.GetEngine();

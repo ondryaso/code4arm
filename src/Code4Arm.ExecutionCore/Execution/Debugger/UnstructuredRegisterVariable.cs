@@ -1,6 +1,8 @@
 // UnstructuredRegisterVariable.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.Unicorn.Constants;
+
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public class UnstructuredRegisterVariable : UIntBackedVariable
@@ -31,5 +33,8 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
     {
         context.Engine.Engine.RegWrite(UnicornRegisterId, value);
         CurrentValue = value;
+
+        if (UnicornRegisterId == Arm.Register.PC)
+            context.Engine.CurrentPc = value;
     }
 }

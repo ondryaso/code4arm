@@ -86,19 +86,14 @@ public class Assembler : IAssembler
 
         gasStartInfo.ArgumentList.Add(location.FileSystemPath);
 
-        using var gasProcess = Process.Start(gasStartInfo);
-        if (gasProcess == null)
-        {
-            _logger.LogError("Error starting GAS process.");
-
-            throw new Exception("Error starting GAS process.");
-        }
-
-        var cts = new CancellationTokenSource(AssemblerOptions.TimeoutMs);
+        var stdoutWriter = new StringWriter();
+        var stderrWriter = new StringWriter();
+        int exitCode;
 
         try
         {
-            await gasProcess.WaitForExitAsync(cts.Token);
+            exitCode = await Utils.StartProcess(gasStartInfo, AssemblerOptions.TimeoutMs, stdoutWriter,
+                stderrWriter);
         }
         catch (TaskCanceledException e)
         {
@@ -107,8 +102,11 @@ public class Assembler : IAssembler
             throw new Exception("GAS process timed out.", e);
         }
 
-        var stdout = await gasProcess.StandardOutput.ReadToEndAsync();
-        var stderr = await gasProcess.StandardError.ReadToEndAsync();
+        await stdoutWriter.FlushAsync();
+        await stderrWriter.FlushAsync();
+
+        var stdout = stdoutWriter.ToString();
+        var stderr = stderrWriter.ToString();
 
         if (!string.IsNullOrWhiteSpace(stderr))
         {
@@ -118,10 +116,10 @@ public class Assembler : IAssembler
         }
 
         _logger.LogTrace("File {Name} [{Version}] assembly ended with code {Code}.", file.Name, file.Version,
-            gasProcess.ExitCode);
+            exitCode);
 
         return new AssembledObject(file, location.Version, location.FileSystemPath, outputFile, stdout,
-            stderr, gasProcess.ExitCode == 0, _loggerFactory.CreateLogger<AssembledObject>());
+            stderr, exitCode == 0, _loggerFactory.CreateLogger<AssembledObject>());
     }
 
     /// <summary>
@@ -269,20 +267,14 @@ public class Assembler : IAssembler
             }
 
         _logger.LogTrace("Starting the linker.");
-        using var ldProcess = Process.Start(ldStartInfo);
-        if (ldProcess == null)
-        {
-            CleanObjects(validObjects);
-            _logger.LogError("Error starting LD process.");
 
-            throw new Exception("Error starting LD process.");
-        }
-
-        var cts = new CancellationTokenSource(LinkerOptions.TimeoutMs);
+        var stdoutWriter = new StringWriter();
+        var stderrWriter = new StringWriter();
+        int exitCode;
 
         try
         {
-            await ldProcess.WaitForExitAsync(cts.Token);
+            exitCode = await Utils.StartProcess(ldStartInfo, LinkerOptions.TimeoutMs, stdoutWriter, stderrWriter);
         }
         catch (TaskCanceledException e)
         {
@@ -292,19 +284,26 @@ public class Assembler : IAssembler
             throw new Exception("LD process timed out.", e);
         }
 
-        var stdout = await ldProcess.StandardOutput.ReadToEndAsync();
-        var stderr = await ldProcess.StandardError.ReadToEndAsync();
+        await stdoutWriter.FlushAsync();
+        await stderrWriter.FlushAsync();
+
+        var stdout = stdoutWriter.ToString();
+        var stderr = stderrWriter.ToString();
 
         if (!string.IsNullOrWhiteSpace(stderr))
         {
+            var tempDirPath = Path.GetTempPath();
             stderr = stderr.Replace(LinkerOptions.LdPath + ":", string.Empty);
+            stderr = stderr.Replace(tempDirPath, "<build path>/");
+            stderr = stderr.Trim();
+            
             _logger.LogDebug("Linking error for make target {Name}.", asmMakeTarget.Name);
             _logger.LogTrace("stderr output: {Error}", stderr);
         }
 
-        _logger.LogTrace("MakeTarget {Name} linking ended with code {Code}.", asmMakeTarget.Name, ldProcess.ExitCode);
+        _logger.LogTrace("MakeTarget {Name} linking ended with code {Code}.", asmMakeTarget.Name, exitCode);
 
-        var success = ldProcess.ExitCode == 0;
+        var success = exitCode == 0;
 
         Executable? retExe = null;
         if (success)
@@ -378,7 +377,7 @@ public class Assembler : IAssembler
                     _linkerScriptPath);
             }
 
-        if (_functionSimulators is null or { Count: 0 })
+        if (_functionSimulators is null or {Count: 0})
         {
             _linkerScriptPath = null;
 
@@ -460,7 +459,7 @@ public class Assembler : IAssembler
             if (obj.GetType() != this.GetType())
                 return false;
 
-            return ((InitFile)obj)._path == _path;
+            return ((InitFile) obj)._path == _path;
         }
 
         public override int GetHashCode()

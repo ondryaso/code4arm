@@ -16,6 +16,7 @@ using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
 using MediatR;
 using Newtonsoft.Json.Linq;
+using StepBackMode = Code4Arm.ExecutionCore.Execution.Configuration.StepBackMode;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
@@ -78,7 +79,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsRestartRequest = true,
             SupportsSetExpression = true,
             SupportsSetVariable = true,
-            SupportsStepBack = false, // TODO
+            SupportsStepBack = _engine.Options.StepBackMode != StepBackMode.None,
             SupportsSteppingGranularity = false,
             SupportsTerminateRequest = true,
             SupportSuspendDebuggee = false,
@@ -147,7 +148,52 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
 
-    public ExceptionInfoResponse GetLastExceptionInfo() => throw new NotImplementedException();
+    public ExceptionInfoResponse GetLastExceptionInfo()
+    {
+        this.CheckInitialized();
+
+        var id = _engine.LastStopCause switch
+        {
+            ExecutionEngine.StopCause.Normal => throw new NoExceptionDataException(),
+            ExecutionEngine.StopCause.Interrupt => "interrupt",
+            ExecutionEngine.StopCause.InvalidInstruction => "invalid instruction",
+            ExecutionEngine.StopCause.InvalidMemoryAccess => "invalid memory access",
+            ExecutionEngine.StopCause.TrampolineUnbound => "invalid emulated function",
+            ExecutionEngine.StopCause.TimeoutOrExternalCancellation => "timeout",
+            ExecutionEngine.StopCause.UnicornException => "runtime error",
+            _ => throw new ArgumentOutOfRangeException()
+        };
+
+        var description = _engine.LastStopCause switch
+        {
+            ExecutionEngine.StopCause.Normal => throw new NoExceptionDataException(),
+            ExecutionEngine.StopCause.Interrupt =>
+                "The CPU has issued an interrupt.\n" +
+                $"  Interrupt number: {_engine.LastStopData.InterruptNumber}.\n" +
+                $"  R7 value: {_engine.LastStopData.InterruptR7:x}.",
+
+            ExecutionEngine.StopCause.InvalidInstruction => "Invalid instruction/opcode.",
+            ExecutionEngine.StopCause.InvalidMemoryAccess =>
+                "Invalid memory access." +
+                $"  Interrupt number: {_engine.LastStopData.InterruptNumber}.\n" +
+                $"  R7 value: {_engine.LastStopData.InterruptR7:x}.",
+            ExecutionEngine.StopCause.TrampolineUnbound =>
+                "Invalid attempt to jump into the simulated functions memory segment.",
+            ExecutionEngine.StopCause.TimeoutOrExternalCancellation =>
+                "The emulation reached its maximum run time and timed out.",
+            ExecutionEngine.StopCause.UnicornException => "Emulator error.",
+            _ => throw new ArgumentOutOfRangeException()
+        };
+
+        return new ExceptionInfoResponse()
+        {
+            Description = description,
+            ExceptionId = id,
+            BreakMode = _engine.LastStopCause == ExecutionEngine.StopCause.Interrupt
+                ? ExceptionBreakMode.Unhandled
+                : ExceptionBreakMode.Always
+        };
+    }
 
     public async Task<StackTraceResponse> MakeStackTrace()
     {
@@ -158,7 +204,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         var sourceIndex = _engine.CurrentStopSourceIndex;
         var source = _engine.State == ExecutionState.PausedBreakpoint ? _engine.CurrentBreakpoint?.Source : null;
 
-        if (source is null && Executable.Sources.Count > sourceIndex)
+        if (source is null && Executable.Sources.Count > sourceIndex && sourceIndex != -1)
         {
             var exeSource = Executable.Sources[sourceIndex];
             source = await this.GetSource(sourceIndex, exeSource);
@@ -314,14 +360,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     #region Variables
 
     /// <summary>
-    /// 
+    /// Sets a variable, identified by its parent's Variables Reference number and its name.
     /// </summary>
-    /// <param name="parentVariablesReference">The Variables reference number.</param>
-    /// <param name="variableName"></param>
-    /// <param name="value"></param>
-    /// <param name="format"></param>
-    /// <returns></returns>
-    public SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value, ValueFormat? format)
+    public SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value,
+        ValueFormat? format)
     {
         this.CheckInitialized();
 
@@ -1070,7 +1112,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         throw new InvalidSourceException();
     }
 
-    private async Task<Source> GetSource(int sourceIndex, ExecutableSource exeSource)
+    internal async Task<Source> GetSource(int sourceIndex, ExecutableSource exeSource)
     {
         var isClientSide = exeSource.ClientPath != null;
 

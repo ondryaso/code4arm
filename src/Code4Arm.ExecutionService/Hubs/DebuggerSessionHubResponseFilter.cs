@@ -71,6 +71,15 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
             logger.LogWarning(e,
                 "Unhandled execution/debugger exception. Connection ID: {Id}. Correlation ID: {Correlation}.",
                 invocationContext.Context.ConnectionId, correlationId);
+            
+            var outputEvent = new OutputEvent()
+            {
+                Category = OutputEventCategory.Console,
+                Output = $"Unexpected execution service error ({e.GetType().Name}). Connection ID: {invocationContext.Context.ConnectionId}. Correlation ID: {correlationId}.",
+            };
+
+            await invocationContext.Hub.Clients.Caller.SendCoreAsync("HandleEvent",
+                new object[] { EventNames.Output, outputEvent });
 
             return new DebuggerResponse()
             {

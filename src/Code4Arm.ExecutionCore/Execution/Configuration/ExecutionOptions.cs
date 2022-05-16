@@ -31,6 +31,12 @@ public enum StackPointerType
     EmptyAscending
 }
 
+public enum StepBackMode
+{
+    None,
+    CaptureOnBreakpoint
+}
+
 public class ExecutionOptions
 {
     /// <summary>
@@ -79,7 +85,26 @@ public class ExecutionOptions
     /// This means that often there's more accessible memory around these segments. Setting this option to true will
     /// cause execution to halt when these are accessed (anyhow), as if they were unmapped memory.
     /// </remarks>
-    public bool UseStrictMemoryAccess { get; set; } = false;
+    public bool UseStrictMemoryAccess { get; set; } = true;
+    
+    /// <summary>
+    /// If true, runtime exceptions will carry correct program counter/line information.
+    /// </summary>
+    /// <remarks>
+    /// This is necessary because Unicorn doesn't trace the PC accurately when there's no code hook registered
+    /// in the address range – so if an exception occurs, the PC reading is incorrect. Registering a dummy code hook
+    /// together with the memory hooks prevents this but it affects performance (quite terribly, see Unicorn issue
+    /// #534 and referencing issues).
+    /// </remarks>
+    public bool EnableAccurateExceptionInfo { get; set; } = true;
 
     public RegisterInitOptions RegisterInitOptions { get; set; } = RegisterInitOptions.Clear;
+
+    /// <summary>
+    /// Controls the Step Back mode.
+    /// </summary>
+    public StepBackMode StepBackMode { get; set; } = StepBackMode.CaptureOnBreakpoint;
+    
+    // TODO
+    public bool EnableRegisterDataBreakpoints { get; set; }
 }

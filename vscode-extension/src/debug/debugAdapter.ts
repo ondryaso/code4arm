@@ -42,24 +42,43 @@ export class Code4ArmDebugSession extends ProtocolServer {
     }
 
     private log(msg: any) {
-        // TODO
+        const protoEvent: DebugProtocol.OutputEvent = {
+            seq: 0,
+            type: 'event',
+            event: 'output',
+            body: {
+                output: msg,
+                category: 'console'
+            }
+        };
+
+        this.sendEvent(protoEvent);
         console.info(msg);
     }
 
     private logError(msg: any) {
-        // TODO
+        const protoEvent: DebugProtocol.OutputEvent = {
+            seq: 0,
+            type: 'event',
+            event: 'output',
+            body: {
+                output: msg,
+                category: 'console'
+            }
+        };
+
+        this.sendEvent(protoEvent);
         console.error(msg);
     }
 
 
     private handleServiceLog(category: string, timestamp: string, logLevel: ServiceLogLevel,
         eventId: number, eventName: string | null, message: string) {
-        // TODO
         if (logLevel === ServiceLogLevel.None)
             return;
 
-        const time = new Date(timestamp);
-        const msg = `!! [${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}.${time.getMilliseconds()}] ${category}: ${message}`;
+        // const time = new Date(timestamp);
+        const msg = message; // `!! [${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}.${time.getMilliseconds()}] ${category}: ${message}`;
 
         switch (logLevel) {
             case ServiceLogLevel.Trace:
@@ -97,7 +116,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
     }
 
     private handleRemoteEvent(eventName: string, body: any | null) {
-        this.log("-> EVENT " + eventName);
+        console.info("-> EVENT " + eventName);
 
         const protoEvent: DebugProtocol.Event = {
             event: eventName,
@@ -153,7 +172,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
 
         try {
             const remoteMethodName = request.command.charAt(0).toUpperCase() + request.command.slice(1);
-            this.log("<- REQ " + remoteMethodName);
+            console.info("<- REQ " + remoteMethodName);
 
             let remoteResponse: IDebuggerResponse;
 
@@ -164,7 +183,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             }
 
             let response: DebugProtocol.Response = new Response(request);
-            console.log("   | RESP " + (response.success ? "Success" : ("Error " + response.message)) + " (" + remoteMethodName + ")");
+            console.info("   | RESP " + (response.success ? "Success" : ("Error " + response.message)) + " (" + remoteMethodName + ")");
 
             response.success = remoteResponse.success;
             response.body = remoteResponse.body;

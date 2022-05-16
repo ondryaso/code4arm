@@ -4,7 +4,6 @@
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Configuration;
-using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.Unicorn.Abstractions;
 
@@ -12,21 +11,6 @@ namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 
 public interface IExecutionEngine : IDisposable
 {
-    /// <summary>
-    /// Controls the ability of this execution context to store CPU context after executing instructions and to step back.
-    /// </summary>
-    StepBackMode StepBackMode { get; set; }
-
-    /// <summary>
-    /// Controls whether writes to memory should be tracked when saving step contexts and reverted when stepping back.
-    /// </summary>
-    bool EnableStepBackMemoryCapture { get; set; }
-
-    /// <summary>
-    /// Controls whether registers can be used in data breakpoints.
-    /// </summary>
-    bool EnableRegisterDataBreakpoints { get; set; }
-
     ExecutionState State { get; }
 
     IExecutableInfo? ExecutableInfo { get; }
@@ -36,8 +20,7 @@ public interface IExecutionEngine : IDisposable
 
     IUnicorn Engine { get; }
 
-    Stream EmulatedInput { get; }
-    Stream EmulatedOutput { get; }
+    TextWriter EmulatedOutput { get; }
 
     Task LoadExecutable(Executable executable);
 

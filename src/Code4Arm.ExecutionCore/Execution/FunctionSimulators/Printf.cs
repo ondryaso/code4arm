@@ -15,11 +15,10 @@ public class Printf : IFunctionSimulator
 
     public void Run(IExecutionEngine engine)
     {
-        // TODO: use emulated memory accessor
-
         var address = engine.Engine.RegRead<uint>(Arm.Register.R0);
         var formatString = engine.Engine.MemReadCString(address);
 
-        Console.WriteLine($"EMULATOR OUTPUT: {formatString}");
+        // TODO
+        engine.EmulatedOutput.Write(formatString);
     }
 }

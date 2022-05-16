@@ -17,6 +17,8 @@ public class Executable : IExecutableInfo, IDisposable
     private readonly ELF<uint> _elf;
     private readonly ILogger<Executable> _logger;
     private readonly List<MemorySegment> _segments;
+    private readonly long[] _textSectionStarts;
+    private readonly long[] _dataSectionStarts;
 
     private string? _filePath;
 
@@ -24,7 +26,8 @@ public class Executable : IExecutableInfo, IDisposable
     private readonly ImmutableList<ExecutableSource> _sources;
 
     public IReadOnlyList<AssembledObject> SourceObjects => _sourceObjects;
-    public IReadOnlyList<long> DataSectionStarts { get; }
+    public IReadOnlyList<long> TextSectionStarts => _textSectionStarts;
+    public IReadOnlyList<long> DataSectionStarts => _dataSectionStarts;
 
     public IAsmMakeTarget MakeTarget { get; }
     public ELF<uint> Elf => _elf;
@@ -57,7 +60,11 @@ public class Executable : IExecutableInfo, IDisposable
 
         this.MakeSegments();
         this.DetermineCodeRange();
-        DataSectionStarts = this.DetermineDataSectionsStarts(linkerOutput).ToList();
+
+        _textSectionStarts = new long[sourceObjects.Count];
+        _dataSectionStarts = new long[sourceObjects.Count];
+        this.DetermineDataSectionsStarts(linkerOutput);
+        this.DetermineTextSectionsStarts(linkerOutput);
     }
 
     public IReadOnlyList<MemorySegment> Segments => _segments;
@@ -120,7 +127,7 @@ public class Executable : IExecutableInfo, IDisposable
             var trampolineStart = FunctionSimulators.First().Key;
             var trampolineEnd = FunctionSimulators.Last().Key + 4;
             var memorySegment = new MemorySegment(trampolineStart, trampolineEnd - trampolineStart)
-                { IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute };
+                {IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute};
 
             _segments.Add(memorySegment);
         }
@@ -200,7 +207,10 @@ public class Executable : IExecutableInfo, IDisposable
     private static readonly Regex DataSectionRegex = new(@"\.data\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)\s+(\S*)$",
         RegexOptions.Multiline);
 
-    private IEnumerable<long> DetermineDataSectionsStarts(string linkerOutput)
+    private static readonly Regex TextSectionRegex = new(@"\.text\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)\s+(\S*)$",
+        RegexOptions.Multiline);
+
+    private void DetermineDataSectionsStarts(string linkerOutput)
     {
         var matches = DataSectionRegex.Matches(linkerOutput);
         var starts = matches
@@ -208,12 +218,31 @@ public class Executable : IExecutableInfo, IDisposable
                      .ToDictionary(m => m.Groups[3].Value,
                          m => ulong.Parse(m.Groups[1].Value, NumberStyles.AllowHexSpecifier));
 
+        var i = 0;
         foreach (var source in _sourceObjects)
         {
             if (starts.TryGetValue(source.ObjectFilePath, out var start))
-                yield return unchecked((uint)(start & 0xFFFFFFFF));
+                _dataSectionStarts[i++] = unchecked((uint) (start & 0xFFFFFFFF));
             else
-                yield return -1;
+                _dataSectionStarts[i++] = -1;
+        }
+    }
+
+    private void DetermineTextSectionsStarts(string linkerOutput)
+    {
+        var matches = TextSectionRegex.Matches(linkerOutput);
+        var starts = matches
+                     .Where(m => m.Groups[2].Value != "0")
+                     .ToDictionary(m => m.Groups[3].Value,
+                         m => ulong.Parse(m.Groups[1].Value, NumberStyles.AllowHexSpecifier));
+
+        var i = 0;
+        foreach (var source in _sourceObjects)
+        {
+            if (starts.TryGetValue(source.ObjectFilePath, out var start))
+                _textSectionStarts[i++] = unchecked((uint) (start & 0xFFFFFFFF));
+            else
+                _textSectionStarts[i++] = -1;
         }
     }
 

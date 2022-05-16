@@ -28,4 +28,11 @@ public static class ExceptionCodes
     
     public const int InvalidVariableFormatId = 106;
     public const string InvalidVariableFormat = "invalidFormat";
+    
+    public const int NoExceptionDataId = 107;
+    public const string NoExceptionData = "noExceptionData";
+    
+    public const int StepBackNotEnabledId = 108;
+    public const string StepBackNotEnabled = "stepbackNotEnabled";
+
 }

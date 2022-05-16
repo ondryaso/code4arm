@@ -10,7 +10,6 @@ public enum ExecutionState
     Running,
     Paused,
     PausedBreakpoint,
-    Finished,
-    TerminatedManually,
-    TerminatedException
+    PausedException,
+    Finished
 }
