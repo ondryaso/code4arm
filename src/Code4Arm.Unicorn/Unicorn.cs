@@ -354,6 +354,13 @@ public class Unicorn : IUnicorn
         this.CheckResult(result);
     }
 
+    public void RemoveTbCache(ulong begin, ulong end)
+    {
+        this.EnsureEngine();
+        var result = Native.uc_ctl(_engine, MakeWriteControlType(2, UniConst.Ctl.TbRemoveCache), begin, end);
+        this.CheckResult(result);
+    }
+
     public unsafe void GetExits(Span<ulong> target)
     {
         var currentCount = CurrentNumberOfExits; // Calls EnsureEngine()

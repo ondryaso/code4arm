@@ -144,6 +144,9 @@ internal static class Native
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
     public static extern unsafe int uc_ctl(UIntPtr eng, int control, ulong* arg0, nuint arg1);
+    
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "uc_ctl")]
+    public static extern int uc_ctl(UIntPtr eng, int control, ulong arg0, ulong arg1);
 
     #endregion
 }

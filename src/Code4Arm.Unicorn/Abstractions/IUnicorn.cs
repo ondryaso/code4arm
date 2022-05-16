@@ -38,7 +38,7 @@ public interface IUnicorn : IUnicornContext
 
     // uc_ctl, UC_CTL_CPU_MODEL, read/write
     int CpuModel { get; set; }
-
+    
     // uc_arch_supported
     bool IsArchSupported(Architecture architecture);
 
@@ -49,7 +49,9 @@ public interface IUnicorn : IUnicornContext
     void EnableMultipleExits();
 
     // Missing: uc_ctl, UC_CTL_TB_REQUEST_CACHE, read 
-    // Missing: uc_ctl, UC_CTL_TB_REMOVE_CACHE, write
+    
+    // uc_ctl, UC_CTL_TB_REMOVE_CACHE, write
+    void RemoveTbCache(ulong begin, ulong end);
 
     void GetExits(Span<ulong> target);
     void SetExits(ReadOnlySpan<ulong> exits);
