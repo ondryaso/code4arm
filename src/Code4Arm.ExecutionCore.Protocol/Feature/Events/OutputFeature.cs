@@ -47,7 +47,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// etc.
             /// </summary>
             [Optional]
-            public OutputEventGroup Group { get; set; }
+            public OutputEventGroup? Group { get; set; }
 
             /// <summary>
             /// If an attribute 'variablesReference' exists and its value is > 0, the
