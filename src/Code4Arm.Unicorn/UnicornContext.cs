@@ -86,7 +86,7 @@ internal sealed class UnicornContext : IUnicornContext
         Unicorn.CheckResult(result);
     }
 
-    public unsafe void RegBatchWrite<T>(int[] registerIds, IEnumerable<T> values) where T : unmanaged
+    public unsafe void RegBatchWrite<T>(ReadOnlySpan<int> registerIds, IEnumerable<T> values) where T : unmanaged
     {
         this.EnsureNotDisposed();
 
@@ -115,7 +115,7 @@ internal sealed class UnicornContext : IUnicornContext
         Unicorn.CheckResult(result);
     }
 
-    public unsafe void RegBatchWrite<T>(int[] registerIds, ReadOnlySpan<T> values) where T : unmanaged
+    public unsafe void RegBatchWrite<T>(ReadOnlySpan<int> registerIds, ReadOnlySpan<T> values) where T : unmanaged
     {
         this.EnsureNotDisposed();
 
@@ -142,7 +142,7 @@ internal sealed class UnicornContext : IUnicornContext
         Unicorn.CheckResult(result);
     }
 
-    public unsafe void RegBatchRead<T>(int[] registerIds, Span<T> target) where T : unmanaged
+    public unsafe void RegBatchRead<T>(ReadOnlySpan<int> registerIds, Span<T> target) where T : unmanaged
     {
         this.EnsureNotDisposed();
 
@@ -166,7 +166,7 @@ internal sealed class UnicornContext : IUnicornContext
         Unicorn.CheckResult(result);
     }
 
-    public unsafe T[] RegBatchRead<T>(int[] registerIds) where T : unmanaged
+    public unsafe T[] RegBatchRead<T>(ReadOnlySpan<int> registerIds) where T : unmanaged
     {
         this.EnsureNotDisposed();
 
