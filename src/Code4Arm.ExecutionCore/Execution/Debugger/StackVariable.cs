@@ -24,7 +24,7 @@ public class StackVariable : UIntBackedVariable
     public override long Reference { get; }
     public override bool IsViewOfParent => false;
 
-    public override string Get(VariableContext context) => string.Empty;
+    public override string Get(VariableContext context) => $"{_address:x}";
 
     public override IVariable? Parent => null;
 

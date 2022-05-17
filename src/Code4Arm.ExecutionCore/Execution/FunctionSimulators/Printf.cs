@@ -2,6 +2,8 @@
 // Author: Ondřej Ondryáš
 
 using System.Text;
+using AT.MIN;
+using Code4Arm.ExecutionCore.Environment;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Extensions;
@@ -15,10 +17,9 @@ public class Printf : IFunctionSimulator
 
     public void Run(IExecutionEngine engine)
     {
-        var address = engine.Engine.RegRead<uint>(Arm.Register.R0);
-        var formatString = engine.Engine.MemReadCString(address);
-
-        // TODO
-        engine.EmulatedOutput.Write(formatString);
+        var r0 = engine.Engine.RegRead<uint>(Arm.Register.R0);
+        var formatString = engine.Engine.MemReadCString(r0, 512);
+        var result = Tools.PrintF(formatString, engine.Engine);
+        engine.EmulatedOutput.Write(result);
     }
 }

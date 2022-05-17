@@ -54,13 +54,13 @@ public class ExecutionOptions
     /// Sets a specific stack address that will be used every time an executable is loaded.
     /// Only used when <see cref="StackPlacementOptions"/> contains the <see cref="Configuration.StackPlacementOptions.FixedAddress"/> flag.
     /// </summary>
-    public uint ForcedStackAddress { get; set; } = 0;
+    public uint ForcedStackAddress { get; set; } = 0x40000000;
 
     /// <summary>
     /// Controls whether the emulated stack should be pre-filled with random data.
     /// </summary>
     public StackPlacementOptions StackPlacementOptions { get; set; } =
-        StackPlacementOptions.RandomizeData | StackPlacementOptions.RandomizeAddress;
+        StackPlacementOptions.FixedAddress;
 
     /// <summary>
     /// Controls the initial position of the stack pointer after loading an executable. 
