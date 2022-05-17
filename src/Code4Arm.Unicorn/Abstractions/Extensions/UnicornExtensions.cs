@@ -62,8 +62,8 @@ public static class UnicornExtensions
                 }
             }
         }
-
-        if (size <= bufferLength)
+        
+        if (size < bufferLength)
             return encoding.GetString(buffer[..size]);
 
         if (size >= maxStackAlloc)
