@@ -13,9 +13,12 @@ public interface IDebugProvider
 
     InitializeResponse Initialize(InitializeRequestArguments clientData);
 
-    IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column);
+    IEnumerable<GotoTarget> GetGotoTargets(Source source, int line, int? column);
     SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format);
-    SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value, ValueFormat? format);
+
+    SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value,
+        ValueFormat? format);
+
     DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName);
     DataBreakpointInfoResponse GetDataBreakpointInfo(string expression);
     EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context, ValueFormat? format);
@@ -23,7 +26,6 @@ public interface IDebugProvider
     Task<StackTraceResponse> MakeStackTrace();
     ScopesResponse MakeVariableScopes();
     IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine);
-    IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters();
     ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset);
     WriteMemoryResponse WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded);
 
@@ -35,7 +37,7 @@ public interface IDebugProvider
     #region Wrappers over DP's arguments objects
 
     IEnumerable<GotoTarget> GetGotoTargets(GotoTargetsArguments arguments)
-        => this.GetGotoTargets(arguments.Source, arguments.Line, arguments.Column);
+        => this.GetGotoTargets(arguments.Source, (int)arguments.Line, (int?)arguments.Column);
 
     DataBreakpointInfoResponse GetDataBreakpointInfo(DataBreakpointInfoArguments arguments)
         => arguments.VariablesReference.HasValue

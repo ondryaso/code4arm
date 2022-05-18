@@ -13,4 +13,5 @@ public static class ExceptionMessages
     public const string InvalidVariableFormat = "Invalid input format.";
     public const string NoExceptionData = "No exception data found.";
     public const string StepBackNotEnabled = "Stepping back is not possible in the current context.";
+    public const string InvalidGotoTarget = "Invalid jump target address.";
 }

@@ -50,11 +50,11 @@ public interface IExecutionEngine : IDisposable
 
     // terminates and launches
     Task Restart(bool debug);
-    Task GotoTarget(long targetId);
+    Task GotoTarget(long targetId, int enterTimeout = Timeout.Infinite);
     Task Continue(int enterTimeout = Timeout.Infinite);
     Task ReverseContinue();
     Task Step(int enterTimeout = Timeout.Infinite);
-    Task StepBack();
+    Task StepBack(int enterTimeout = Timeout.Infinite);
     Task StepOut(int enterTimeout = Timeout.Infinite);
     Task Pause();
     Task Terminate();

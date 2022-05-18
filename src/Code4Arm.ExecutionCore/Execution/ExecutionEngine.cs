@@ -62,6 +62,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private const int MaxStackAllocatedSize = 512;
 
     internal readonly Guid ExecutionId;
+    internal DwarfLineAddressResolver? LineResolver;
     internal AddressBreakpoint? CurrentBreakpoint;
     internal bool DebuggingEnabled = true;
 
@@ -88,7 +89,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private Random _rnd = new();
     private CancellationTokenSource? _currentCts;
     private UnicornHookRegistration _trampolineHookRegistration;
-    private DwarfLineAddressResolver? _lineResolver;
     private bool _firstRun = true;
     private bool _breakpointExitsDisabled = false;
 
@@ -332,7 +332,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _exe = executable;
 
-        _lineResolver = new DwarfLineAddressResolver(_exe.Elf);
+        LineResolver = new DwarfLineAddressResolver(_exe.Elf);
 
         this.MapMemoryFromExecutable();
         this.InitTrampolineHook();
@@ -684,7 +684,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var tryingLine = startingLocalLine;
 
         // Dwarf lines are numbered from 1
-        var address = _lineResolver!.GetAddress(sourceCompilationPath, tryingLine + 1);
+        var address = LineResolver!.GetAddress(sourceCompilationPath, tryingLine + 1);
         var successful = true;
 
         while (address == uint.MaxValue && tryingLine < sourceObject.ProgramLines)
@@ -697,7 +697,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 if (!sourceObject.IsProgramLine![tryingLine])
                     continue;
 
-                address = _lineResolver!.GetAddress(sourceCompilationPath, tryingLine + 1);
+                address = LineResolver!.GetAddress(sourceCompilationPath, tryingLine + 1);
                 successful = true;
 
                 break;
@@ -827,7 +827,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (LastStopCause == StopCause.Interrupt)
             pc -= 4; // The PC is moved after an interrupt
 
-        var lineInfo = _lineResolver!.GetSourceLine(pc, out var displacement);
+        var lineInfo = LineResolver!.GetSourceLine(pc, out var displacement);
         if (displacement != 0)
         {
             CurrentStopLine = -1;
@@ -1101,7 +1101,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             this.DetermineCurrentStopPositions();
             await this.HandleEmulatedOutputBuffer();
-            
+
             try
             {
                 if (LastStopCause != StopCause.Normal)
@@ -1262,9 +1262,40 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         throw new NotImplementedException();
     }
 
-    public Task GotoTarget(long targetId)
+    public async Task GotoTarget(long targetId, int enterTimeout = Timeout.Infinite)
     {
-        throw new NotImplementedException();
+        this.CheckLoaded();
+
+        var address = (uint)targetId;
+
+        if (address < _exe.TextSectionStartAddress || address >= _exe.TextSectionEndAddress || (address % 4) != 0)
+            throw new InvalidGotoTargetException();
+
+        var entered =
+            (State is ExecutionState.Paused or ExecutionState.PausedBreakpoint or ExecutionState.PausedException)
+            && await _runSemaphore.WaitAsync(enterTimeout);
+
+        if (!entered)
+        {
+            _logger.LogTrace("Execution {Id}: Attempt to goto while running.", ExecutionId);
+
+            throw new InvalidOperationException("Cannot jump to target, execution is running.");
+        }
+
+        Engine.RegWrite(Arm.Register.PC, address);
+
+        this.DetermineCurrentStopPositions();
+        _runSemaphore.Release();
+
+        State = ExecutionState.Paused;
+
+        await this.SendEvent(new StoppedEvent()
+        {
+            Description = "Changed PC",
+            Reason = StoppedEventReason.Goto,
+            ThreadId = ThreadId,
+            AllThreadsStopped = true
+        });
     }
 
     public async Task Continue(int enterTimeout = Timeout.Infinite)
@@ -1367,7 +1398,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public async Task Step(int enterTimeout = Timeout.Infinite)
     {
-        var entered = await _runSemaphore.WaitAsync(_options.Timeout);
+        var entered = await _runSemaphore.WaitAsync(enterTimeout);
         if (!entered)
         {
             _logger.LogTrace("Execution {Id}: Attempt to step while running.", ExecutionId);
@@ -1391,7 +1422,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         await this.StartEmulation(CurrentPc, 1);
     }
 
-    public async Task StepBack()
+    public async Task StepBack(int enterTimeout = Timeout.Infinite)
     {
         if (_options.StepBackMode == StepBackMode.None)
             throw new StepBackNotEnabledException();
@@ -1399,7 +1430,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (_stepBackContexts == null || _stepBackContexts.Count == 0)
             throw new StepBackNotEnabledException();
 
-        var entered = await _runSemaphore.WaitAsync(_options.Timeout);
+        var entered =
+            (State is ExecutionState.Paused or ExecutionState.PausedBreakpoint or ExecutionState.PausedException)
+            && await _runSemaphore.WaitAsync(enterTimeout);
+
         if (!entered)
         {
             _logger.LogTrace("Execution {Id}: Attempt to step while running.", ExecutionId);
@@ -1450,11 +1484,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     #region Helper methods
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [MemberNotNull(nameof(_exe), nameof(_segments), nameof(_debugProvider), nameof(_lineResolver))]
+    [MemberNotNull(nameof(_exe), nameof(_segments), nameof(_debugProvider), nameof(LineResolver))]
     private void CheckLoaded()
     {
         // Iff the rest of this code works as intended, this could be cut down only to _exe == null
-        if (_exe == null || _segments == null || _debugProvider == null || _lineResolver == null)
+        if (_exe == null || _segments == null || _debugProvider == null || LineResolver == null)
             throw new InvalidOperationException("Executable not loaded.");
     }
 

@@ -84,7 +84,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsTerminateRequest = true,
             SupportSuspendDebuggee = false,
             SupportTerminateDebuggee = false,
-            SupportsBreakpointLocationsRequest = false, // TODO
+            SupportsBreakpointLocationsRequest = true,
             SupportsConfigurationDoneRequest = true,
             SupportsEvaluateForHovers = false, //TODO?
             SupportsExceptionFilterOptions = false,
@@ -125,12 +125,8 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     private Container<ExceptionBreakpointsFilter> MakeFilters()
     {
-        // TODO
-        return new[]
-        {
-            new ExceptionBreakpointsFilter()
-                { Label = "All Unicorn exceptions", Filter = "all", SupportsCondition = false }
-        };
+        // Intentionally blank: break on all exceptions (what is there left to do)
+        return new Container<ExceptionBreakpointsFilter>();
     }
 
     public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
@@ -138,9 +134,28 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         bool resolveSymbols) =>
         throw new NotImplementedException();
 
-    public IEnumerable<GotoTarget> GetGotoTargets(Source source, long line, long? column)
+    public IEnumerable<GotoTarget> GetGotoTargets(Source source, int line, int? column)
     {
-        throw new NotImplementedException();
+        this.CheckInitialized();
+
+        line = this.LineFromClient(line);
+
+        var sourcePath = this.GetCompilationPathForSource(source);
+
+        if (sourcePath == null)
+            return Enumerable.Empty<GotoTarget>();
+        
+        var address = _engine.LineResolver!.GetAddress(sourcePath, line + 1);
+        if (address == uint.MaxValue)
+            return Enumerable.Empty<GotoTarget>();
+
+        return Enumerable.Repeat(new GotoTarget()
+        {
+            Id = address,
+            Line = this.LineToClient(line),
+            Label = "Here",
+            InstructionPointerReference = address.ToString()
+        }, 1);
     }
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
@@ -226,11 +241,35 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
         return ret;
     }
 
-    public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine) =>
-        throw new NotImplementedException();
+    public IEnumerable<BreakpointLocation> GetBreakpointLocations(Source source, int line, int? endLine)
+    {
+        this.CheckInitialized();
 
-    public IEnumerable<ExceptionBreakpointsFilter> GetExceptionBreakpointFilters() =>
-        throw new NotImplementedException();
+        var sourceObject = this.GetObjectForSource(source);
+
+        if (sourceObject is null or { IsProgramLine: null })
+            return Enumerable.Empty<BreakpointLocation>();
+
+        line = this.LineFromClient(line);
+        var endLineVal = endLine.HasValue
+            ? Math.Min(sourceObject.IsProgramLine.Length - 1, this.LineFromClient(endLine.Value))
+            : sourceObject.IsProgramLine.Length - 1;
+
+        if (line >= sourceObject.IsProgramLine.Length || line > endLineVal)
+            return Enumerable.Empty<BreakpointLocation>();
+
+        var ret = new List<BreakpointLocation>(endLineVal - line + 1);
+        for (var i = line; i <= endLineVal; i++)
+        {
+            if (sourceObject.IsProgramLine[i])
+                ret.Add(new BreakpointLocation()
+                {
+                    Line = this.LineToClient(i)
+                });
+        }
+
+        return ret;
+    }
 
     #region Expressions
 
