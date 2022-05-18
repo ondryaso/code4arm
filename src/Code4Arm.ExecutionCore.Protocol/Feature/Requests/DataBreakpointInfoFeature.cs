@@ -34,7 +34,7 @@ namespace Code4Arm.ExecutionCore.Protocol
             /// An identifier for the data on which a data breakpoint can be registered with the setDataBreakpoints request or null if
             /// no data breakpoint is available.
             /// </summary>
-            public string DataId { get; init; }
+            public string? DataId { get; init; }
 
             /// <summary>
             /// UI string that describes on what data the breakpoint is set on or why a data breakpoint is not available.
