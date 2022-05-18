@@ -43,7 +43,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         TimeoutOrExternalCancellation,
         UnicornException,
         InternalException,
-        ExternalPause
+        ExternalPause,
+        DataBreakpoint
     }
 
     internal struct StopData
@@ -54,6 +55,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         public uint InvalidAddress;
         public UnicornError UnicornError;
         public string UnicornErrorMessage;
+        public long DataBreakpointId;
     }
 
     public const long ThreadId = 1;
@@ -576,7 +578,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private void CodeHookNativeHandler(UIntPtr engine, ulong address, uint size, IntPtr userData)
     {
-        // NOOP
+        _debugProvider.RefreshSteppedTraces();
     }
 
     private void StrictAccessHandler(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
@@ -775,7 +777,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints)
     {
-        throw new NotImplementedException();
+        this.CheckLoaded();
+
+        _debugProvider.ClearDataBreakpoints();
+        foreach (var dataBreakpoint in dataBreakpoints)
+        {
+            yield return _debugProvider.SetDataBreakpoint(dataBreakpoint);
+        }
     }
 
     public IEnumerable<Breakpoint> SetExceptionBreakpoints(IEnumerable<string> filterIds)
@@ -916,6 +924,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 await this.HandlePause();
 
                 break;
+            case StopCause.DataBreakpoint:
+                await this.HandleDataBreakpoint();
+
+                break;
             default:
                 throw new InvalidOperationException("Invalid stop cause.");
             case StopCause.Normal:
@@ -924,6 +936,21 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
                 break;
         }
+    }
+
+    private async Task HandleDataBreakpoint()
+    {
+        State = ExecutionState.PausedBreakpoint;
+        CurrentBreakpoint = null;
+
+        await this.SendEvent(new StoppedEvent()
+        {
+            Reason = StoppedEventReason.DataBreakpoint,
+            Description = "Data breakpoint hit",
+            HitBreakpointIds = new Container<long>(LastStopData.DataBreakpointId),
+            ThreadId = ThreadId,
+            AllThreadsStopped = true
+        });
     }
 
     private async Task EmulationEnded()

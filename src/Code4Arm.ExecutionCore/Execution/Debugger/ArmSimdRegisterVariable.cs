@@ -64,7 +64,8 @@ public class ArmQSimdRegisterVariable : IVariable
         }
 
         if (!BigInteger.TryParse(span, numberStyle, context.CultureInfo, out var i))
-            throw new InvalidVariableFormatException("Invalid format. Expected integer (decimal or hex, prefixed with 0x).");
+            throw new InvalidVariableFormatException(
+                "Invalid format. Expected integer (decimal or hex, prefixed with 0x).");
 
         var valuesSpan = MemoryMarshal.Cast<ulong, byte>(Values);
         valuesSpan.Clear();
@@ -241,6 +242,18 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
         }
 
         return $"0x{value:x}";
+    }
+
+    public override bool RequiresPerStepEvaluation => true;
+
+    public override void TraceStep(ExecutionEngine engine)
+    {
+        var value = engine.Engine.RegRead<uint>(_unicornRegId);
+        this.SetTrace(value);
+    }
+
+    public override void StopTrace(ExecutionEngine engine)
+    {
     }
 
     private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes)

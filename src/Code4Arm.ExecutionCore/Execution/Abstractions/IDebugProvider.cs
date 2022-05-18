@@ -19,7 +19,7 @@ public interface IDebugProvider
     SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value,
         ValueFormat? format);
 
-    DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName);
+    DataBreakpointInfoResponse GetDataBreakpointInfo(long parentVariablesReference, string variableName);
     DataBreakpointInfoResponse GetDataBreakpointInfo(string expression);
     EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context, ValueFormat? format);
     ExceptionInfoResponse GetLastExceptionInfo();

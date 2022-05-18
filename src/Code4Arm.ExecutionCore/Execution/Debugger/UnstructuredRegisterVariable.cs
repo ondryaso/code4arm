@@ -37,4 +37,16 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
         if (UnicornRegisterId == Arm.Register.PC)
             context.Engine.CurrentPc = value;
     }
+
+    public override bool RequiresPerStepEvaluation => true;
+
+    public override void TraceStep(ExecutionEngine engine)
+    {
+        var currentValue = engine.Engine.RegRead<uint>(UnicornRegisterId);
+        this.SetTrace(currentValue);
+    }
+
+    public override void StopTrace(ExecutionEngine engine)
+    {
+    }
 }

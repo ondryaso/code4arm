@@ -6,10 +6,15 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public abstract class UIntBackedVariable : IVariable
+public abstract class UIntBackedVariable : IVariable, ITraceable
 {
     protected readonly Dictionary<string, IVariable> ChildrenInternal = new();
     protected uint CurrentValue;
+    internal List<UIntBackedSubtypeAtomicVariable> AtomicVariables = new();
+
+    private ITraceObserver? _traceObserver;
+    private uint _traceValue;
+    private long _traceId;
 
     public abstract string Name { get; }
     public abstract string? Type { get; }
@@ -40,14 +45,40 @@ public abstract class UIntBackedVariable : IVariable
         var number = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
         this.SetUInt(number, context);
     }
+
+    public abstract bool RequiresPerStepEvaluation { get; }
+
+    protected void SetTrace(uint newValue)
+    {
+        if (_traceValue == newValue)
+            return;
+
+        _traceObserver?.TraceTriggered(_traceId);
+
+        foreach (var subtypeVariable in AtomicVariables)
+        {
+            subtypeVariable.SetTrace(_traceValue, newValue);
+        }
+
+        _traceValue = newValue;
+    }
+
+    public virtual void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
+    {
+        _traceObserver = observer;
+        _traceId = traceId;
+    }
+
+    public abstract void TraceStep(ExecutionEngine engine);
+    public abstract void StopTrace(ExecutionEngine engine);
 }
 
-public class UIntBackedSubtypeVariable : IVariable
+internal class UIntBackedSubtypeVariable : IVariable
 {
     private readonly UIntBackedVariable _parent;
     private readonly DebuggerVariableType _subtype;
 
-    public UIntBackedSubtypeVariable(UIntBackedVariable parent, DebuggerVariableType subtype, long reference)
+    internal UIntBackedSubtypeVariable(UIntBackedVariable parent, DebuggerVariableType subtype, long reference)
     {
         if (subtype is DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double)
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
@@ -76,7 +107,10 @@ public class UIntBackedSubtypeVariable : IVariable
         if (!CanSet)
         {
             var c = new Dictionary<string, IVariable>();
-            var count = (subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii) ? 4 : 2;
+            var count = (subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS
+                or DebuggerVariableType.CharAscii)
+                ? 4
+                : 2;
             for (var i = 0; i < count; i++)
             {
                 var child = new UIntBackedSubtypeAtomicVariable(parent, this, subtype, i);
@@ -106,7 +140,8 @@ public class UIntBackedSubtypeVariable : IVariable
 
     public string Get(VariableContext context)
     {
-        if (_subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii or DebuggerVariableType.ShortU or DebuggerVariableType.ShortS)
+        if (_subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii
+            or DebuggerVariableType.ShortU or DebuggerVariableType.ShortS)
             return string.Empty;
 
         var value = _parent.GetUInt();
@@ -130,7 +165,7 @@ public class UIntBackedSubtypeVariable : IVariable
     }
 }
 
-public class UIntBackedSubtypeAtomicVariable : IVariable
+internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable
 {
     private readonly UIntBackedVariable _parent;
     private readonly IVariable _treeParent;
@@ -141,14 +176,18 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
 
     private readonly int _min, _max;
 
-    public UIntBackedSubtypeAtomicVariable(UIntBackedVariable parent, IVariable treeParent, DebuggerVariableType subtype, int index)
+    internal UIntBackedSubtypeAtomicVariable(UIntBackedVariable parent, IVariable treeParent,
+        DebuggerVariableType subtype, int index)
     {
-        if (subtype is DebuggerVariableType.IntU or DebuggerVariableType.IntS or DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double)
+        if (subtype is DebuggerVariableType.IntU or DebuggerVariableType.IntS or DebuggerVariableType.LongU
+            or DebuggerVariableType.LongS or DebuggerVariableType.Double)
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
 
         _parent = parent;
         _treeParent = treeParent;
         _subtype = subtype;
+
+        _parent.AtomicVariables.Add(this);
 
         Name = $"[{index}]";
         Type = subtype switch
@@ -237,7 +276,8 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
             var parsedI = unchecked((int)parsed);
 
             if (parsedI < _min || parsedI > _max)
-                throw new InvalidVariableFormatException($"Invalid format. The number must be between {_min} and {_max}.");
+                throw new InvalidVariableFormatException(
+                    $"Invalid format. The number must be between {_min} and {_max}.");
 
             shifted = (parsed & _mask) << _offset;
         }
@@ -245,5 +285,34 @@ public class UIntBackedSubtypeAtomicVariable : IVariable
         _parent.Evaluate(context);
         var newValue = (_parent.GetUInt() & ~(_mask << _offset)) | shifted;
         _parent.SetUInt(newValue, context);
+    }
+
+    public bool RequiresPerStepEvaluation => _parent.RequiresPerStepEvaluation;
+
+    private ITraceObserver? _traceObserver;
+    private long _traceId;
+
+    public void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
+    {
+        _traceObserver = observer;
+        _traceId = traceId;
+    }
+
+    public void TraceStep(ExecutionEngine engine)
+    {
+        _parent.TraceStep(engine);
+    }
+
+    public void StopTrace(ExecutionEngine engine)
+    {
+    }
+
+    internal void SetTrace(uint originalValue, uint newValue)
+    {
+        originalValue = (originalValue >> _offset) & _mask;
+        newValue = (newValue >> _offset) & _mask;
+
+        if (originalValue != newValue)
+            _traceObserver?.TraceTriggered(_traceId);
     }
 }

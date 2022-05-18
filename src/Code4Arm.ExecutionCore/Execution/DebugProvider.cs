@@ -12,6 +12,7 @@ using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
+using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
 using MediatR;
@@ -20,7 +21,7 @@ using StepBackMode = Code4Arm.ExecutionCore.Execution.Configuration.StepBackMode
 
 namespace Code4Arm.ExecutionCore.Execution;
 
-internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
+internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITraceObserver
 {
     private readonly ExecutionEngine _engine;
     private InitializeRequestArguments? _clientInfo;
@@ -28,6 +29,11 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     private Dictionary<long, IVariable> _variables = new();
     private Dictionary<string, IVariable> _topLevel = new();
+
+    private readonly Dictionary<long, ITraceable> _steppedTraceables = new();
+    private readonly Dictionary<long, ITraceable> _hookTraceables = new();
+    private long _traceableId = long.MinValue;
+
 
     private Executable Executable => (_engine.ExecutableInfo as Executable) ?? throw new ExecutableNotLoadedException();
 
@@ -68,10 +74,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             SupportsClipboardContext = false,
             SupportsCompletionsRequest = false,
             SupportsConditionalBreakpoints = false,
-            SupportsDataBreakpoints = false,    // TODO
+            SupportsDataBreakpoints = true,
             SupportsDisassembleRequest = false, // TODO
             SupportsExceptionOptions = false,
-            SupportsFunctionBreakpoints = false,    // TODO
+            SupportsFunctionBreakpoints = false,
             SupportsInstructionBreakpoints = false, // TODO
             SupportsLogPoints = true,
             SupportsModulesRequest = false, // TODO?
@@ -144,8 +150,9 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         if (sourcePath == null)
             return Enumerable.Empty<GotoTarget>();
-        
+
         var address = _engine.LineResolver!.GetAddress(sourcePath, line + 1);
+
         if (address == uint.MaxValue)
             return Enumerable.Empty<GotoTarget>();
 
@@ -157,11 +164,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
             InstructionPointerReference = address.ToString()
         }, 1);
     }
-
-    public DataBreakpointInfoResponse GetDataBreakpointInfo(long containerId, string variableName) =>
-        throw new NotImplementedException();
-
-    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
 
     public ExceptionInfoResponse GetLastExceptionInfo()
     {
@@ -270,6 +272,95 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
         return ret;
     }
+
+    #region Data breakpoints
+
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(long parentVariablesReference, string variableName)
+    {
+        this.CheckInitialized();
+
+        var targetVariable = this.GetVariable(parentVariablesReference, variableName);
+
+        if (targetVariable is null)
+            throw new InvalidVariableException();
+
+        if (targetVariable is not ITraceable)
+            return new DataBreakpointInfoResponse() { Description = "This variable cannot be traced." };
+
+        return new DataBreakpointInfoResponse()
+        {
+            DataId = $"{parentVariablesReference}.{variableName}",
+            Description = "Modifications (registers) or writes (memory)",
+            //AccessTypes = new Container<DataBreakpointAccessType>(DataBreakpointAccessType.Write, DataBreakpointAccessType.Read, DataBreakpointAccessType.ReadWrite), // TODO
+            CanPersist = true
+        };
+    }
+
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
+
+    public void RefreshSteppedTraces()
+    {
+        if (_steppedTraceables.Count == 0)
+            return;
+
+        foreach (var traceable in _steppedTraceables.Values)
+        {
+            traceable.TraceStep(_engine);
+        }
+    }
+
+
+    public void ClearDataBreakpoints()
+    {
+        foreach (var (_, traceable) in _steppedTraceables)
+        {
+            traceable.StopTrace(_engine);
+        }
+
+        foreach (var (_, traceable) in _hookTraceables)
+        {
+            traceable.StopTrace(_engine);
+        }
+
+        _steppedTraceables.Clear();
+        _hookTraceables.Clear();
+    }
+
+    public void TraceTriggered(long traceId)
+    {
+        _engine.LastStopCause = ExecutionEngine.StopCause.DataBreakpoint;
+        _engine.LastStopData.DataBreakpointId = traceId;
+        _engine.Engine.EmuStop();
+    }
+
+    public Breakpoint SetDataBreakpoint(DataBreakpoint breakpoint)
+    {
+        var dataIdSepI = breakpoint.DataId.IndexOf('.');
+
+        if (dataIdSepI is -1 or 0 || dataIdSepI == (breakpoint.DataId.Length - 1))
+            return new Breakpoint() { Verified = false };
+
+        if (!long.TryParse(breakpoint.DataId[..dataIdSepI], out var varRef))
+            return new Breakpoint() { Verified = false };
+
+        var varName = breakpoint.DataId[(dataIdSepI + 1)..];
+
+        var variable = this.GetVariable(varRef, varName);
+
+        if (variable is not ITraceable traceable)
+            return new Breakpoint() { Verified = false };
+
+        if (traceable.RequiresPerStepEvaluation)
+            _steppedTraceables.Add(_traceableId, traceable);
+        else
+            _hookTraceables.Add(_traceableId, traceable);
+
+        traceable.InitTrace(_engine, this, _traceableId);
+
+        return new Breakpoint() { Id = _traceableId++, Verified = true };
+    }
+
+    #endregion
 
     #region Expressions
 
@@ -398,6 +489,27 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
 
     #region Variables
 
+    private IVariable? GetVariable(long parentVariablesReference, string variableName)
+    {
+        IVariable targetVariable;
+
+        if (ReferenceUtils.IsTopLevelContainer(parentVariablesReference))
+        {
+            if (!_topLevel.TryGetValue(variableName, out targetVariable!))
+                return null;
+        }
+        else
+        {
+            if (!_variables.TryGetValue(parentVariablesReference, out var parentVariable))
+                return null;
+
+            if (!(parentVariable.Children?.TryGetValue(variableName, out targetVariable!) ?? false))
+                return null;
+        }
+
+        return targetVariable;
+    }
+
     /// <summary>
     /// Sets a variable, identified by its parent's Variables Reference number and its name.
     /// </summary>
@@ -406,21 +518,10 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator
     {
         this.CheckInitialized();
 
-        IVariable targetVariable;
+        var targetVariable = this.GetVariable(parentVariablesReference, variableName);
 
-        if (ReferenceUtils.IsTopLevelContainer(parentVariablesReference))
-        {
-            if (!_topLevel.TryGetValue(variableName, out targetVariable!))
-                throw new InvalidVariableException();
-        }
-        else
-        {
-            if (!_variables.TryGetValue(parentVariablesReference, out var parentVariable))
-                throw new InvalidVariableException();
-
-            if (!(parentVariable.Children?.TryGetValue(variableName, out targetVariable!) ?? false))
-                throw new InvalidVariableException();
-        }
+        if (targetVariable == null)
+            throw new InvalidVariableException();
 
         var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         targetVariable.Set(value, ctx);
