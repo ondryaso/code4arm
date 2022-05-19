@@ -230,6 +230,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _logger.LogInformation("Execution {Id}: Created.", _executionId);
     }
 
+    /// <summary>
+    /// Initializes and configures Unicorn. Creates hooks for interrupts, invalid instructions and invalid memory
+    /// accesses. 
+    /// </summary>
+    /// <returns>The created and initialized <see cref="IUnicorn"/> instance.</returns>
     private IUnicorn MakeUnicorn()
     {
         var unicorn = new Unicorn.Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
@@ -248,6 +253,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Initialization
 
+    /// <summary>
+    /// Creates a <see cref="MemorySegment"/> for the stack and maps it to Unicorn virtual memory.
+    /// Its placement (address range) and initial contents are controlled by <see cref="ExecutionOptions.StackPlacementOptions"/>.
+    /// </summary>
+    /// <remarks>
+    /// 
+    /// </remarks>
+    /// <exception cref="InvalidOperationException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     private void MakeStackSegment()
     {
         if (_segments == null)
@@ -436,7 +450,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         foreach (var segment in _exe.Segments)
         {
             // TODO: this could also be used for certain StepBack variants
-            if (Options.EnableAccurateExceptionInfo && segment.Permissions.HasFlag(MemorySegmentPermissions.Execute))
+            if (Options.EnableAccurateExecutionTracking && segment.Permissions.HasFlag(MemorySegmentPermissions.Execute))
             {
                 var callback = new CodeHookNativeCallback(this.CodeHookNativeHandler);
                 var handle = Engine.AddNativeHook(callback, UniConst.Hook.Code, segment.StartAddress,
@@ -565,7 +579,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 switch (_options.RegisterInitOptions)
                 {
                     case RegisterInitOptions.Clear:
-                    case RegisterInitOptions.ClearFirst:
                     case RegisterInitOptions.Keep:
                         Engine.RegWrite(r, 0u);
 
@@ -586,12 +599,34 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 Engine.RegWrite(Arm.Register.LR, 0u);
         }
 
+        if (_options.SimdRegisterInitOptions != RegisterInitOptions.Keep || _firstRun)
+        {
+            for (var r = Arm.Register.D0; r <= Arm.Register.D31; r++)
+            {
+                switch (_options.SimdRegisterInitOptions)
+                {
+                    case RegisterInitOptions.Clear:
+                    case RegisterInitOptions.Keep:
+                        Engine.RegWrite(r, 0ul);
+
+                        break;
+                    case RegisterInitOptions.Randomize:
+                    case RegisterInitOptions.RandomizeFirst:
+                        Engine.RegWrite(r, -1024.0 + (_rnd.NextDouble() * 2048.0));
+
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+        }
+
         // TODO: Initialize the CPU somehow and switch to User mode ???
         // This just switches it to User mode (16 because of RES1 at bit 4)
         Engine.RegWrite(Arm.Register.CPSR, 16);
         Engine.RegWrite(Arm.Register.SP, StackTopAddress);
 
-        // VFP (TODO?)
+        // VFP
         Engine.RegWrite(Arm.Register.FPEXC, 0x40000000);
     }
 
@@ -1117,7 +1152,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         await this.LogDebugConsole("Invalid memory access.", true, OutputEventGroup.Start);
         await this.LogDebugConsole($"Memory address: {LastStopData.InvalidAddress:x8}");
         await this.LogDebugConsole($"Access type: {LastStopData.AccessType}");
-        if (Options.EnableAccurateExceptionInfo)
+        if (Options.EnableAccurateExecutionTracking)
             await this.LogDebugConsole($"Current PC: {CurrentPc:x8}");
         else
             await this.LogDebugConsole(
@@ -1464,7 +1499,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 this.MakeExits();
             }
 
-            if (Options.StepBackMode == StepBackMode.CaptureOnBreakpoint)
+            if (Options.StepBackMode == StepBackMode.CaptureOnStep)
             {
                 foreach (var stepBackContext in _stepBackContexts!)
                 {
@@ -1531,7 +1566,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw new InvalidOperationException("Cannot step, execution is running.");
         }
 
-        if (_options.StepBackMode == StepBackMode.CaptureOnBreakpoint)
+        if (_options.StepBackMode == StepBackMode.CaptureOnStep)
         {
             var context = Engine.SaveContext();
             _stepBackContexts!.Push(context);
