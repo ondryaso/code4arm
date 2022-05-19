@@ -38,15 +38,19 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
             context.Engine.CurrentPc = value;
     }
 
-    public override bool RequiresPerStepEvaluation => true;
+    public override bool NeedsExplicitEvaluationAfterStep => true;
+    public override bool CanPersist => true;
+
+    public override void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
+    {
+        base.InitTrace(engine, observer, traceId);
+        var currentValue = engine.Engine.RegRead<uint>(UnicornRegisterId);
+        this.SetTrace(currentValue, false);
+    }
 
     public override void TraceStep(ExecutionEngine engine)
     {
         var currentValue = engine.Engine.RegRead<uint>(UnicornRegisterId);
         this.SetTrace(currentValue);
-    }
-
-    public override void StopTrace(ExecutionEngine engine)
-    {
     }
 }

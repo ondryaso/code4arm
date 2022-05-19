@@ -12,10 +12,6 @@ public abstract class UIntBackedVariable : IVariable, ITraceable
     protected uint CurrentValue;
     internal List<UIntBackedSubtypeAtomicVariable> AtomicVariables = new();
 
-    private ITraceObserver? _traceObserver;
-    private uint _traceValue;
-    private long _traceId;
-
     public abstract string Name { get; }
     public abstract string? Type { get; }
     public abstract long Reference { get; }
@@ -23,7 +19,6 @@ public abstract class UIntBackedVariable : IVariable, ITraceable
     public abstract bool IsViewOfParent { get; }
     public virtual IReadOnlyDictionary<string, IVariable> Children => ChildrenInternal;
     public abstract IVariable? Parent { get; }
-
 
     public abstract void SetUInt(uint value, VariableContext context);
     public abstract void Evaluate(VariableContext context);
@@ -37,7 +32,7 @@ public abstract class UIntBackedVariable : IVariable, ITraceable
     {
         var value = this.GetUInt();
 
-        return FormattingUtils.FormatVariable(value, context);
+        return this.Format(value, context);
     }
 
     public void Set(string value, VariableContext context)
@@ -46,14 +41,32 @@ public abstract class UIntBackedVariable : IVariable, ITraceable
         this.SetUInt(number, context);
     }
 
-    public abstract bool RequiresPerStepEvaluation { get; }
+    private string Format(uint value, VariableContext context)
+        => FormattingUtils.FormatVariable(value, context);
 
-    protected void SetTrace(uint newValue)
+    #region ITraceable
+
+    private readonly List<(ITraceObserver Observer, long TraceId)> _traceObservers = new();
+    private uint _traceValue;
+
+    public abstract bool NeedsExplicitEvaluationAfterStep { get; }
+    public abstract bool CanPersist { get; }
+    protected bool HasObservers => _traceObservers.Count != 0;
+
+    protected void SetTrace(uint newValue, bool notify = true)
     {
         if (_traceValue == newValue)
             return;
 
-        _traceObserver?.TraceTriggered(_traceId);
+        if (notify && _traceObservers.Count != 0)
+        {
+            foreach (var traceObserver in _traceObservers)
+            {
+                var context = traceObserver.Observer.GetTraceTriggerContext();
+                traceObserver.Observer.TraceTriggered(traceObserver.TraceId, this.Format(_traceValue, context),
+                    this.Format(newValue, context));
+            }
+        }
 
         foreach (var subtypeVariable in AtomicVariables)
         {
@@ -65,12 +78,17 @@ public abstract class UIntBackedVariable : IVariable, ITraceable
 
     public virtual void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
     {
-        _traceObserver = observer;
-        _traceId = traceId;
+        _traceObservers.Add((observer, traceId));
     }
 
     public abstract void TraceStep(ExecutionEngine engine);
-    public abstract void StopTrace(ExecutionEngine engine);
+
+    public virtual void StopTrace(ExecutionEngine engine, ITraceObserver observer)
+    {
+        _traceObservers.Remove(_traceObservers.Find(t => t.Observer == observer));
+    }
+
+    #endregion
 }
 
 internal class UIntBackedSubtypeVariable : IVariable
@@ -165,7 +183,7 @@ internal class UIntBackedSubtypeVariable : IVariable
     }
 }
 
-internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable
+internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable, ITraceObserver
 {
     private readonly UIntBackedVariable _parent;
     private readonly IVariable _treeParent;
@@ -244,6 +262,11 @@ internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable
     {
         var value = (_parent.GetUInt() >> _offset) & _mask;
 
+        return this.Format(value, context);
+    }
+
+    private string Format(uint value, VariableContext context)
+    {
         return _subtype switch
         {
             DebuggerVariableType.ByteU or DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(value, context),
@@ -287,15 +310,23 @@ internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable
         _parent.SetUInt(newValue, context);
     }
 
-    public bool RequiresPerStepEvaluation => _parent.RequiresPerStepEvaluation;
+    #region ITraceable
+
+    public bool NeedsExplicitEvaluationAfterStep => _parent.NeedsExplicitEvaluationAfterStep;
+    public bool CanPersist => _parent.CanPersist;
 
     private ITraceObserver? _traceObserver;
     private long _traceId;
 
     public void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
     {
+        if (_traceObserver != null && observer != _traceObserver)
+            throw new NotImplementedException(
+                "UIntBackedSubtypeAtomicVariable currently doesn't support more than one observer.");
+
         _traceObserver = observer;
         _traceId = traceId;
+        _parent.InitTrace(engine, this, 0);
     }
 
     public void TraceStep(ExecutionEngine engine)
@@ -303,8 +334,14 @@ internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable
         _parent.TraceStep(engine);
     }
 
-    public void StopTrace(ExecutionEngine engine)
+    public void StopTrace(ExecutionEngine engine, ITraceObserver observer)
     {
+        if (observer != _traceObserver)
+            throw new NotImplementedException(
+                "UIntBackedSubtypeAtomicVariable currently doesn't support more than one observer.");
+
+        _traceObserver = null;
+        _parent.StopTrace(engine, this);
     }
 
     internal void SetTrace(uint originalValue, uint newValue)
@@ -312,7 +349,21 @@ internal class UIntBackedSubtypeAtomicVariable : IVariable, ITraceable
         originalValue = (originalValue >> _offset) & _mask;
         newValue = (newValue >> _offset) & _mask;
 
-        if (originalValue != newValue)
-            _traceObserver?.TraceTriggered(_traceId);
+        if (originalValue != newValue && _traceObserver != null)
+        {
+            var context = _traceObserver.GetTraceTriggerContext();
+            _traceObserver?.TraceTriggered(_traceId, this.Format(originalValue, context),
+                this.Format(newValue, context));
+        }
     }
+
+    public VariableContext GetTraceTriggerContext() => _traceObserver?.GetTraceTriggerContext()
+        ?? throw new InvalidOperationException();
+
+    public void TraceTriggered(long traceId, string? oldValue, string? newValue)
+    {
+        // Intentionally left blank: the value will be updated by UIntBackedVariable directly
+    }
+
+    #endregion
 }

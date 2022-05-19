@@ -4,15 +4,16 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
+using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
-using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
 using MediatR;
@@ -284,15 +285,15 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITra
         if (targetVariable is null)
             throw new InvalidVariableException();
 
-        if (targetVariable is not ITraceable)
+        if (targetVariable is not ITraceable traceable)
             return new DataBreakpointInfoResponse() { Description = "This variable cannot be traced." };
 
         return new DataBreakpointInfoResponse()
         {
             DataId = $"{parentVariablesReference}.{variableName}",
-            Description = "Modifications (registers) or writes (memory)",
+            Description = this.GetVariableName(targetVariable),
             //AccessTypes = new Container<DataBreakpointAccessType>(DataBreakpointAccessType.Write, DataBreakpointAccessType.Read, DataBreakpointAccessType.ReadWrite), // TODO
-            CanPersist = true
+            CanPersist = traceable.CanPersist
         };
     }
 
@@ -309,28 +310,69 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITra
         }
     }
 
-
     public void ClearDataBreakpoints()
     {
         foreach (var (_, traceable) in _steppedTraceables)
         {
-            traceable.StopTrace(_engine);
+            traceable.StopTrace(_engine, this);
         }
 
         foreach (var (_, traceable) in _hookTraceables)
         {
-            traceable.StopTrace(_engine);
+            traceable.StopTrace(_engine, this);
         }
 
         _steppedTraceables.Clear();
         _hookTraceables.Clear();
     }
 
-    public void TraceTriggered(long traceId)
+    private string? _oldTraceVal, _newTraceVal;
+
+    public void TraceTriggered(long traceId, string? oldValue, string? newValue)
     {
         _engine.LastStopCause = ExecutionEngine.StopCause.DataBreakpoint;
         _engine.LastStopData.DataBreakpointId = traceId;
+        if (_hookTraceables.ContainsKey(traceId))
+            _engine.LastStopData.MovePcAfterDataBreakpoint = true;
+
+        _oldTraceVal = oldValue;
+        _newTraceVal = newValue;
+
         _engine.Engine.EmuStop();
+    }
+
+    public VariableContext GetTraceTriggerContext()
+    {
+        this.CheckInitialized();
+
+        return new VariableContext(_engine, _clientCulture, Options, Options.VariableNumberFormat);
+    }
+
+    public async Task LogTraceInfo()
+    {
+        var traceId = _engine.LastStopData.DataBreakpointId;
+
+        var varFound = _steppedTraceables.TryGetValue(traceId, out var traceable) ||
+            _hookTraceables.TryGetValue(traceId, out traceable);
+
+        if (!varFound || traceable is not IVariable variable)
+        {
+            await _engine.LogDebugConsole("Hit data breakpoint.");
+
+            return;
+        }
+
+        var name = this.GetVariableName(variable);
+        var hasValues = _oldTraceVal != null || _newTraceVal != null;
+
+        await _engine.LogDebugConsole($"Hit data breakpoint: {name}", false, hasValues ? OutputEventGroup.Start : null);
+
+        if (_oldTraceVal != null)
+            await _engine.LogDebugConsole($"Old value: {_oldTraceVal}");
+        if (_newTraceVal != null)
+            await _engine.LogDebugConsole($"New value: {_newTraceVal}");
+        if (hasValues)
+            await _engine.LogDebugConsole(string.Empty, false, OutputEventGroup.End);
     }
 
     public Breakpoint SetDataBreakpoint(DataBreakpoint breakpoint)
@@ -347,10 +389,13 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITra
 
         var variable = this.GetVariable(varRef, varName);
 
+        if (variable is null && this.TryResolveTopVariable(varRef, varName))
+            variable = this.GetVariable(varRef, varName);
+
         if (variable is not ITraceable traceable)
             return new Breakpoint() { Verified = false };
 
-        if (traceable.RequiresPerStepEvaluation)
+        if (traceable.NeedsExplicitEvaluationAfterStep)
             _steppedTraceables.Add(_traceableId, traceable);
         else
             _hookTraceables.Add(_traceableId, traceable);
@@ -1062,6 +1107,60 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITra
         _topLevel[newVariable.Name] = newVariable;
 
         return newVariable;
+    }
+
+    private bool TryResolveTopVariable(long variablesReference, string varName)
+    {
+        var containerType = ReferenceUtils.GetContainerType(variablesReference);
+        if (containerType is ContainerType.Registers)
+        {
+            if (!int.TryParse(varName.AsSpan(1), out var regNum))
+                return false;
+
+            var regId = Arm.Register.GetRegister(regNum);
+            var reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, regId);
+            this.GetOrAddVariable(reference,
+                () => new RegisterVariable(regId, varName, Options.RegistersSubtypes), true);
+
+            return true;
+        }
+
+        if (containerType is ContainerType.RegisterSubtypes or ContainerType.RegisterSubtypesValues)
+        {
+            var regId = ReferenceUtils.GetRegisterId(variablesReference);
+            var regNum = Arm.Register.GetRegisterNumber(regId);
+            var reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, regId);
+            this.GetOrAddVariable(reference,
+                () => new RegisterVariable(regId, $"R{regNum}", Options.RegistersSubtypes), true);
+
+            return true;
+        }
+
+        // TODO: other types
+
+        return false;
+    }
+
+    private string GetVariableName(IVariable variable)
+    {
+        var st = new Stack<IVariable>();
+        var sb = new StringBuilder();
+
+        var v = variable;
+        while (v != null)
+        {
+            st.Push(v);
+            v = v.Parent;
+        }
+
+        while (st.Count != 0)
+        {
+            v = st.Pop();
+            sb.Append(v.Name);
+            sb.Append('.');
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>

@@ -244,16 +244,13 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
         return $"0x{value:x}";
     }
 
-    public override bool RequiresPerStepEvaluation => true;
+    public override bool NeedsExplicitEvaluationAfterStep => true;
+    public override bool CanPersist => true;
 
     public override void TraceStep(ExecutionEngine engine)
     {
         var value = engine.Engine.RegRead<uint>(_unicornRegId);
         this.SetTrace(value);
-    }
-
-    public override void StopTrace(ExecutionEngine engine)
-    {
     }
 
     private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes)

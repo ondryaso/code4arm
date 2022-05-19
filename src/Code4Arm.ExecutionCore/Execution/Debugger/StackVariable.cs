@@ -1,6 +1,7 @@
 // StackVariable.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Abstractions.Extensions;
@@ -27,24 +28,42 @@ public class StackVariable : UIntBackedVariable
     public override bool IsViewOfParent => false;
 
     public override string Get(VariableContext context) => $"{_address:x}";
-    public override bool RequiresPerStepEvaluation => false;
+    public override bool NeedsExplicitEvaluationAfterStep => false;
+    public override bool CanPersist => false;
     private UnicornHookRegistration _traceRegistration;
 
     public override void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
     {
         base.InitTrace(engine, observer, traceId);
 
-        _traceRegistration = engine.Engine.AddMemoryHook((_, _, _, _, value) => { this.SetTrace((uint)value); },
-            MemoryHookType.Write, _address, _address + 3);
+        try
+        {
+            var value = engine.Engine.MemReadSafe<uint>(_address);
+            this.SetTrace(value, false);
+        }
+        catch (UnicornException)
+        {
+            // Intentionally left blank: if the read fails, it doesn't really matter
+        }
+
+        if (_traceRegistration == default)
+            _traceRegistration = engine.Engine.AddMemoryHook((_, _, _, _, value) => { this.SetTrace((uint)value); },
+                MemoryHookType.Write, _address, _address + 3);
     }
 
     public override void TraceStep(ExecutionEngine engine)
     {
     }
 
-    public override void StopTrace(ExecutionEngine engine)
+    public override void StopTrace(ExecutionEngine engine, ITraceObserver observer)
     {
-        _traceRegistration.RemoveHook();
+        base.StopTrace(engine, observer);
+
+        if (!HasObservers)
+        {
+            _traceRegistration.RemoveHook();
+            _traceRegistration = default;
+        }
     }
 
     public override IVariable? Parent => null;

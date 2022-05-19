@@ -28,11 +28,18 @@ namespace Code4Arm.ExecutionCore.Execution;
 
 public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 {
+    /// <summary>
+    /// A <see cref="Breakpoint"/> with information about the target instruction's address in memory. 
+    /// </summary>
     internal record AddressBreakpoint : Breakpoint
     {
         public uint Address { get; init; }
     }
 
+    /// <summary>
+    /// Determines possible causes for an end of an emulation cycle.
+    /// </summary>
+    /// <seealso cref="ExecutionEngine.StartEmulation"/>
     internal enum StopCause
     {
         Normal,
@@ -47,29 +54,108 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         DataBreakpoint
     }
 
+    /// <summary>
+    /// A container for different kinds of data used when handling the end of an emulation cycle. 
+    /// </summary>
     internal struct StopData
     {
+        /// <summary>
+        /// The number of interrupt that caused an <see cref="StopCause.Interrupt"/> stop.
+        /// </summary>
         public uint InterruptNumber;
+
+        /// <summary>
+        /// The value of the R7 register after an interrupt stops the execution.
+        /// Used when handling an <see cref="StopCause.Interrupt"/> stop.
+        /// </summary>
         public uint InterruptR7;
+
+        /// <summary>
+        /// The type of invalid memory access that caused an <see cref="StopCause.InvalidMemoryAccess"/> stop.
+        /// </summary>
         public MemoryAccessType AccessType;
+
+        /// <summary>
+        /// An address of a memory location that an instruction attempted to access.
+        /// Used when handling an <see cref="StopCause.InvalidMemoryAccess"/> or
+        /// a <see cref="StopCause.TrampolineUnbound"/> stop.
+        /// </summary>
         public uint InvalidAddress;
+
+        /// <summary>
+        /// The Unicorn error ID returned from Unicorn. Used when handling
+        /// a <see cref="StopCause.UnicornException"/> stop.
+        /// </summary>
         public UnicornError UnicornError;
+
+        /// <summary>
+        /// The string error message returned from Unicorn. Used when handling
+        /// a <see cref="StopCause.UnicornException"/> stop.
+        /// </summary>
         public string UnicornErrorMessage;
+
+        /// <summary>
+        /// The DataBreakpoint ID (managed by DebugProvider) of the breakpoint that caused
+        /// a <see cref="StopCause.DataBreakpoint"/> stop cause.
+        /// </summary>
         public long DataBreakpointId;
+
+        /// <summary>
+        /// Signalises that when handling a <see cref="StopCause.DataBreakpoint"/> stop, the PC should be incremented.
+        /// Used in memory-watching traces which stop the emulation from a memory hook -> before PC is incremented.
+        /// </summary>
+        public bool MovePcAfterDataBreakpoint;
     }
 
+    /// <summary>
+    /// A dummy Thread ID used in all requests and responses that require one (mainly Stopped events).
+    /// Threads are not supported by this engine/debugger.
+    /// </summary>
     public const long ThreadId = 1;
 
+    /// <summary>
+    /// The maximum size of array that may be rented from <see cref="_arrayPool"/>.
+    /// If a larger array is required, it will be allocated normally.
+    /// </summary>
+    /// <seealso cref="MakeStackSegment"/>
     private const int MaxArrayPoolSize = 2 * 1024 * 1024;
+
+    /// <summary>
+    /// The maximum size of array that may be allocated on stack using <see langword="stackalloc"/>.
+    /// </summary>
+    /// <seealso cref="RandomizeMemory"/>
+    /// <see cref="ClearMemory"/>
     private const int MaxStackAllocatedSize = 512;
 
-    internal readonly Guid ExecutionId;
+    /// <summary>
+    /// A unique ID of this engine instance. Used for logging purposes only.
+    /// </summary>
+    private readonly Guid _executionId;
+
     internal DwarfLineAddressResolver? LineResolver;
     internal AddressBreakpoint? CurrentBreakpoint;
+    /// <summary>
+    /// If false, Breakpoints will be disabled and DataBreakpoints will continue execution without stopping.
+    /// </summary>
+    /// <seealso cref="InitLaunch"/>
     internal bool DebuggingEnabled = true;
 
+    /// <summary>
+    /// The current value of the program counter. Updated from Unicorn after an end of an emulation cycle.
+    /// </summary>
     internal uint CurrentPc;
+    /// <summary>
+    /// The line (zero-indexed) in a source pointed to by <see cref="CurrentStopSourceIndex"/> that contains the
+    /// instruction at the memory address determined by <see cref="CurrentPc"/>. Updated after an end of an emulation
+    /// cycle. May be -1 if the line cannot be determined.
+    /// </summary>
     internal int CurrentStopLine;
+    /// <summary>
+    /// An index to the <see cref="IExecutableInfo.Sources"/> array of the current <see cref="ExecutableInfo"/> that
+    /// determines the source file that contains the instruction at the memory address determined by
+    /// <see cref="CurrentPc"/>. Updated after an end of an emulation cycle. May be -1 if the instruction source
+    /// cannot be determined.
+    /// </summary>
     internal int CurrentStopSourceIndex;
 
     internal StopCause LastStopCause = StopCause.Normal;
@@ -131,7 +217,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _arrayPool = ArrayPool<byte>.Shared;
 
         _logger = systemLogger;
-        ExecutionId = Guid.NewGuid();
+        _executionId = Guid.NewGuid();
         _emulatedOut = new StringWriter();
 
         _debugProvider = new DebugProvider(this, debuggerOptions, _mediator);
@@ -141,7 +227,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _stepBackContexts = new Stack<IUnicornContext>();
         }
 
-        _logger.LogInformation("Execution {Id}: Created.", ExecutionId);
+        _logger.LogInformation("Execution {Id}: Created.", _executionId);
     }
 
     private IUnicorn MakeUnicorn()
@@ -586,7 +672,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         _logger.LogTrace(
             "Execution {Id}: Access ({AccessType}) to a side chunk of memory around a segment at {Address:x8}.",
-            ExecutionId, memoryAccessType, address);
+            _executionId, memoryAccessType, address);
 
         LastStopCause = StopCause.InvalidMemoryAccess;
         LastStopData.AccessType = memoryAccessType;
@@ -600,7 +686,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (_exe is not { FunctionSimulators: { } } ||
             !_exe.FunctionSimulators.TryGetValue((uint)address, out var simulator))
         {
-            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", ExecutionId, address);
+            _logger.LogTrace("Execution {Id}: Trampoline hook on unbound address {Address:x8}.", _executionId, address);
 
             LastStopCause = StopCause.TrampolineUnbound;
             LastStopData.InvalidAddress = (uint)address;
@@ -626,13 +712,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         catch (Exception e)
         {
             LastStopCause = StopCause.InternalException;
-            _logger.LogError(e, "Execution {Id}: Function simulator exception.", ExecutionId);
+            _logger.LogError(e, "Execution {Id}: Function simulator exception.", _executionId);
         }
     }
 
     private void InterruptHookHandler(IUnicorn engine, uint interruptNumber)
     {
-        _logger.LogTrace("Execution {Id}: Interrupt {Interrupt:x}.", ExecutionId, interruptNumber);
+        _logger.LogTrace("Execution {Id}: Interrupt {Interrupt:x}.", _executionId, interruptNumber);
 
         LastStopCause = StopCause.Interrupt;
         LastStopData.InterruptNumber = interruptNumber;
@@ -643,7 +729,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private bool InvalidInstructionHandler(IUnicorn engine)
     {
-        _logger.LogTrace("Execution {Id}: Invalid instruction.", ExecutionId);
+        _logger.LogTrace("Execution {Id}: Invalid instruction.", _executionId);
 
         LastStopCause = StopCause.InvalidInstruction;
 
@@ -655,7 +741,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private bool InvalidMemoryAccessHandler(IUnicorn engine, MemoryAccessType memoryAccessType, ulong address, int size,
         long value)
     {
-        _logger.LogTrace("Execution {Id}: Invalid memory access ({AccessType}) at {Address:x8}.", ExecutionId,
+        _logger.LogTrace("Execution {Id}: Invalid memory access ({AccessType}) at {Address:x8}.", _executionId,
             memoryAccessType, address);
 
         LastStopCause = StopCause.InvalidMemoryAccess;
@@ -859,6 +945,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task BreakpointHit(AddressBreakpoint breakpoint)
     {
+        await this.LogDebugConsole("Hit breakpoint.", true);
+
         State = ExecutionState.PausedBreakpoint;
         CurrentBreakpoint = breakpoint;
 
@@ -925,13 +1013,16 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
                 break;
             case StopCause.DataBreakpoint:
-                await this.HandleDataBreakpoint();
+                if (!DebuggingEnabled)
+                    await this.StartEmulation(CurrentPc);
+                else
+                    await this.HandleDataBreakpoint();
 
                 break;
             default:
                 throw new InvalidOperationException("Invalid stop cause.");
             case StopCause.Normal:
-                _logger.LogWarning("Execution {Id}: StopCause Normal in HandleStopCause.", ExecutionId);
+                _logger.LogWarning("Execution {Id}: StopCause Normal in HandleStopCause.", _executionId);
                 await this.EmulationEnded();
 
                 break;
@@ -940,6 +1031,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task HandleDataBreakpoint()
     {
+        if (LastStopData.MovePcAfterDataBreakpoint)
+        {
+            // Used in data hooks which stop the emulation from a memory hook -> before PC is incremented
+            Engine.RegWrite(Arm.Register.PC, CurrentPc + 4);
+            this.DetermineCurrentStopPositions();
+        }
+
+        await _debugProvider.LogTraceInfo();
+
         State = ExecutionState.PausedBreakpoint;
         CurrentBreakpoint = null;
 
@@ -955,8 +1055,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task EmulationEnded()
     {
-        _logger.LogTrace("Execution {Id}: Ended.", ExecutionId);
-        await this.LogDebugConsole($"Emulation ended with PC = {CurrentPc:x8}.");
+        _logger.LogTrace("Execution {Id}: Ended.", _executionId);
+        await this.LogDebugConsole("Execution finished normally.");
 
         State = ExecutionState.Finished;
 
@@ -983,7 +1083,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task HandleUnicornError()
     {
-        _logger.LogTrace("Execution {Id}: Unicorn error {ErrorId}.", ExecutionId, LastStopData.UnicornError);
+        _logger.LogTrace("Execution {Id}: Unicorn error {ErrorId}.", _executionId, LastStopData.UnicornError);
         await this.LogDebugConsole($"Emulator error: {LastStopData.UnicornErrorMessage}.");
 
         State = ExecutionState.PausedException;
@@ -1066,7 +1166,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task HandleTimeout()
     {
-        _logger.LogTrace("Execution {Id}: Timed out.", ExecutionId);
+        _logger.LogTrace("Execution {Id}: Timed out.", _executionId);
         await this.LogDebugConsole("The execution has timed out.");
 
         State = ExecutionState.Finished;
@@ -1111,7 +1211,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         try
         {
-            _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", ExecutionId, startAddress);
+            _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
             await this.LogDebugConsole($"Running at {startAddress:x8}.", true);
 
             LastStopCause = StopCause.Normal;
@@ -1137,7 +1237,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 }
                 else if (_currentBreakpoints.TryGetValue(CurrentPc, out var breakpoint))
                 {
-                    await this.LogDebugConsole($"Hit breakpoint.", true);
                     await this.BreakpointHit(breakpoint);
                 }
                 else if (count != 0)
@@ -1146,13 +1245,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 }
                 else
                 {
-                    await this.LogDebugConsole("Program finished.");
                     await this.EmulationEnded();
                 }
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Execution {Id}: Emulation result handling exception.", ExecutionId);
+                _logger.LogError(e, "Execution {Id}: Emulation result handling exception.", _executionId);
                 // TODO: T E R M I N A R L O  T O D O
 
                 throw;
@@ -1173,7 +1271,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             await this.HandleStopCause();
 
             if (!Enum.IsDefined(e.Error))
-                _logger.LogWarning(e, "Execution {Id}: Exited with unknown Unicorn error code {Code}.", ExecutionId,
+                _logger.LogWarning(e, "Execution {Id}: Exited with unknown Unicorn error code {Code}.", _executionId,
                     e.ErrorId);
         }
         finally
@@ -1193,7 +1291,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", ExecutionId);
+            _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", _executionId);
 
             throw new Exception(); // TODO
         }
@@ -1304,7 +1402,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to goto while running.", ExecutionId);
+            _logger.LogTrace("Execution {Id}: Attempt to goto while running.", _executionId);
 
             throw new InvalidOperationException("Cannot jump to target, execution is running.");
         }
@@ -1337,7 +1435,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to continue when not paused.", ExecutionId);
+            _logger.LogTrace("Execution {Id}: Attempt to continue when not paused.", _executionId);
 
             throw new Exception(); // TODO
         }
@@ -1428,7 +1526,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var entered = await _runSemaphore.WaitAsync(enterTimeout);
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to step while running.", ExecutionId);
+            _logger.LogTrace("Execution {Id}: Attempt to step while running.", _executionId);
 
             throw new InvalidOperationException("Cannot step, execution is running.");
         }
@@ -1463,7 +1561,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (!entered)
         {
-            _logger.LogTrace("Execution {Id}: Attempt to step while running.", ExecutionId);
+            _logger.LogTrace("Execution {Id}: Attempt to step while running.", _executionId);
 
             throw new InvalidOperationException("Cannot step, execution is running.");
         }
@@ -1557,7 +1655,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         await _mediator.Send(new EngineEvent<T>(this, @event));
     }
 
-    private async Task LogDebugConsole(string message, bool showLine = false, OutputEventGroup? group = null)
+    internal async Task LogDebugConsole(string message, bool showLine = false, OutputEventGroup? group = null)
     {
         await this.SendEvent(new OutputEvent()
         {

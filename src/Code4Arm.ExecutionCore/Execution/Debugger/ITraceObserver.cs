@@ -5,5 +5,6 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public interface ITraceObserver
 {
-    void TraceTriggered(long traceId);
+    VariableContext GetTraceTriggerContext();
+    void TraceTriggered(long traceId, string? oldValue, string? newValue);
 }
