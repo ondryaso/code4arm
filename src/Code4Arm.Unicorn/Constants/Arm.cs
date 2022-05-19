@@ -190,6 +190,31 @@ public static class Arm
             => (registerIndex is >= 0 and <= 15)
                 ? (Q0 + registerIndex)
                 : throw new ArgumentException("Value must be between 0 and 15.", nameof(registerIndex));
+
+        public static int GetRegisterNumber(int registerId)
+            => registerId switch
+            {
+                >= R0 and <= R12 => registerId - R0,
+                R13 => 13,
+                R14 => 14,
+                R15 => 15,
+                _ => throw new ArgumentException("Invalid R register ID.", nameof(registerId))
+            };
+
+        public static int GetSRegisterNumber(int registerId)
+            => (registerId is >= S0 and <= S31)
+                ? (registerId - S0)
+                : throw new ArgumentException("Invalid S register ID.", nameof(registerId));
+
+        public static int GetDRegisterNumber(int registerId)
+            => (registerId is >= D0 and <= D31)
+                ? (registerId - D0)
+                : throw new ArgumentException("Invalid D register ID.", nameof(registerId));
+
+        public static int GetQRegisterNumber(int registerId)
+            => (registerId is >= Q0 and <= Q15)
+                ? (registerId - Q0)
+                : throw new ArgumentException("Invalid Q register ID.", nameof(registerId));
     }
 
     public static class Cpu
