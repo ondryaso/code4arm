@@ -22,7 +22,7 @@ using StepBackMode = Code4Arm.ExecutionCore.Execution.Configuration.StepBackMode
 
 namespace Code4Arm.ExecutionCore.Execution;
 
-internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITraceObserver
+internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFormattedTraceObserver
 {
     private readonly ExecutionEngine _engine;
     private InitializeRequestArguments? _clientInfo;
@@ -339,6 +339,11 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, ITra
         _newTraceVal = newValue;
 
         _engine.Engine.EmuStop();
+    }
+
+    public void TraceTriggered(long traceId)
+    {
+        this.TraceTriggered(traceId, null, null);
     }
 
     public VariableContext GetTraceTriggerContext()

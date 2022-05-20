@@ -10,7 +10,7 @@ using Code4Arm.Unicorn.Constants;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public class ArmQSimdRegisterVariable : IVariable
+public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
 {
     private readonly int _unicornRegId;
     internal readonly ulong[] Values = new ulong[2];
@@ -43,9 +43,14 @@ public class ArmQSimdRegisterVariable : IVariable
 
     public string Get(VariableContext context)
     {
-        return Values[1] == 0
-            ? $"0x{Values[0]:x}"
-            : $"0x{Values[1]:x}{Values[0]:x}";
+        return Format(Values);
+    }
+
+    private static string Format(ReadOnlySpan<ulong> values)
+    {
+        return values[1] == 0
+            ? $"0x{values[0]:x}"
+            : $"0x{values[1]:x}{values[0]:x16}";
     }
 
     public void Set(string value, VariableContext context)
@@ -73,9 +78,60 @@ public class ArmQSimdRegisterVariable : IVariable
 
         context.Engine.Engine.RegWrite(_unicornRegId, valuesSpan);
     }
+
+    public bool NeedsExplicitEvaluationAfterStep => true;
+    public bool CanPersist => true;
+
+    private readonly List<RegisteredTraceObserver> _traceObservers = new();
+    private readonly ulong[] _traceValues = new ulong[2];
+
+    public void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
+    {
+        if (_traceObservers.Count == 0)
+            engine.Engine.RegRead(_unicornRegId, MemoryMarshal.Cast<ulong, byte>(_traceValues));
+
+        _traceObservers.Add(new RegisteredTraceObserver(observer, traceId));
+    }
+
+    public void InitTrace(ExecutionEngine engine, ITraceObserver<ulong[]> observer, long traceId)
+    {
+        this.InitTrace(engine, (ITraceObserver)observer, traceId);
+    }
+
+    public void TraceStep(ExecutionEngine engine)
+    {
+        Span<byte> currentValues = stackalloc byte[16];
+        engine.Engine.RegRead(_unicornRegId, currentValues);
+        var currentValuesUl = MemoryMarshal.Cast<byte, ulong>(currentValues);
+
+        if (currentValuesUl.SequenceEqual(_traceValues))
+            return;
+
+        if (_traceObservers.Count != 0)
+        {
+            foreach (var traceObserver in _traceObservers)
+            {
+                if (traceObserver.Observer is IFormattedTraceObserver formattedObserver)
+                    formattedObserver.TraceTriggered(traceObserver.TraceId, Format(_traceValues),
+                        Format(currentValuesUl));
+                else if (traceObserver.Observer is ITraceObserver<ulong[]> ulongObserver)
+                    ulongObserver.TraceTriggered(traceObserver.TraceId, _traceValues,
+                        currentValuesUl.ToArray());
+                else
+                    traceObserver.Observer.TraceTriggered(traceObserver.TraceId);
+            }
+        }
+
+        currentValuesUl.CopyTo(_traceValues);
+    }
+
+    public void StopTrace(ExecutionEngine engine, ITraceObserver observer)
+    {
+        _traceObservers.Remove(_traceObservers.Find(t => t.Observer == observer));
+    }
 }
 
-public class ArmDSimdRegisterVariable : IVariable
+public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>
 {
     private readonly int _unicornRegId;
     private readonly ArmQSimdRegisterVariable? _parent;
@@ -135,15 +191,19 @@ public class ArmDSimdRegisterVariable : IVariable
 
     public string Get(VariableContext context)
     {
-        var toRet = Value;
+        return Format(Value, context);
+    }
+
+    private static string Format(ulong value, VariableContext context)
+    {
         if (context.Options.ShowSimdRegistersAsFp)
         {
-            var d = Unsafe.As<ulong, double>(ref toRet);
+            var d = Unsafe.As<ulong, double>(ref value);
 
             return d.ToString(context.CultureInfo);
         }
 
-        return $"0x{toRet:x}";
+        return $"0x{value:x}";
     }
 
     internal ulong Value
@@ -164,6 +224,56 @@ public class ArmDSimdRegisterVariable : IVariable
         Value = parsed;
 
         context.Engine.Engine.RegWrite(_unicornRegId, parsed);
+    }
+
+    public bool NeedsExplicitEvaluationAfterStep => true;
+    public bool CanPersist => true;
+
+    private readonly List<RegisteredTraceObserver> _traceObservers = new();
+    private ulong _traceValue;
+
+    public void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
+    {
+        if (_traceObservers.Count == 0)
+            engine.Engine.RegRead(_unicornRegId, ref _traceValue);
+
+        _traceObservers.Add(new RegisteredTraceObserver(observer, traceId));
+    }
+
+    public void InitTrace(ExecutionEngine engine, ITraceObserver<ulong> observer, long traceId)
+    {
+        this.InitTrace(engine, (ITraceObserver)observer, traceId);
+    }
+
+    public void TraceStep(ExecutionEngine engine)
+    {
+        ulong currentValue = 0;
+        engine.Engine.RegRead(_unicornRegId, ref currentValue);
+
+        if (currentValue == _traceValue)
+            return;
+
+        if (_traceObservers.Count != 0)
+        {
+            foreach (var traceObserver in _traceObservers)
+            {
+                var context = traceObserver.Observer.GetTraceTriggerContext();
+                if (traceObserver.Observer is IFormattedTraceObserver formattedObserver)
+                    formattedObserver.TraceTriggered(traceObserver.TraceId, Format(_traceValue, context),
+                        Format(currentValue, context));
+                else if (traceObserver.Observer is ITraceObserver<ulong> ulongObserver)
+                    ulongObserver.TraceTriggered(traceObserver.TraceId, _traceValue, currentValue);
+                else
+                    traceObserver.Observer.TraceTriggered(traceObserver.TraceId);
+            }
+        }
+
+        _traceValue = currentValue;
+    }
+
+    public void StopTrace(ExecutionEngine engine, ITraceObserver observer)
+    {
+        _traceObservers.Remove(_traceObservers.Find(t => t.Observer == observer));
     }
 }
 

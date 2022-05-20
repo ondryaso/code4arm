@@ -12,3 +12,8 @@ public interface ITraceable
     void TraceStep(ExecutionEngine engine);
     void StopTrace(ExecutionEngine engine, ITraceObserver observer);
 }
+
+public interface ITraceable<out TTracedValue> : ITraceable
+{
+    void InitTrace(ExecutionEngine engine, ITraceObserver<TTracedValue> observer, long traceId);
+}
