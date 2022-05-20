@@ -137,7 +137,7 @@ public class Unicorn : IUnicorn
 
         fixed (void* value = &target)
         {
-            result = Native.uc_reg_read(_engine, registerId, &value);
+            result = Native.uc_reg_read(_engine, registerId, value);
         }
 
         this.CheckResult(result);

@@ -54,7 +54,7 @@ internal sealed class UnicornContext : IUnicornContext
 
         fixed (void* value = &target)
         {
-            result = Native.uc_context_reg_read(Context, registerId, &value);
+            result = Native.uc_context_reg_read(Context, registerId, value);
         }
 
         Unicorn.CheckResult(result);
