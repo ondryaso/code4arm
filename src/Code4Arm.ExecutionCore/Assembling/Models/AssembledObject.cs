@@ -68,7 +68,7 @@ public class AssembledObject : IDisposable
     }
 
     private static readonly Regex ProgramLineRegex =
-        new(@"^\s*(\d+)\s+([0-9a-f]{4,8})\s+[0-9A-F]{8}\s*[\w\.:]+", RegexOptions.Compiled);
+        new(@"^\s*(\d+)\s+([0-9a-f]{4,8})\s+[0-9A-F]{2,8}\s*[\w\.:]+", RegexOptions.Compiled);
 
     private static readonly Regex DataDirectiveRegex = new(
         @"\.(float|single|double|word|long|int|short|hword|byte|ascii|asciz)\s.*",

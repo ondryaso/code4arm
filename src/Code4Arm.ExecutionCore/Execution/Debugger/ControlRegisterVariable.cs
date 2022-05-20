@@ -32,7 +32,7 @@ public readonly struct ControlRegisterFlag
     }
 }
 
-public class ControlRegisterVariable : IVariable
+public class ControlRegisterVariable : UIntBackedTraceable, IVariable
 {
     private readonly int _unicornRegisterId;
     private uint _currentValue;
@@ -63,7 +63,7 @@ public class ControlRegisterVariable : IVariable
     public bool IsViewOfParent => false;
     public IReadOnlyDictionary<string, IVariable>? Children { get; }
     public IVariable? Parent => null;
-    
+
     public void Evaluate(VariableContext context)
     {
         _currentValue = context.Engine.Engine.RegRead<uint>(_unicornRegisterId);
@@ -78,7 +78,7 @@ public class ControlRegisterVariable : IVariable
 
     public string Get(VariableContext context)
     {
-        return $"0x{Value:x}";
+        return this.Format(Value, context);
     }
 
     public void Set(string value, VariableContext context)
@@ -86,15 +86,34 @@ public class ControlRegisterVariable : IVariable
         var number = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
         context.Engine.Engine.RegWrite(_unicornRegisterId, number);
     }
+
+    public override bool NeedsExplicitEvaluationAfterStep => true;
+    public override bool CanPersist => true;
+
+    public override void InitTrace(ExecutionEngine engine, ITraceObserver observer, long traceId)
+    {
+        base.InitTrace(engine, observer, traceId);
+        var currentValue = engine.Engine.RegRead<uint>(_unicornRegisterId);
+        this.SetTrace(currentValue, false);
+    }
+
+    public override void TraceStep(ExecutionEngine engine)
+    {
+        var currentValue = engine.Engine.RegRead<uint>(_unicornRegisterId);
+        this.SetTrace(currentValue);
+    }
+
+    protected override string Format(uint value, VariableContext context) => $"0x{value:x}";
 }
 
-public class FlagVariable : IVariable
+public class FlagVariable : UIntBackedDependentTraceable, IVariable
 {
     private readonly ControlRegisterVariable _parent;
     private readonly ControlRegisterFlag _flag;
     private readonly uint _mask;
 
     public FlagVariable(ControlRegisterVariable parent, ControlRegisterFlag flag)
+        : base(parent, unchecked((uint)((1 << flag.Length) - 1)), flag.LowBitIndex)
     {
         _parent = parent;
         _flag = flag;
@@ -123,10 +142,7 @@ public class FlagVariable : IVariable
     {
         var val = (_parent.Value >> _flag.LowBitIndex) & _mask;
 
-        if (_flag.Values != null && _flag.Values.Length > val)
-            return _flag.Values[val];
-
-        return Convert.ToString(val, 2);
+        return this.Format(val, context);
     }
 
     public void Set(string value, VariableContext context)
@@ -165,5 +181,13 @@ public class FlagVariable : IVariable
         var currentVal = _parent.Value;
         var newVal = (currentVal & ~(_mask << _flag.LowBitIndex)) | (valU << _flag.LowBitIndex);
         _parent.Set(newVal, context);
+    }
+
+    protected override string Format(uint value, VariableContext context)
+    {
+        if (_flag.Values != null && _flag.Values.Length > value)
+            return _flag.Values[value];
+
+        return Convert.ToString(value, 2);
     }
 }

@@ -16,6 +16,8 @@ public readonly struct RegisteredTraceObserver : IEquatable<RegisteredTraceObser
 
     public bool Equals(RegisteredTraceObserver other)
         => other.Observer == Observer && other.TraceId == TraceId;
-    
-    
+
+    public override bool Equals(object? obj) => obj is RegisteredTraceObserver other && this.Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(Observer, TraceId);
 }

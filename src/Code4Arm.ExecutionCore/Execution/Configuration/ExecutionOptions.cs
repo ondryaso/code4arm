@@ -204,7 +204,7 @@ public class ExecutionOptions
     /// When filling with random values, the 64b Dx registers are used as the target, the random values being valid
     /// double precision floating point numbers between -1024.0 and 1024.0. 
     /// </summary>
-    public RegisterInitOptions SimdRegisterInitOptions { get; set; } = RegisterInitOptions.Clear;
+    public RegisterInitOptions SimdRegisterInitOptions { get; set; } = RegisterInitOptions.Randomize;
 
     /// <summary>
     /// Controls the Step Back mode.

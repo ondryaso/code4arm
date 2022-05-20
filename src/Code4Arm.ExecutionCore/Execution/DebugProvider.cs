@@ -1141,7 +1141,87 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFor
             return true;
         }
 
-        // TODO: other types
+        if (containerType == ContainerType.SimdRegisters)
+        {
+            if (!int.TryParse(varName.AsSpan(1), out var regNum))
+                return false;
+
+            this.MakeSimdRegistersVariables(null, regNum, 1);
+
+            return true;
+        }
+
+        if (containerType is ContainerType.SimdRegisterSubtypes or ContainerType.SimdRegisterSubtypesValues)
+        {
+            var regId = ReferenceUtils.GetRegisterId(variablesReference);
+            var level = ReferenceUtils.GetSimdLevel(variablesReference);
+            var regNum = (SimdRegisterLevel)level switch
+            {
+                SimdRegisterLevel.D64 => Arm.Register.GetDRegisterNumber(regId),
+                SimdRegisterLevel.Q128 => Arm.Register.GetQRegisterNumber(regId),
+                _ => Arm.Register.GetSRegisterNumber(regId)
+            };
+
+            var levelDiff = (int)Options.TopSimdRegistersLevel - level;
+            if (levelDiff < 0)
+            {
+                var reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, regId, 0, level);
+                switch ((SimdRegisterLevel)level)
+                {
+                    case SimdRegisterLevel.D64:
+                        this.GetOrAddVariable(reference,
+                            () => new ArmDSimdRegisterVariable(regNum), true);
+
+                        break;
+                    case SimdRegisterLevel.Q128:
+                        this.GetOrAddVariable(reference,
+                            () => new ArmQSimdRegisterVariable(regNum), true);
+
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
+                return true;
+            }
+
+            if (levelDiff > 0)
+                regNum /= (2 * levelDiff);
+
+            if ((Options.TopSimdRegistersLevel == SimdRegisterLevel.D64 && regNum > 31) || regNum > 15)
+                return false;
+
+            this.MakeSimdRegistersVariables(null, regNum, 1);
+
+            return true;
+        }
+
+        if (containerType is ContainerType.Symbols)
+        {
+            this.MakeSymbolsVariables(null);
+
+            return _topLevel.ContainsKey(varName);
+        }
+
+        if (containerType is ContainerType.Stack or ContainerType.StackSubtypes or ContainerType.StackSubtypesValues)
+        {
+            this.MakeStackVariables(null);
+
+            if (_variables.TryGetValue(variablesReference, out var container))
+                return container.Children?.ContainsKey(varName) ?? false;
+
+            return false;
+        }
+
+        if (containerType is ContainerType.ControlRegisters or ContainerType.ControlFlags)
+        {
+            this.MakeControlRegistersVariables(null);
+
+            return containerType is ContainerType.ControlRegisters
+                ? _topLevel.ContainsKey(varName)
+                : (_variables.TryGetValue(variablesReference, out var variable) &&
+                    (variable.Children?.ContainsKey(varName) ?? false));
+        }
 
         return false;
     }
