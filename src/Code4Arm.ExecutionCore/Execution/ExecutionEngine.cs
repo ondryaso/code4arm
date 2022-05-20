@@ -114,18 +114,18 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public const long ThreadId = 1;
 
     /// <summary>
-    /// The maximum size of array that may be rented from <see cref="_arrayPool"/>.
+    /// The maximum size of array that may be rented from <see cref="ArrayPool"/>.
     /// If a larger array is required, it will be allocated normally.
     /// </summary>
     /// <seealso cref="MakeStackSegment"/>
-    private const int MaxArrayPoolSize = 2 * 1024 * 1024;
+    internal const int MaxArrayPoolSize = 2 * 1024 * 1024;
 
     /// <summary>
     /// The maximum size of array that may be allocated on stack using <see langword="stackalloc"/>.
     /// </summary>
     /// <seealso cref="RandomizeMemory"/>
     /// <see cref="ClearMemory"/>
-    private const int MaxStackAllocatedSize = 512;
+    internal const int MaxStackAllocatedSize = 512;
 
     /// <summary>
     /// A unique ID of this engine instance. Used for logging purposes only.
@@ -160,9 +160,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     internal StopCause LastStopCause = StopCause.Normal;
     internal StopData LastStopData;
-
+    
+    internal readonly ArrayPool<byte> ArrayPool;
+    
     private readonly ILogger<ExecutionEngine> _logger;
-    private readonly ArrayPool<byte> _arrayPool;
     private readonly IMediator _mediator;
     private readonly DebugProvider _debugProvider;
     private readonly Dictionary<nuint, Delegate> _nativeCodeHooks = new();
@@ -214,7 +215,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         Engine = this.MakeUnicorn();
         State = ExecutionState.Unloaded;
 
-        _arrayPool = ArrayPool<byte>.Shared;
+        ArrayPool = ArrayPool<byte>.Shared;
 
         _logger = systemLogger;
         _executionId = Guid.NewGuid();
@@ -341,7 +342,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (stOpt.HasFlag(StackPlacementOptions.KeepData))
             {
-                keptStackData = rented ? _arrayPool.Rent((int)keptSize) : new byte[keptSize];
+                keptStackData = rented ? ArrayPool.Rent((int)keptSize) : new byte[keptSize];
                 Engine.MemRead(_stackSegment.StartAddress, keptStackData, keptSize);
             }
 
@@ -354,7 +355,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 Engine.MemWrite(stackSegmentBegin, keptStackData, keptSize);
 
                 if (rented)
-                    _arrayPool.Return(keptStackData);
+                    ArrayPool.Return(keptStackData);
             }
         }
         else if (stOpt.HasFlag(StackPlacementOptions.RandomizeData))

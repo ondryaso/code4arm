@@ -14,4 +14,9 @@ public static class ExceptionMessages
     public const string NoExceptionData = "No exception data found.";
     public const string StepBackNotEnabled = "Stepping back is not possible in the current context.";
     public const string InvalidGotoTarget = "Invalid jump target address.";
+    public const string InvalidMemoryReference = "Invalid memory reference (address).";
+    public const string InvalidMemoryRead = "Invalid memory read (memory not mapped).";
+    public const string InvalidMemoryWrite = "Invalid memory write (memory not mapped).";
+    public const string InvalidMemorySize = "Invalid memory operation – requested amount is too big or negative.";
+
 }

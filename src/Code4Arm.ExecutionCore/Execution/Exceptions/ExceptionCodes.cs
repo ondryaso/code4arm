@@ -37,4 +37,10 @@ public static class ExceptionCodes
 
     public const int InvalidGotoTargetId = 109;
     public const string InvalidGotoTarget = "invalidTarget";
+    
+    public const int InvalidMemoryReferenceId = 110;
+    public const string InvalidMemoryReference = "invalidMemoryReference";
+    
+    public const int InvalidMemoryOperationId = 111;
+    public const string InvalidMemoryOperation = "invalidMemoryOperation";
 }

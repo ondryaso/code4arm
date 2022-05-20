@@ -1,6 +1,8 @@
 // DebugProvider.cs
 // Author: Ondřej Ondryáš
 
+using System.Buffers;
+using System.Buffers.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -14,6 +16,7 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
+using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
 using MediatR;
@@ -1330,12 +1333,142 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFor
 
     #region Memory
 
-    public ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset) =>
-        throw new NotImplementedException();
+    private int DetermineMappedMemorySize(uint address, int targetCount)
+    {
+        var endAddress = (uint)(address + targetCount);
+        MemorySegment? startSegment = null;
+        MemorySegment? endSegment = null;
 
-    public WriteMemoryResponse
-        WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded) =>
-        throw new NotImplementedException();
+        foreach (var segment in _engine.Segments)
+        {
+            if (segment.StartAddress <= address && segment.EndAddress > address)
+                startSegment = segment;
+
+            if (segment.StartAddress <= endAddress && segment.EndAddress >= endAddress)
+                endSegment = segment;
+        }
+
+        if (startSegment == null)
+            return -1;
+
+        if (startSegment == endSegment ||
+            startSegment.EndAddress == endSegment?.StartAddress) // Continuous block of memory
+            return targetCount;
+
+        return (int)(startSegment.EndAddress - address);
+    }
+
+    public ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset)
+    {
+        if (!uint.TryParse(memoryReference, out var address))
+            throw new InvalidMemoryReferenceException();
+
+        if (offset.HasValue)
+            address = (uint)(address + offset.Value);
+
+        if (count is < 0 or > int.MaxValue)
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemorySize);
+
+        var actualCount = this.DetermineMappedMemorySize(address, (int)count);
+
+        if (actualCount is -1 or 0)
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead);
+
+        var bufferSize = Base64.GetMaxEncodedToUtf8Length(actualCount);
+        bufferSize = Math.Max(bufferSize, actualCount);
+
+        byte[]? rentedBytes = null;
+
+        try
+        {
+            if (count < ExecutionEngine.MaxStackAllocatedSize)
+            {
+                Span<byte> bytes = stackalloc byte[bufferSize];
+                _engine.Engine.MemRead(address, bytes, (nuint)actualCount);
+
+                return this.ReadMemory(address, bytes, count, actualCount);
+            }
+            else if (count < ExecutionEngine.MaxArrayPoolSize)
+            {
+                var bytes = _engine.ArrayPool.Rent(bufferSize);
+                rentedBytes = bytes;
+                _engine.Engine.MemRead(address, bytes, (nuint)actualCount);
+
+                var resp = this.ReadMemory(address, bytes, count, actualCount);
+                _engine.ArrayPool.Return(bytes);
+
+                return resp;
+            }
+            else
+            {
+                var bytes = new byte[bufferSize];
+                _engine.Engine.MemRead(address, bytes, (nuint)count);
+
+                return this.ReadMemory(address, bytes, count, actualCount);
+            }
+        }
+        catch (UnicornException e)
+        {
+            if (rentedBytes != null)
+                _engine.ArrayPool.Return(rentedBytes);
+
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead, e);
+        }
+    }
+
+    private ReadMemoryResponse ReadMemory(uint address, Span<byte> bytes, long requestedCount, int actualCount)
+    {
+        if (Base64.EncodeToUtf8InPlace(bytes, actualCount, out var written) != OperationStatus.Done)
+            throw new Exception(); // Shouldn't happen
+
+        var encoded = Encoding.UTF8.GetString(bytes[..written]);
+
+        return new ReadMemoryResponse()
+        {
+            Address = address.ToString(),
+            Data = encoded,
+            UnreadableBytes = requestedCount - actualCount
+        };
+    }
+
+    public WriteMemoryResponse WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded)
+    {
+        if (!uint.TryParse(memoryReference, out var address))
+            throw new InvalidMemoryReferenceException();
+
+        if (offset.HasValue)
+            address = (uint)(address + offset.Value);
+
+        var utfByteCount = Encoding.UTF8.GetByteCount(dataEncoded);
+        byte[] bytes;
+        var rented = utfByteCount <= ExecutionEngine.MaxArrayPoolSize;
+        bytes = rented ? _engine.ArrayPool.Rent(utfByteCount) : new byte[utfByteCount];
+        Encoding.UTF8.GetBytes(dataEncoded, bytes);
+
+        if (Base64.DecodeFromUtf8InPlace(bytes[..utfByteCount], out var dataSize) != OperationStatus.Done)
+            throw new Exception(); // Shouldn't happen
+
+        var mappedSize = this.DetermineMappedMemorySize(address, dataSize);
+
+        if (mappedSize < dataSize && !allowPartial)
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite);
+
+        try
+        {
+            _engine.Engine.MemWrite(address, bytes, (nuint)mappedSize);
+        }
+        catch (UnicornException e)
+        {
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
+        }
+
+        // This doesn't 100% satisfy the protocol: when allowPartial is true, the write will be successful if it ends
+        // in unmapped memory but not when it starts in one.
+        return new WriteMemoryResponse()
+        {
+            BytesWritten = mappedSize
+        };
+    }
 
     #endregion
 
