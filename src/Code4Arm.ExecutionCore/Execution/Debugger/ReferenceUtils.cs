@@ -21,7 +21,9 @@ public enum ContainerType : uint
     ControlFlags,
 
     StackSubtypes,
-    StackSubtypesValues
+    StackSubtypesValues,
+    
+    ExpressionExtras
 }
 
 internal static class ReferenceUtils

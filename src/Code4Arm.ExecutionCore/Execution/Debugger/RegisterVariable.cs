@@ -5,8 +5,8 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public class RegisterVariable : UnstructuredRegisterVariable
 {
-    public RegisterVariable(int unicornRegisterId, string name, DebuggerVariableType[] allowedSubtypes)
-        : base(unicornRegisterId, name, null)
+    public RegisterVariable(int unicornRegisterId, string name, DebuggerVariableType[] allowedSubtypes, bool showIeeeFloatSubvariables)
+        : base(unicornRegisterId, name, null, showIeeeFloatSubvariables)
     {
         Reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, unicornRegisterId);
 

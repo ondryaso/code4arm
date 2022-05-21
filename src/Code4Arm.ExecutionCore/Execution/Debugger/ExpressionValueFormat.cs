@@ -5,8 +5,9 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public enum ExpressionValueFormat
 {
-    Default = 0,
+    Decimal = 0,
     Hex,
     Binary,
-    Ieee
+    Ieee,
+    Default
 }

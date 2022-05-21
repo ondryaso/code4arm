@@ -12,12 +12,13 @@ public class StackVariable : UIntBackedVariable
 {
     private readonly uint _address;
 
-    public StackVariable(uint address, int index, DebuggerVariableType[] allowedSubtypes)
+    public StackVariable(uint address, int index, DebuggerVariableType[] allowedSubtypes, bool showFloatIeeeSubvariables)
     {
         _address = address;
         Name = $"[{index}]";
         Type = null;
         Reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
+        ShowFloatIeeeSubvariables = showFloatIeeeSubvariables;
 
         this.MakeChildren(allowedSubtypes);
     }
@@ -67,6 +68,7 @@ public class StackVariable : UIntBackedVariable
     }
 
     public override IVariable? Parent => null;
+    internal override bool ShowFloatIeeeSubvariables { get; }
 
     public override void SetUInt(uint value, VariableContext context)
     {

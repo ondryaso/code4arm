@@ -9,12 +9,13 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
 {
     protected readonly int UnicornRegisterId;
 
-    public UnstructuredRegisterVariable(int unicornRegisterId, string name, string? type)
+    public UnstructuredRegisterVariable(int unicornRegisterId, string name, string? type, bool showFloatIeeeSubvariables)
     {
         UnicornRegisterId = unicornRegisterId;
         Name = name;
         Type = type;
         Reference = 0;
+        ShowFloatIeeeSubvariables = showFloatIeeeSubvariables;
     }
 
     public override string Name { get; }
@@ -23,6 +24,7 @@ public class UnstructuredRegisterVariable : UIntBackedVariable
     public override bool IsViewOfParent => false;
 
     public override IVariable? Parent => null;
+    internal override bool ShowFloatIeeeSubvariables { get; }
 
     public override void Evaluate(VariableContext context)
     {

@@ -7,7 +7,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
@@ -31,8 +30,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     private InitializeRequestArguments? _clientInfo;
     private CultureInfo? _clientCulture;
 
-    private Dictionary<long, IVariable> _variables = new();
-    private Dictionary<string, IVariable> _topLevel = new();
+    private readonly Dictionary<long, IVariable> _variables = new();
+    private readonly Dictionary<string, IVariable> _topLevel = new();
 
     private readonly Dictionary<long, ITraceable> _steppedTraceables = new();
     private readonly Dictionary<long, ITraceable> _hookTraceables = new();
@@ -612,6 +611,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             case ContainerType.ControlFlags:
             case ContainerType.RegisterSubtypes:
             case ContainerType.RegisterSubtypesValues:
+            case ContainerType.ExpressionExtras:
             default:
                 throw new InvalidVariableException();
         }
@@ -639,7 +639,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             ), true).GetAsProtocol(ctx, true);
 
         retArray[i++] = this.GetOrAddTopLevelVariable("PC",
-                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
+                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)",
+                                    false))
                             .GetAsProtocol(ctx, true);
 
         if (Options.EnableExtendedControlVariables)
@@ -731,7 +732,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             var unicornId = Arm.Register.GetRegister(i);
             var reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, unicornId);
             var v = this.GetOrAddVariable(reference,
-                () => new RegisterVariable(unicornId, $"R{regNumber}", Options.RegistersSubtypes), true);
+                () => new RegisterVariable(unicornId, $"R{regNumber}", Options.RegistersSubtypes,
+                    Options.ShowFloatIeeeSubvariables), true);
 
             retArray[i - start] = v.GetAsProtocol(ctx, true);
         }
@@ -805,7 +807,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             var address = (uint)(_engine.StackTopAddress - 4 - i);
             var reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
             var v = this.GetOrAddVariable(reference,
-                () => new StackVariable(address, fieldIndex, Options.StackVariablesSubtypes), true);
+                () => new StackVariable(address, fieldIndex, Options.StackVariablesSubtypes,
+                    Options.ShowFloatIeeeSubvariables), true);
 
             retArray[i / 4] = v.GetAsProtocol(ctx, true);
         }
@@ -1003,7 +1006,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             var regId = Arm.Register.GetRegister(regNum);
             var reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, regId);
             this.GetOrAddVariable(reference,
-                () => new RegisterVariable(regId, varName, Options.RegistersSubtypes), true);
+                () => new RegisterVariable(regId, varName, Options.RegistersSubtypes,
+                    Options.ShowFloatIeeeSubvariables), true);
 
             return true;
         }
@@ -1014,7 +1018,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             var regNum = Arm.Register.GetRegisterNumber(regId);
             var reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, regId);
             this.GetOrAddVariable(reference,
-                () => new RegisterVariable(regId, $"R{regNum}", Options.RegistersSubtypes), true);
+                () => new RegisterVariable(regId, $"R{regNum}", Options.RegistersSubtypes,
+                    Options.ShowFloatIeeeSubvariables), true);
 
             return true;
         }
@@ -1315,9 +1320,9 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             address = (uint)(address + offset.Value);
 
         var utfByteCount = Encoding.UTF8.GetByteCount(dataEncoded);
-        byte[] bytes;
         var rented = utfByteCount <= ExecutionEngine.MaxArrayPoolSize;
-        bytes = rented ? _engine.ArrayPool.Rent(utfByteCount) : new byte[utfByteCount];
+        var bytes = rented ? _engine.ArrayPool.Rent(utfByteCount) : new byte[utfByteCount];
+        
         Encoding.UTF8.GetBytes(dataEncoded, bytes);
 
         if (Base64.DecodeFromUtf8InPlace(bytes[..utfByteCount], out var dataSize) != OperationStatus.Done)

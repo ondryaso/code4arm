@@ -32,7 +32,7 @@ public readonly struct ControlRegisterFlag
     }
 }
 
-public class ControlRegisterVariable : UIntBackedTraceable, IVariable
+public class ControlRegisterVariable : UIntBackedTraceable, IVariable, IBackedVariable<uint>
 {
     private readonly int _unicornRegisterId;
     private uint _currentValue;
@@ -104,6 +104,7 @@ public class ControlRegisterVariable : UIntBackedTraceable, IVariable
     }
 
     protected override string Format(uint value, VariableContext context) => $"0x{value:x}";
+    public uint GetBackingValue(VariableContext context) => _currentValue;
 }
 
 public class FlagVariable : UIntBackedDependentTraceable, IVariable
@@ -175,7 +176,7 @@ public class FlagVariable : UIntBackedDependentTraceable, IVariable
         }
 
         if (valU > _mask)
-            throw new InvalidVariableFormatException($"Invalid format. The maximum value is {_mask:x}.");
+            throw new InvalidVariableFormatException($"Invalid format. The maximum value is 0x{_mask:x}.");
 
         _parent.Evaluate(context);
         var currentVal = _parent.Value;

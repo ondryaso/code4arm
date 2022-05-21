@@ -9,12 +9,14 @@ public interface IVariable
     string? Type { get; }
     long Reference { get; }
     bool CanSet { get; }
+
     /// <summary>
     /// If true, this child variable is a view over its parent's data.
     /// The Evaluate() method of a parent variable will be called to make this variable's value.
     /// When setting the variable, the whole parent tree should be updated (the protocol doesn't support this though).
     /// </summary>
     bool IsViewOfParent { get; }
+
     IReadOnlyDictionary<string, IVariable>? Children { get; }
     IVariable? Parent { get; }
 
@@ -28,4 +30,14 @@ public interface IVariable
 
         return this.Get(context);
     }
+}
+
+public interface IBackedVariable<out TBackingValue> : IVariable
+{
+    TBackingValue GetBackingValue(VariableContext context);
+}
+
+public interface ISettableBackedVariable<TBackingValue> : IBackedVariable<TBackingValue>
+{
+    void Set(TBackingValue value, VariableContext context);
 }

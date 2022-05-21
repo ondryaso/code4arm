@@ -4,19 +4,21 @@
 using System.Numerics;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Constants;
+using ELFSharp.ELF.Sections;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
 internal partial class DebugProvider
 {
     private static readonly Regex TopExpressionRegex = new(
-        @"(?:\((?<type>float|single|double|byte|short|hword|int|word|long|dword|sbyte|ushort|uhword|uint|uword|ulong|udword|string)\))?(?<expr>[\w\s\[\],.+\-]+)(?::(?<format>x|b|ieee))?",
+        @"(?:\((?<type>float|single|double|byte|short|hword|int|word|long|dword|sbyte|ushort|uhword|uint|uword|ulong|udword|string)\))?(?<expr>[\w\s\[\],.+\-&]+)(?::(?<format>x|b|d|ieee))?",
         RegexOptions.Compiled);
 
     private static Regex GetTopExpressionRegex() => TopExpressionRegex;
@@ -28,7 +30,7 @@ internal partial class DebugProvider
     private static Regex GetRegisterRegex() => RegisterRegex;
 
     private static readonly Regex AddressingRegex = new(
-        @"\[(?:(?<reg>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?<imm>(?:0x)?[0-9a-fA-F]+)|(?<symbol>[a-zA-Z\._]\w+))(,(?<sign>[+\-])?(?:(?<reg_off>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?<imm_off>(?:0x)?[0-9a-fA-F]+))(,(?<shift>LSL|LSR|ASR|ROR|ROL)\s+(?<imm_shift>(?:0x)?[0-9a-fA-F]+))?)?\]",
+        @"\[\s*(?:(?<reg>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?<imm>(?:0x)?[0-9a-fA-F]+)|(?<symbol>[a-zA-Z\._]\w+))\s*(,\s*(?<sign>[+\-])?(?:(?<reg_off>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?<imm_off>(?:0x)?[0-9a-fA-F]+))\s*(,\s*(?<shift>LSL|LSR|ASR|ROR|ROL)\s+(?<imm_shift>(?:0x)?[0-9a-fA-F]+))?)?\s*\]",
         RegexOptions.Compiled);
 
     private static Regex GetAddressingRegex() => AddressingRegex;
@@ -74,23 +76,21 @@ internal partial class DebugProvider
             {
                 "x" => ExpressionValueFormat.Hex,
                 "b" => ExpressionValueFormat.Binary,
+                "d" => ExpressionValueFormat.Decimal,
                 "ieee" => ExpressionValueFormat.Ieee,
                 _ => throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionFormatSpecifier)
             };
 
         // Determine expression type (addressing_expr | register_expr | symbol_addr | variable_path)
         // Use primitive first-character lookup before throwing the regex at the expression
-        switch (expressionValue[0])
+        return expressionValue[0] switch
         {
-            case '[':
-                return this.EvaluateAddressingExpression(expressionValue, expressionType, expressionFormat);
-            case 'R' or 'S' or 'Q' or 'D':
-                return this.EvaluateRegisterExpression(expressionValue, expressionType, expressionFormat);
-            case '&':
-                return this.EvaluateSymbolAddressExpression(expressionValue, expressionType, expressionFormat);
-            default:
-                return this.EvaluateVariablePathExpression(expressionValue, expressionType, expressionFormat, true)!;
-        }
+            '[' => this.EvaluateAddressingExpression(expressionValue, expressionType, expressionFormat),
+            /*'R' or 'S' or 'Q' or 'D' => this.EvaluateRegisterExpression(expressionValue, expressionType,
+                expressionFormat),*/
+            '&' => this.EvaluateSymbolAddressExpression(expressionValue, expressionType, expressionFormat),
+            _ => this.EvaluateVariablePathExpression(expressionValue, expressionType, expressionFormat, true)!
+        };
     }
 
     private EvaluateResponse EvaluateDirectVariableExpression(string expression, EvaluateArgumentsContext? context,
@@ -138,46 +138,61 @@ internal partial class DebugProvider
                 ?? throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
 
         var address = this.GetAddress(match);
+
+        // No type specified -> assume byte
         if (valueType == ExpressionValueType.Default)
             valueType = ExpressionValueType.ByteU;
 
-        if (valueType is ExpressionValueType.Float or ExpressionValueType.Double &&
-            format == ExpressionValueFormat.Ieee)
-        {
-            // TODO: IEEE subvariables
-        }
+        // IEEE format is handled later
+        var ctx = new VariableContext(_engine, _clientCulture!, Options,
+            format == ExpressionValueFormat.Ieee ? ExpressionValueFormat.Default : format);
 
-        var varFormat = format switch
-        {
-            ExpressionValueFormat.Binary => VariableNumberFormat.Binary,
-            ExpressionValueFormat.Hex => VariableNumberFormat.Hex,
-            ExpressionValueFormat.Default => VariableNumberFormat.Decimal,
-            ExpressionValueFormat.Ieee => VariableNumberFormat.Decimal, // TODO
-            _ => VariableNumberFormat.Decimal
-        };
-
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, varFormat);
         if (valueType == ExpressionValueType.String)
         {
-            // TODO
-            return new EvaluateResponse()
-            {
-                Result = "TODO",
-                Type = "Null-terminated string"
-            };
-        }
-        else
-        {
-            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)(uint)valueType,
-                address);
+            var variable = new StringVariable($"_expr.{address}", address);
             variable.Evaluate(ctx);
             var value = variable.Get(ctx);
 
             return new EvaluateResponse()
             {
                 Result = value,
-                Type = ((DebuggerVariableType)(uint)valueType).GetName(),
-                VariablesReference = 0 // TODO
+                Type = variable.Type,
+                MemoryReference = address.ToString()
+            };
+        }
+        else
+        {
+            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)valueType,
+                address);
+            variable.Evaluate(ctx);
+            var value = variable.Get(ctx);
+            var reference = variable.Reference;
+
+            if (format == ExpressionValueFormat.Ieee && valueType == ExpressionValueType.Float)
+            {
+                // IEEE format: enclose the memory variable with an EnhancedVariable that adds the IEEE segment
+                // subvariables
+
+                reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, address,
+                    DebuggerVariableType.Float);
+
+                var enhanced = new EnhancedVariable<float>(variable, reference,
+                    parent => new[]
+                    {
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
+                    });
+
+                this.AddOrUpdateVariable(enhanced);
+            }
+
+            return new EvaluateResponse()
+            {
+                Result = value,
+                Type = variable.Type,
+                MemoryReference = address.ToString(),
+                VariablesReference = reference
             };
         }
     }
@@ -191,7 +206,7 @@ internal partial class DebugProvider
             // Base is a constant
             baseValue = FormattingUtils.ParseNumber32U(match.Groups["imm"].Value, _clientCulture!);
         }
-        else
+        else if (match.Groups["reg"].Length > 0)
         {
             // Base is a register
             var regId = GetRegisterId(match.Groups["reg"].Value);
@@ -200,6 +215,13 @@ internal partial class DebugProvider
                 throw new InvalidExpressionException();
 
             baseValue = _engine.Engine.RegRead<uint>(regId);
+        }
+        else
+        {
+            // Base is a symbol
+            var symbolName = match.Groups["symbol"].Value;
+
+            baseValue = this.GetSymbolAddress(symbolName);
         }
 
         var offset = 0;
@@ -255,7 +277,25 @@ internal partial class DebugProvider
     private EvaluateResponse EvaluateSymbolAddressExpression(string symbolAddressExpression,
         ExpressionValueType valueType, ExpressionValueFormat format)
     {
-        throw new NotImplementedException();
+        var symbolName = symbolAddressExpression[1..];
+        var address = this.GetSymbolAddress(symbolName);
+
+        format = format switch
+        {
+            ExpressionValueFormat.Default => ExpressionValueFormat.Hex,
+            ExpressionValueFormat.Ieee => ExpressionValueFormat.Hex,
+            _ => format
+        };
+        
+        // TODO: Create dummy container variable to store the corresponding data symbol variable if it exists
+
+        return new EvaluateResponse()
+        {
+            Result = FormattingUtils.FormatVariable(address,
+                new VariableContext(null!, _clientCulture!, Options, format)),
+            Type = "address",
+            MemoryReference = address.ToString()
+        };
     }
 
     private EvaluateResponse? EvaluateVariablePathExpression(string variablePathExpression,
@@ -263,6 +303,7 @@ internal partial class DebugProvider
     {
         if (valueType == ExpressionValueType.String)
             throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionTypeSpecifier);
+
         if (format == ExpressionValueFormat.Ieee)
             format = ExpressionValueFormat.Default;
 
@@ -365,6 +406,21 @@ internal partial class DebugProvider
             return -1;
 
         return (int)fieldVal;
+    }
+
+    private uint GetSymbolAddress(string symbolName)
+    {
+        if ((_engine.ExecutableInfo as Executable)?.Elf.Sections.FirstOrDefault(s =>
+                s.Type == SectionType.SymbolTable) is not SymbolTable<uint> symTab)
+            throw new InvalidExpressionException();
+
+        var symbol =
+            symTab.Entries.FirstOrDefault(s => s.Name.Equals(symbolName, StringComparison.InvariantCulture));
+
+        if (symbol is null)
+            throw new InvalidExpressionException();
+
+        return symbol.Value;
     }
 }
 

@@ -1,6 +1,7 @@
 ﻿// DebuggerOptions.cs
 // Author: Ondřej Ondryáš
 
+using System.Text;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 
@@ -85,6 +86,12 @@ public class DebuggerOptions
     };
 
     /// <summary>
+    /// If true, all variables, including subvariables, that carry a float or double value, will have child variables
+    /// with details of how the number is stored in the IEEE 754 format. 
+    /// </summary>
+    public bool ShowFloatIeeeSubvariables { get; set; } = true;
+
+    /// <summary>
     /// Controls which class of SIMD register is returned in the top-level 'SIMD/FP' variables scope.
     /// </summary>
     public SimdRegisterLevel TopSimdRegistersLevel { get; set; } = SimdRegisterLevel.Q128;
@@ -93,4 +100,16 @@ public class DebuggerOptions
     /// If true, D and S registers will be interpreted as floating point numbers in their corresponding variables.
     /// </summary>
     public bool ShowSimdRegistersAsFp { get; set; } = true;
+
+    /// <summary>
+    /// Controls the maximum number of bytes the debugger will read from memory when reading a null-terminated C-string
+    /// before giving up.
+    /// </summary>
+    public int CStringMaxLength { get; set; } = 512;
+    
+    /// <summary>
+    /// Controls the encoding used to convert read bytes to string and vice-versa when dealing with null-terminated
+    /// C-strings.
+    /// </summary>
+    public Encoding CStringEncoding { get; set; } = Encoding.UTF8;
 }

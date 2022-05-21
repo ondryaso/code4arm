@@ -6,10 +6,29 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public abstract class UIntBackedVariable : UIntBackedTraceable, IVariable
+public abstract class UIntBackedVariable : UIntBackedTraceable, IVariable, ISettableBackedVariable<uint>,
+    ISettableBackedVariable<float>
 {
     protected readonly Dictionary<string, IVariable> ChildrenInternal = new();
     protected uint CurrentValue;
+
+    float IBackedVariable<float>.GetBackingValue(VariableContext context)
+    {
+        var value = this.GetUInt();
+
+        return Unsafe.As<uint, float>(ref value);
+    }
+
+    public void Set(float value, VariableContext context)
+    {
+        var asUint = Unsafe.As<float, uint>(ref value);
+        this.SetUInt(asUint, context);
+    }
+
+    public void Set(uint value, VariableContext context)
+    {
+        this.SetUInt(value, context);
+    }
 
     public abstract string Name { get; }
     public abstract string? Type { get; }
@@ -18,6 +37,7 @@ public abstract class UIntBackedVariable : UIntBackedTraceable, IVariable
     public abstract bool IsViewOfParent { get; }
     public virtual IReadOnlyDictionary<string, IVariable> Children => ChildrenInternal;
     public abstract IVariable? Parent { get; }
+    internal abstract bool ShowFloatIeeeSubvariables { get; }
 
     public abstract void SetUInt(uint value, VariableContext context);
     public abstract void Evaluate(VariableContext context);
@@ -42,6 +62,8 @@ public abstract class UIntBackedVariable : UIntBackedTraceable, IVariable
 
     protected override string Format(uint value, VariableContext context)
         => FormattingUtils.FormatVariable(value, context);
+
+    public uint GetBackingValue(VariableContext context) => this.GetUInt();
 }
 
 internal class UIntBackedSubtypeVariable : UIntBackedDependentTraceable, IVariable
@@ -90,6 +112,15 @@ internal class UIntBackedSubtypeVariable : UIntBackedDependentTraceable, IVariab
             }
 
             Children = c;
+        }
+        else if (subtype is DebuggerVariableType.Float && parent.ShowFloatIeeeSubvariables)
+        {
+            var sign = new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign);
+            var exp = new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent);
+            var mant = new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa);
+
+            Children = new Dictionary<string, IVariable>()
+                { { sign.Name, sign }, { exp.Name, exp }, { mant.Name, mant } };
         }
         else
         {

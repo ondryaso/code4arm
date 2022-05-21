@@ -13,12 +13,14 @@ using Code4Arm.Unicorn.Abstractions.Extensions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public class MemoryVariable : IVariable, ITraceable
+public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<float>, ISettableBackedVariable<double>
 {
     private readonly DebuggerVariableType _type;
     private readonly uint _address;
     private readonly int _size;
     private string? _value;
+    private float _floatValue;
+    private double _doubleValue;
 
     public MemoryVariable(string name, DebuggerVariableType type, uint address)
     {
@@ -32,6 +34,46 @@ public class MemoryVariable : IVariable, ITraceable
         Children = null;
     }
 
+    float IBackedVariable<float>.GetBackingValue(VariableContext context)
+    {
+        if (_type != DebuggerVariableType.Float)
+            throw new InvalidOperationException("This memory variable is not a float variable.");
+
+        return _floatValue;
+    }
+
+    double IBackedVariable<double>.GetBackingValue(VariableContext context)
+    {
+        if (_type != DebuggerVariableType.Double)
+            throw new InvalidOperationException("This memory variable is not a double variable.");
+
+        return _doubleValue;
+    }
+
+    public void Set(float value, VariableContext context)
+    {
+        try
+        {
+            context.Engine.Engine.MemWriteSafe(_address, value);
+        }
+        catch (UnicornException e) when (e.Error.IsMemoryError())
+        {
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
+        }
+    }
+
+    public void Set(double value, VariableContext context)
+    {
+        try
+        {
+            context.Engine.Engine.MemWriteSafe(_address, value);
+        }
+        catch (UnicornException e) when (e.Error.IsMemoryError())
+        {
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
+        }
+    }
+
     public string Name { get; }
     public string? Type { get; }
     public long Reference { get; }
@@ -43,21 +85,60 @@ public class MemoryVariable : IVariable, ITraceable
 
     public void Evaluate(VariableContext context)
     {
+        // All the types are actually covered
+#pragma warning disable CS8509
         try
         {
-            if (_type == DebuggerVariableType.Float)
+            if (_size == 1)
             {
-                var v = context.Engine.Engine.MemReadSafe<float>(_address);
-                _value = v.ToString(context.CultureInfo);
+                var v = context.Engine.Engine.MemReadSafe<byte>(_address);
+                _value = _type switch
+                {
+                    DebuggerVariableType.ByteS => FormattingUtils.FormatVariable(unchecked((sbyte)v), context),
+                    DebuggerVariableType.ByteU => FormattingUtils.FormatVariable(v, context),
+                    DebuggerVariableType.CharAscii => ((char)v).ToString()
+                };
             }
-            else if (_type == DebuggerVariableType.Double)
+            else if (_size == 2)
             {
-                var v = context.Engine.Engine.MemReadSafe<double>(_address);
-                _value = v.ToString(context.CultureInfo);
+                var v = context.Engine.Engine.MemReadSafe<ushort>(_address);
+                _value = _type switch
+                {
+                    DebuggerVariableType.ShortS => FormattingUtils.FormatVariable(unchecked((short)v), context),
+                    DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(v, context)
+                };
+            }
+            else if (_size == 4)
+            {
+                var v = context.Engine.Engine.MemReadSafe<uint>(_address);
+
+                if (_type == DebuggerVariableType.Float)
+                    _floatValue = Unsafe.As<uint, float>(ref v);
+
+                _value = _type switch
+                {
+                    DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)v), context),
+                    DebuggerVariableType.IntU => FormattingUtils.FormatVariable(v, context),
+                    DebuggerVariableType.Float => _floatValue.ToString(context.CultureInfo)
+                };
+            }
+            else if (_size == 8)
+            {
+                var v = context.Engine.Engine.MemReadSafe<ulong>(_address);
+
+                if (_type == DebuggerVariableType.Double)
+                    _doubleValue = Unsafe.As<ulong, double>(ref v);
+
+                _value = _type switch
+                {
+                    DebuggerVariableType.LongS => FormattingUtils.FormatVariable(unchecked((long)v), context),
+                    DebuggerVariableType.LongU => FormattingUtils.FormatVariable(v, context),
+                    DebuggerVariableType.Double => _doubleValue.ToString(context.CultureInfo)
+                };
             }
             else
             {
-                // TODO: make more effective
+                // Not gonna get here
                 Span<byte> bytes = stackalloc byte[_size];
                 context.Engine.Engine.MemRead(_address, bytes);
                 var bi = new BigInteger(bytes);
@@ -68,6 +149,7 @@ public class MemoryVariable : IVariable, ITraceable
         {
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead, e);
         }
+#pragma warning restore CS8509
     }
 
     public string Get(VariableContext context) => _value ?? string.Empty;

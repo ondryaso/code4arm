@@ -317,6 +317,7 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
     }
 
     public override IVariable? Parent => _parent;
+    internal override bool ShowFloatIeeeSubvariables => true;
 
     public override void SetUInt(uint value, VariableContext context)
     {

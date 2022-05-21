@@ -58,6 +58,19 @@ internal static class FormattingUtils
         ReadOnlySpan<char> span;
         var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
+        if (value.StartsWith("0b"))
+        {
+            try
+            {
+                return Convert.ToUInt32(value[2..], 2);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidVariableFormatException(
+                    "Invalid format. Expected 32b binary number.");
+            }
+        }
+
         if (value.StartsWith("0x"))
         {
             span = value.AsSpan()[2..];
@@ -81,7 +94,7 @@ internal static class FormattingUtils
             return ParseNumber32U(value, CultureInfo.InvariantCulture);
 
         throw new InvalidVariableFormatException(
-            "Invalid format. Expected 32b integer (decimal or hex, prefixed with 0x) or float (32b floating-point number).");
+            "Invalid format. Expected 32b integer (decimal; hex, prefixed with 0x; or binary, prefixed with 0b) or float (32b floating-point number).");
     }
 
     public static uint ParseNumber32F(string value, IFormatProvider? formatProvider)
@@ -100,6 +113,19 @@ internal static class FormattingUtils
         ReadOnlySpan<char> span;
         var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
+        if (value.StartsWith("0b"))
+        {
+            try
+            {
+                return Convert.ToUInt64(value[2..], 2);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidVariableFormatException(
+                    "Invalid format. Expected 64b binary number.");
+            }
+        }
+        
         if (value.StartsWith("0x"))
         {
             span = value.AsSpan()[2..];
@@ -123,7 +149,7 @@ internal static class FormattingUtils
             return ParseNumber64U(value, CultureInfo.InvariantCulture);
 
         throw new InvalidVariableFormatException(
-            "Invalid format. Expected 64b integer (decimal or hex, prefixed with 0x) or float (32b floating-point number).");
+            "Invalid format. Expected 64b integer (decimal; hex, prefixed with 0x; or binary, prefixed with 0b) or float (32b floating-point number).");
     }
 
     public static ulong ParseNumber64F(string value, IFormatProvider? formatProvider)
