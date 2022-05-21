@@ -8,7 +8,7 @@ namespace Code4Arm.ExecutionCore.Execution.Configuration;
 
 public enum VariableNumberFormat
 {
-    Decimal,
+    Decimal = 0,
     Hex,
     Binary
 }

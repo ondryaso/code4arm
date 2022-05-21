@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Code4Arm.ExecutionCore.Execution.Configuration;
@@ -14,7 +15,7 @@ internal static class FormattingUtils
     public static string FormatVariable(uint variable, VariableContext context)
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
-            return FormatHexSigned(variable, context.CultureInfo);
+            return FormatHex(variable, context.CultureInfo);
 
         if (context.NumberFormat == VariableNumberFormat.Binary)
             return Convert.ToString(variable, 2);
@@ -25,7 +26,7 @@ internal static class FormattingUtils
     public static string FormatVariable(int variable, VariableContext context)
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
-            return FormatHexSigned(variable, context.CultureInfo);
+            return FormatHex(variable, context.CultureInfo);
 
         if (context.NumberFormat == VariableNumberFormat.Binary)
             return Convert.ToString(variable, 2);
@@ -36,7 +37,7 @@ internal static class FormattingUtils
     public static string FormatVariable<T>(T variable, VariableContext context) where T : struct
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
-            return FormatHexSigned(variable, context.CultureInfo);
+            return FormatHex(variable, context.CultureInfo);
 
         if (context.NumberFormat == VariableNumberFormat.Binary)
         {
@@ -136,7 +137,7 @@ internal static class FormattingUtils
         throw new InvalidVariableFormatException("Invalid format. Expected double (64b floating-point number).");
     }
 
-    public static string FormatHexSigned<T>(T variable, CultureInfo cultureInfo) where T : struct
+    public static string FormatHex<T>(T variable, CultureInfo cultureInfo) where T : struct
     {
         return variable switch
         {
@@ -145,6 +146,7 @@ internal static class FormattingUtils
             int x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
             long x => x < 0 ? $"-0x{(-x):x}" : $"0x{x:x}",
             float x => x.ToString(cultureInfo),
+            double x => x.ToString(cultureInfo),
             _ => string.Format(cultureInfo, "0x{0:x}", variable)
         };
     }

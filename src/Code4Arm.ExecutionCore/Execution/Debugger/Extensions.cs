@@ -1,6 +1,7 @@
 ﻿// Extensions.cs
 // Author: Ondřej Ondryáš
 
+using System.Reflection;
 using Code4Arm.ExecutionCore.Protocol.Models;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
@@ -12,13 +13,19 @@ public static class Extensions
         if (evaluate)
             variable.Evaluate(context);
 
+        var adr = variable.GetType().GetField("_address", BindingFlags.Instance | BindingFlags.NonPublic);
+        object? address = null;
+        if (adr != null)
+            address = adr.GetValue(variable);
+
         return new Variable()
         {
             Name = variable.Name,
             Type = variable.Type,
             Value = variable.Get(context),
             NamedVariables = variable.Children?.Count,
-            VariablesReference = variable.Reference
+            VariablesReference = variable.Reference,
+            MemoryReference = ((uint?)address)?.ToString()
         };
     }
 

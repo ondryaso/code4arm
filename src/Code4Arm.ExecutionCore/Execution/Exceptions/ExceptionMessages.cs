@@ -6,6 +6,11 @@ namespace Code4Arm.ExecutionCore.Execution.Exceptions;
 public static class ExceptionMessages
 {
     public const string InvalidExpression = "Invalid expression.";
+    public const string InvalidExpressionTop = "Invalid expression: the general syntax is (type)expression:format.";
+    public const string InvalidExpressionTypeSpecifier = "Invalid value type specifier.";
+    public const string InvalidExpressionFormatSpecifier = "Invalid value format specifier.";
+    public const string InvalidExpressionAddressing = "Invalid addressing expression: the general syntax is (type) [ Rx/address/symbol, Roffset/offset_value, shift shift_value ] :format";
+    
     public const string InvalidVariable = "Invalid variable reference.";
     public const string ExecutableNotLoaded = "No executable loaded.";
     public const string InvalidSource = "Invalid source reference.";

@@ -5,6 +5,8 @@ using System.Buffers;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Code4Arm.ExecutionCore.Execution.Exceptions;
+using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
 using Code4Arm.Unicorn.Abstractions.Extensions;
@@ -41,23 +43,30 @@ public class MemoryVariable : IVariable, ITraceable
 
     public void Evaluate(VariableContext context)
     {
-        if (_type == DebuggerVariableType.Float)
+        try
         {
-            var v = context.Engine.Engine.MemReadSafe<float>(_address);
-            _value = v.ToString(context.CultureInfo);
+            if (_type == DebuggerVariableType.Float)
+            {
+                var v = context.Engine.Engine.MemReadSafe<float>(_address);
+                _value = v.ToString(context.CultureInfo);
+            }
+            else if (_type == DebuggerVariableType.Double)
+            {
+                var v = context.Engine.Engine.MemReadSafe<double>(_address);
+                _value = v.ToString(context.CultureInfo);
+            }
+            else
+            {
+                // TODO: make more effective
+                Span<byte> bytes = stackalloc byte[_size];
+                context.Engine.Engine.MemRead(_address, bytes);
+                var bi = new BigInteger(bytes);
+                _value = bi.ToString(context.CultureInfo);
+            }
         }
-        else if (_type == DebuggerVariableType.Double)
+        catch (UnicornException e) when (e.Error.IsMemoryError())
         {
-            var v = context.Engine.Engine.MemReadSafe<double>(_address);
-            _value = v.ToString(context.CultureInfo);
-        }
-        else
-        {
-            // TODO: make more effective
-            Span<byte> bytes = stackalloc byte[_size];
-            context.Engine.Engine.MemRead(_address, bytes);
-            var bi = new BigInteger(bytes);
-            _value = bi.ToString(context.CultureInfo);
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead, e);
         }
     }
 
@@ -65,25 +74,32 @@ public class MemoryVariable : IVariable, ITraceable
 
     public void Set(string value, VariableContext context)
     {
-        if (_type == DebuggerVariableType.Float)
+        try
         {
-            var v = FormattingUtils.ParseNumber32F(value, context.CultureInfo);
-            context.Engine.Engine.MemWriteSafe(_address, v);
+            if (_type == DebuggerVariableType.Float)
+            {
+                var v = FormattingUtils.ParseNumber32F(value, context.CultureInfo);
+                context.Engine.Engine.MemWriteSafe(_address, v);
+            }
+            else if (_type == DebuggerVariableType.Double)
+            {
+                var v = FormattingUtils.ParseNumber64F(value, context.CultureInfo);
+                context.Engine.Engine.MemWriteSafe(_address, v);
+            }
+            else if (_size <= 4)
+            {
+                var v = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
+                context.Engine.Engine.MemWriteSafe(_address, v, (nuint)_size);
+            }
+            else if (_size == 8)
+            {
+                var v = FormattingUtils.ParseNumber64U(value, context.CultureInfo);
+                context.Engine.Engine.MemWriteSafe(_address, v);
+            }
         }
-        else if (_type == DebuggerVariableType.Double)
+        catch (UnicornException e) when (e.Error.IsMemoryError())
         {
-            var v = FormattingUtils.ParseNumber64F(value, context.CultureInfo);
-            context.Engine.Engine.MemWriteSafe(_address, v);
-        }
-        else if (_size <= 4)
-        {
-            var v = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
-            context.Engine.Engine.MemWriteSafe(_address, v, (nuint)_size);
-        }
-        else if (_size == 8)
-        {
-            var v = FormattingUtils.ParseNumber64U(value, context.CultureInfo);
-            context.Engine.Engine.MemWriteSafe(_address, v);
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
         }
     }
 
@@ -103,7 +119,7 @@ public class MemoryVariable : IVariable, ITraceable
             _traceRegistration = engine.Engine.AddMemoryHook(
                 (unicorn, _, _, _, _) => { this.UpdateTrace(unicorn); }, MemoryHookType.Write, _address,
                 (ulong)(_address + _size - 1));
-            
+
             this.UpdateTrace(engine.Engine, false);
         }
     }

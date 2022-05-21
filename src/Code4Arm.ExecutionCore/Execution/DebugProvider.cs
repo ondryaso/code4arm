@@ -25,7 +25,7 @@ using StepBackMode = Code4Arm.ExecutionCore.Execution.Configuration.StepBackMode
 
 namespace Code4Arm.ExecutionCore.Execution;
 
-internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFormattedTraceObserver
+internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFormattedTraceObserver
 {
     private readonly ExecutionEngine _engine;
     private InitializeRequestArguments? _clientInfo;
@@ -411,131 +411,6 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFor
         traceable.InitTrace(_engine, this, _traceableId);
 
         return new Breakpoint() { Id = _traceableId++, Verified = true };
-    }
-
-    #endregion
-
-    #region Expressions
-
-    public SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format)
-    {
-        this.CheckInitialized();
-
-        if (expression.StartsWith("!!!") && expression.Length > 3)
-        {
-            var divider = expression.IndexOf('!', 3);
-            var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
-
-            if (!long.TryParse(referenceSpan, out var reference))
-                throw new InvalidExpressionException();
-
-            if (!_variables.TryGetValue(reference, out var toSet))
-                throw new InvalidExpressionException();
-
-            if (divider != -1)
-            {
-                var childName = expression[(divider + 1)..];
-
-                if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
-                    throw new InvalidExpressionException();
-            }
-
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
-            toSet.Set(value, ctx);
-
-            while (toSet.IsViewOfParent)
-            {
-                if (toSet.Parent == null)
-                    break;
-
-                toSet = toSet.Parent;
-            }
-
-            toSet.Evaluate(ctx);
-            var val = toSet.Get(ctx);
-
-            return new SetExpressionResponse()
-            {
-                Type = toSet.Type,
-                Value = val,
-                VariablesReference = toSet.Reference
-            };
-        }
-
-        throw new InvalidExpressionException();
-    }
-
-    private static readonly Regex ExpressionRegex =
-        new(
-            @"^(?:\((?<type>[\w ]*?)\))?\s*\[\s*(?:(?:R(?<base>[0-9]{1,2}))|(?<baseA>(?:0x[\da-fA-F]+)|(?:\d+)|(?:\w+)))(?:\s*,\s*(?:(?<regofSign>[+-])?R(?<regoof>[0-9]{1,2})(?:\s*,\s*(?<shift>LSL|LSR|ASR|ROR)\s+(?<shImm>\d+))?|(?:(?<immofSign>[+-])?(?<immof>\d+))))?\s*\]",
-            RegexOptions.Compiled);
-
-    public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
-        ValueFormat? format)
-    {
-        if (expression.StartsWith("!!!") && expression.Length > 3)
-        {
-            var divider = expression.IndexOf('!', 3);
-            var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
-
-            if (!long.TryParse(referenceSpan, out var reference))
-                throw new InvalidExpressionException();
-
-            if (!_variables.TryGetValue(reference, out var toSet))
-                throw new InvalidExpressionException();
-
-            if (divider != -1)
-            {
-                var childName = expression[(divider + 1)..];
-
-                if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
-                    throw new InvalidExpressionException();
-            }
-
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
-            var value = toSet.GetEvaluated(ctx);
-
-            return new EvaluateResponse()
-            {
-                Result = value,
-                Type = toSet.Type,
-                VariablesReference = toSet.Reference,
-                NamedVariables = toSet.Children?.Count ?? 0
-            };
-        }
-
-        // Register expression variants:
-        // [Rx]
-        // [Rx, +-Ry]
-        // [Rx, +-Ry, shift imm]
-        // [Rx, +-imm]
-        // type prefixes: (float) (double) (byte) (short) (int) (long) & unsig. variants & (string) - reads a C-string
-
-        // Direct addressing: 
-        // [address/symbol]
-        // [address/symbol, +-Ry]
-        // [address/symbol, +-Ry, shift imm]
-        // type prefixes: same as above
-
-        // Register access:
-        // Rx / Sx / Qx / Dx
-        // {anything defined in Arm.Registers}
-        // !{unicorn reg id}
-        // type prefixes: same as above without (string).
-
-        // all expressions may end with a display format specifier:
-        // :x (unsigned hex)
-        // :b (binary)
-        // :ieee (only for 32b and 64b values -> show sign/exponent/mantissa
-        // if type prefix is string, this has no effect
-
-        var match = ExpressionRegex.Match(expression);
-
-        if (!match.Success)
-            throw new InvalidExpressionException();
-
-        // TODO
-        return new EvaluateResponse() { Result = "test" };
     }
 
     #endregion
@@ -1372,7 +1247,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFor
         var actualCount = this.DetermineMappedMemorySize(address, (int)count);
 
         if (actualCount is -1 or 0)
-            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead);
+            return new ReadMemoryResponse() { Address = string.Empty, UnreadableBytes = count };
 
         var bufferSize = Base64.GetMaxEncodedToUtf8Length(actualCount);
         bufferSize = Math.Max(bufferSize, actualCount);
@@ -1427,7 +1302,7 @@ internal class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFor
         {
             Address = address.ToString(),
             Data = encoded,
-            UnreadableBytes = requestedCount - actualCount
+            //UnreadableBytes = requestedCount - actualCount
         };
     }
 
