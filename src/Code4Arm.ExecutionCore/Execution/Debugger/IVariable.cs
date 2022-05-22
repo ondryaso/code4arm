@@ -41,3 +41,8 @@ public interface ISettableBackedVariable<TBackingValue> : IBackedVariable<TBacki
 {
     void Set(TBackingValue value, VariableContext context);
 }
+
+public interface IAddressBackedVariable : IVariable
+{
+    uint GetAddress();
+}

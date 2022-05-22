@@ -3,6 +3,7 @@
 
 using System.Reflection;
 using Code4Arm.ExecutionCore.Protocol.Models;
+using Code4Arm.ExecutionCore.Protocol.Requests;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
@@ -13,10 +14,9 @@ public static class Extensions
         if (evaluate)
             variable.Evaluate(context);
 
-        var adr = variable.GetType().GetField("_address", BindingFlags.Instance | BindingFlags.NonPublic);
-        object? address = null;
-        if (adr != null)
-            address = adr.GetValue(variable);
+        string? address = null;
+        if (variable is IAddressBackedVariable addressBackedVariable)
+            address = addressBackedVariable.GetAddress().ToString();
 
         return new Variable()
         {
@@ -25,7 +25,27 @@ public static class Extensions
             Value = variable.Get(context),
             NamedVariables = variable.Children?.Count,
             VariablesReference = variable.Reference,
-            MemoryReference = ((uint?)address)?.ToString()
+            MemoryReference = address
+        };
+    }
+
+    public static EvaluateResponse GetAsEvaluateResponse(this IVariable variable, VariableContext context,
+        bool evaluate = false)
+    {
+        if (evaluate)
+            variable.Evaluate(context);
+
+        string? address = null;
+        if (variable is IAddressBackedVariable addressBackedVariable)
+            address = addressBackedVariable.GetAddress().ToString();
+
+        return new EvaluateResponse()
+        {
+            Type = variable.Type,
+            Result = variable.Get(context),
+            NamedVariables = variable.Children?.Count,
+            VariablesReference = variable.Reference,
+            MemoryReference = address
         };
     }
 
@@ -39,6 +59,21 @@ public static class Extensions
             DebuggerVariableType.LongU or DebuggerVariableType.LongS => 8,
             DebuggerVariableType.Float => 4,
             DebuggerVariableType.Double => 8,
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+    }
+
+    public static int GetSize(this ExpressionValueType type)
+    {
+        return type switch
+        {
+            ExpressionValueType.ByteU or ExpressionValueType.ByteS => 1,
+            ExpressionValueType.ShortU or ExpressionValueType.ShortS => 2,
+            ExpressionValueType.IntU or ExpressionValueType.IntS => 4,
+            ExpressionValueType.LongU or ExpressionValueType.LongS => 8,
+            ExpressionValueType.Float => 4,
+            ExpressionValueType.Double => 8,
+            ExpressionValueType.String or ExpressionValueType.Default => -1,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
     }

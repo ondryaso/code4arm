@@ -7,7 +7,7 @@ using Code4Arm.Unicorn.Abstractions.Extensions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public class StringVariable : IVariable
+public class StringVariable : IVariable, IAddressBackedVariable
 {
     private readonly uint _address;
     private string? _value;
@@ -73,4 +73,6 @@ public class StringVariable : IVariable
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
         }
     }
+
+    public uint GetAddress() => _address;
 }

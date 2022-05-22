@@ -2,10 +2,8 @@
 // Author: Ondřej Ondryáš
 
 using System.Globalization;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
@@ -20,6 +18,9 @@ internal static class FormattingUtils
         if (context.NumberFormat == VariableNumberFormat.Binary)
             return Convert.ToString(variable, 2);
 
+        if (context.NumberFormat == VariableNumberFormat.Float)
+            return Unsafe.As<uint, float>(ref variable).ToString(context.CultureInfo);
+
         return variable.ToString(context.CultureInfo);
     }
 
@@ -30,6 +31,9 @@ internal static class FormattingUtils
 
         if (context.NumberFormat == VariableNumberFormat.Binary)
             return Convert.ToString(variable, 2);
+
+        if (context.NumberFormat == VariableNumberFormat.Float)
+            return Unsafe.As<int, float>(ref variable).ToString(context.CultureInfo);
 
         return variable.ToString(context.CultureInfo);
     }
@@ -50,6 +54,18 @@ internal static class FormattingUtils
             return Convert.ToString(tmp[0], 2);
         }
 
+        if (context.NumberFormat == VariableNumberFormat.Float)
+        {
+            var size = Marshal.SizeOf<T>();
+
+            if (size == 4)
+                return Unsafe.As<T, float>(ref variable).ToString(context.CultureInfo);
+            else if (size == 8)
+                return Unsafe.As<T, double>(ref variable).ToString(context.CultureInfo);
+            else
+                throw new ArgumentException("Invalid variable size to format as a float.", nameof(variable));
+        }
+
         return variable.ToString()!;
     }
 
@@ -58,22 +74,17 @@ internal static class FormattingUtils
         ReadOnlySpan<char> span;
         var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
-        if (value.StartsWith("0b"))
-        {
-            try
-            {
-                return Convert.ToUInt32(value[2..], 2);
-            }
-            catch (FormatException)
-            {
-                throw new InvalidVariableFormatException(
-                    "Invalid format. Expected 32b binary number.");
-            }
-        }
+        var bS = value.StartsWith("0b");
+        var bE = value.EndsWith("b");
+        var hS = value.StartsWith("0x");
+        var hE = value.EndsWith("x") || value.EndsWith("h");
 
-        if (value.StartsWith("0x"))
+        if (bS || bE)
+            return ParseBinary32(value[bS ? (2..) : (..^1)]);
+
+        if (hS || hE)
         {
-            span = value.AsSpan()[2..];
+            span = value.AsSpan()[hS ? (2..) : (..^1)];
             numberStyle = NumberStyles.HexNumber;
         }
         else
@@ -93,8 +104,7 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber32U(value, CultureInfo.InvariantCulture);
 
-        throw new InvalidVariableFormatException(
-            "Invalid format. Expected 32b integer (decimal; hex, prefixed with 0x; or binary, prefixed with 0b) or float (32b floating-point number).");
+        throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32);
     }
 
     public static uint ParseNumber32F(string value, IFormatProvider? formatProvider)
@@ -105,7 +115,7 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber32F(value, CultureInfo.InvariantCulture);
 
-        throw new InvalidVariableFormatException("Invalid format. Expected 32b float (32b floating-point number).");
+        throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32Float);
     }
 
     public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
@@ -113,22 +123,17 @@ internal static class FormattingUtils
         ReadOnlySpan<char> span;
         var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
-        if (value.StartsWith("0b"))
+        var bS = value.StartsWith("0b");
+        var bE = value.EndsWith("b");
+        var hS = value.StartsWith("0x");
+        var hE = value.EndsWith("x") || value.EndsWith("h");
+
+        if (bS || bE)
+            return ParseBinary64(value[bS ? (2..) : (..^1)]);
+
+        if (hS || hE)
         {
-            try
-            {
-                return Convert.ToUInt64(value[2..], 2);
-            }
-            catch (FormatException)
-            {
-                throw new InvalidVariableFormatException(
-                    "Invalid format. Expected 64b binary number.");
-            }
-        }
-        
-        if (value.StartsWith("0x"))
-        {
-            span = value.AsSpan()[2..];
+            span = value.AsSpan()[hS ? (2..) : (..^1)];
             numberStyle = NumberStyles.HexNumber;
         }
         else
@@ -160,7 +165,7 @@ internal static class FormattingUtils
         if (!Equals(formatProvider, CultureInfo.InvariantCulture))
             return ParseNumber64F(value, CultureInfo.InvariantCulture);
 
-        throw new InvalidVariableFormatException("Invalid format. Expected double (64b floating-point number).");
+        throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat64Float);
     }
 
     public static string FormatHex<T>(T variable, CultureInfo cultureInfo) where T : struct
@@ -175,5 +180,57 @@ internal static class FormattingUtils
             double x => x.ToString(cultureInfo),
             _ => string.Format(cultureInfo, "0x{0:x}", variable)
         };
+    }
+
+    public static uint ParseBinary32(ReadOnlySpan<char> s)
+    {
+        uint value = 0;
+
+        if (s.Length > 32)
+            throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32Binary);
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (c == '1')
+            {
+                value |= 1;
+            }
+            else if (c != '0')
+            {
+                throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32Binary);
+            }
+
+            if (i != s.Length - 1)
+                value <<= 1;
+        }
+
+        return value;
+    }
+
+    public static ulong ParseBinary64(ReadOnlySpan<char> s)
+    {
+        ulong value = 0;
+
+        if (s.Length > 64)
+            throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat64Binary);
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (c == '1')
+            {
+                value |= 1;
+            }
+            else if (c != '0')
+            {
+                throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat64Binary);
+            }
+
+            if (i != s.Length - 1)
+                value <<= 1;
+        }
+
+        return value;
     }
 }

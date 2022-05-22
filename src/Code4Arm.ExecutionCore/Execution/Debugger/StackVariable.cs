@@ -8,7 +8,7 @@ using Code4Arm.Unicorn.Abstractions.Extensions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public class StackVariable : UIntBackedVariable
+public class StackVariable : UIntBackedVariable, IAddressBackedVariable
 {
     private readonly uint _address;
 
@@ -29,6 +29,8 @@ public class StackVariable : UIntBackedVariable
     public override bool IsViewOfParent => false;
 
     public override string Get(VariableContext context) => $"{_address:x}";
+    public uint GetAddress() => _address;
+
     public override bool NeedsExplicitEvaluationAfterStep => false;
     public override bool CanPersist => false;
     private UnicornHookRegistration _traceRegistration;

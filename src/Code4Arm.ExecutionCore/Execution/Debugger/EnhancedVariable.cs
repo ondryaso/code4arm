@@ -68,3 +68,28 @@ public class EnhancedVariable<TBackingValue> : ISettableBackedVariable<TBackingV
     public void Set(TBackingValue value, VariableContext context)
         => _parent.Set(value, context);
 }
+
+public class EnhancedAddressBackedVariable<TBackingValue> : EnhancedVariable<TBackingValue>, IAddressBackedVariable
+{
+    private IAddressBackedVariable _addressBackedParent;
+    
+    public EnhancedAddressBackedVariable(ISettableBackedVariable<TBackingValue> parent, long reference,
+        Func<ISettableBackedVariable<TBackingValue>, IEnumerable<IVariable>> childrenProducer) : base(parent, reference, childrenProducer)
+    {
+        if (parent is not IAddressBackedVariable addressBackedVariable)
+            throw new ArgumentException("Parent must be an IAddressBackedVariable.", nameof(parent));
+
+        _addressBackedParent = addressBackedVariable;
+    }
+
+    public EnhancedAddressBackedVariable(ISettableBackedVariable<TBackingValue> parent, long reference,
+        Func<ISettableBackedVariable<TBackingValue>, IVariable> childProducer) : base(parent, reference, childProducer)
+    {
+        if (parent is not IAddressBackedVariable addressBackedVariable)
+            throw new ArgumentException("Parent must be an IAddressBackedVariable.", nameof(parent));
+
+        _addressBackedParent = addressBackedVariable;
+    }
+
+    public uint GetAddress() => _addressBackedParent.GetAddress();
+}

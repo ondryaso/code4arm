@@ -7,20 +7,6 @@ using Code4Arm.ExecutionCore.Execution.Debugger;
 
 namespace Code4Arm.ExecutionCore.Execution.Configuration;
 
-public enum VariableNumberFormat
-{
-    Decimal = 0,
-    Hex,
-    Binary
-}
-
-public enum SimdRegisterLevel
-{
-    S32,
-    D64,
-    Q128
-}
-
 public class DebuggerOptions
 {
     /// <summary>

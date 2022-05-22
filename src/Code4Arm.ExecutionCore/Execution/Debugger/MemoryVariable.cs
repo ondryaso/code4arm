@@ -13,7 +13,8 @@ using Code4Arm.Unicorn.Abstractions.Extensions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<float>, ISettableBackedVariable<double>
+public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<float>, ISettableBackedVariable<double>,
+    IAddressBackedVariable
 {
     private readonly DebuggerVariableType _type;
     private readonly uint _address;
@@ -184,6 +185,8 @@ public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<flo
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
         }
     }
+
+    public uint GetAddress() => _address;
 
     public bool NeedsExplicitEvaluationAfterStep => false;
     public bool CanPersist => false;

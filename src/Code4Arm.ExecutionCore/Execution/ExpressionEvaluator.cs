@@ -5,7 +5,6 @@ using System.Numerics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
-using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
@@ -24,7 +23,7 @@ internal partial class DebugProvider
     private static Regex GetTopExpressionRegex() => TopExpressionRegex;
 
     private static readonly Regex RegisterRegex = new(
-        @"(?:(?<reg>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)(?:\.(?<divider>bytes|shorts|hwords)(?:\[(?<indexer>[0-9]+)\])?)?)|(?:(?:S(?<s_reg>(?:1[0-5])|[0-9]))(?:\.(?<divider>bytes|shorts|hwords)(?:\[(?<indexer>[0-9]+)\])?)?)|(?:(?:D(?<s_reg>31|30|(?:[12][0-9])|[0-9]))(?:\.(?<divider>bytes|shorts|hwords|ints|words)(?:\[(?<indexer>[0-9]+)\])?)?)|(?:(?:Q(?<s_reg>(?:1[0-5])|[0-9])(?:\.(?<divider>bytes|shorts|hwords|ints|words|longs|dwords)(?:\[(?<indexer>[0-9]+)\])?)?))",
+        @"(?:(?<reg>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?:S(?<s_reg>(?:1[0-5])|[0-9]))|(?:D(?<d_reg>31|30|(?:[12][0-9])|[0-9]))|(?:Q(?<q_reg>(?:1[0-5])|[0-9])))(?:\s?\[(?<indexer>[0-9]+)\])?",
         RegexOptions.Compiled);
 
     private static Regex GetRegisterRegex() => RegisterRegex;
@@ -86,8 +85,8 @@ internal partial class DebugProvider
         return expressionValue[0] switch
         {
             '[' => this.EvaluateAddressingExpression(expressionValue, expressionType, expressionFormat),
-            /*'R' or 'S' or 'Q' or 'D' => this.EvaluateRegisterExpression(expressionValue, expressionType,
-                expressionFormat),*/
+            'R' or 'S' or 'Q' or 'D' => this.EvaluateRegisterExpression(expressionValue, expressionType,
+                expressionFormat),
             '&' => this.EvaluateSymbolAddressExpression(expressionValue, expressionType, expressionFormat),
             _ => this.EvaluateVariablePathExpression(expressionValue, expressionType, expressionFormat, true)!
         };
@@ -150,15 +149,8 @@ internal partial class DebugProvider
         if (valueType == ExpressionValueType.String)
         {
             var variable = new StringVariable($"_expr.{address}", address);
-            variable.Evaluate(ctx);
-            var value = variable.Get(ctx);
 
-            return new EvaluateResponse()
-            {
-                Result = value,
-                Type = variable.Type,
-                MemoryReference = address.ToString()
-            };
+            return variable.GetAsEvaluateResponse(ctx, true);
         }
         else
         {
@@ -271,7 +263,82 @@ internal partial class DebugProvider
     private EvaluateResponse EvaluateRegisterExpression(string registerExpression, ExpressionValueType valueType,
         ExpressionValueFormat format)
     {
-        throw new NotImplementedException();
+        if (valueType == ExpressionValueType.String)
+            throw new System.Data.InvalidExpressionException(
+                ExceptionMessages.InvalidExpressionTypeSpecifierUnavailable);
+
+        var match = GetRegisterRegex().Match(registerExpression);
+
+        // If invalid, try to interpret the expression as a variable path; if that fails, throw
+        if (!match.Success)
+            return this.EvaluateVariablePathExpression(registerExpression, valueType, format)
+                ?? throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
+
+        if (match.Groups["reg"].Length > 0)
+        {
+            // R0–R15
+            var valueTypeSize = valueType.GetSize();
+
+            if (valueTypeSize > 4)
+                throw new InvalidExpressionException(
+                    ExceptionMessages.InvalidExpressionTypeSpecifierUnavailable);
+
+            var index = match.Groups["indexer"].Length > 0
+                ? (int?)int.Parse(match.Groups["indexer"].ValueSpan)
+                : null;
+
+            if (index > ((4 / valueTypeSize) - 1))
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            var debuggerVarType = (valueTypeSize == 4 || valueType == ExpressionValueType.Default) 
+                ? null : (DebuggerVariableType?)valueType;
+            var variable = this.GetRegisterVariable(match.Groups["reg"].Value, debuggerVarType, index,
+                format == ExpressionValueFormat.Ieee);
+
+            var variableFormat = (VariableNumberFormat)format;
+
+            if (format is ExpressionValueFormat.Default or ExpressionValueFormat.Ieee)
+                variableFormat = Options.VariableNumberFormat;
+            if (valueType == ExpressionValueType.Float)
+                variableFormat = VariableNumberFormat.Float;
+
+            var ctx = new VariableContext(_engine, _clientCulture!, Options, variableFormat);
+
+            return variable.GetAsEvaluateResponse(ctx, true);
+        }
+        else if (match.Groups["s_reg"].Length > 0)
+        {
+            // (byte)R0[1]
+        }
+
+        return new EvaluateResponse();
+    }
+
+    private IVariable GetRegisterVariable(string regName, DebuggerVariableType? subtype, int? index, bool ieee)
+    {
+        var regId = GetRegisterId(regName);
+        if (subtype.HasValue || ieee)
+        {
+            var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId);
+            var rv = new RegisterVariable(reference, regId, regName, subtype ?? DebuggerVariableType.Float,
+                ieee || Options.ShowFloatIeeeSubvariables);
+            this.AddOrUpdateVariable(rv);
+
+            if (!index.HasValue)
+                return rv;
+
+            if (!(rv.Children.FirstOrDefault().Value.Children?.TryGetValue($"[{index}]", out var subVar) ?? false))
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            return subVar;
+        }
+        else
+        {
+            if (index is > 0)
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            return new RegisterVariable(0, regId, regName, null, false);
+        }
     }
 
     private EvaluateResponse EvaluateSymbolAddressExpression(string symbolAddressExpression,
@@ -286,7 +353,7 @@ internal partial class DebugProvider
             ExpressionValueFormat.Ieee => ExpressionValueFormat.Hex,
             _ => format
         };
-        
+
         // TODO: Create dummy container variable to store the corresponding data symbol variable if it exists
 
         return new EvaluateResponse()
@@ -427,41 +494,36 @@ internal partial class DebugProvider
 /*
  Expression EBNF:
  
-    in_expr     ::= [ type ] expr [ format ] | direct_reference_expr;
-    type        ::= "(" type_name ")" ;
-    type_name   ::= "float" | "single" | "double" | "byte"   | "short" | "hword" | "int"   | "word"   | "long" 
-                  | "dword" | "sbyte"  | "ushort" | "uhword" | "uint"  | "uword" | "ulong" | "udword" | "string" ;
+    in_expr     = [ type ], expr, [ format ] | direct_reference_expr;
+    type        = "(", type_name, ")" ;
+    type_name   = "float" | "single" | "double" | "byte"   | "short" | "hword" | "int"   | "word"   | "long" 
+                | "dword" | "sbyte"  | "ushort" | "uhword" | "uint"  | "uword" | "ulong" | "udword" | "string" ;
                   
-    format      ::= ":" format_type ;
-    format_type ::= "x" | "b" | "ieee" ;
+    format      = ":", format_type ;
+    format_type = "x" | "b" | "ieee" | "d" ;
 
-    direct_reference_expr ::= "!!!" { digit } "." string ;
-    expr ::= addressing_expr | register_expr | symbol_addr | variable_path ;
+    direct_reference_expr = "!!!", { digit }+, ".", string ;
+    expr = addressing_expr | register_expr | variable_path | symbol_addr ;
     
-    addressing_expr ::= "[" address_expr [ "," expr_offset ] "]" ;
-    address_expr    ::= reg_name | imm | symbol ;
-    expr_offset     ::= sign offset_expr [ "," shift " " imm ] ;
-    offset_expr     ::= reg_name | imm ;
-    sign            ::= "+" | "-" | "" ;
-    reg_name        ::= "R0" | "R1" | ... | "R15" | "PC" | "LR" | "SP" ;
-    shift           ::= "LSL" | "LSR" | "ASR" | "ROR" | "ROL" ;
-    imm             ::= [ "0x" ] { digit } ; 
-    symbol          ::= string ;
+    addressing_expr = "[", address_expr, [ ",", expr_offset ], "]" ;
+    address_expr    = reg_name | imm | symbol ;
+    expr_offset     = sign, offset_expr, [ "," shift " " imm ] ;
+    offset_expr     = reg_name | imm ;
+    sign            = "+" | "-" | "" ;
+    reg_name        = "R0" | "R1" | ... | "R15" | "PC" | "LR" | "SP" ;
+    shift           = "LSL" | "LSR" | "ASR" | "ROR" | "ROL" ;
+    imm             = [ "0x" ], { digit }+ ; 
+    symbol          = string ;
     
-    variable_path ::= string { "." string } [ "." ] ;
+    variable_path = string, { ".", string }, [ "." ] ;
     
-    symbol_addr   ::= "&" string ;
+    symbol_addr   = "&", string ;
      
-    register_expr ::= reg_name [ "." divider32 [ indexer ] ] | s_reg_name [ "." divider32 [ indexer ] ] 
-                    | d_reg_name [ "." divider64 [ indexer ] ] | q_reg_name [ "." divider128 [ indexer ] ] ;
+    register_expr = reg_name, [ indexer ] | s_reg_name, [ indexer ] | d_reg_name, [ indexer ] | q_reg_name, [ indexer ] ;
     
-    s_reg_name    ::= "S0" | "S1" | ... | "S15" ;
-    d_reg_name    ::= "D0" | "D1" | ... | "D31" ;
-    q_reg_name    ::= "Q0" | "Q1" | ... | "Q15" ;
-
-    divider32  ::= "bytes" | "shorts" | "hwords"  ;
-    divider64  ::= "ints"  | "words"  | divider32 ;
-    divider128 ::= "longs" | "dwords" | divider64 ;
+    s_reg_name    = "S0" | "S1" | ... | "S15" ;
+    d_reg_name    = "D0" | "D1" | ... | "D31" ;
+    q_reg_name    = "Q0" | "Q1" | ... | "Q15" ;
     
-    indexer    ::= "[" { digit } "]" ;
+    indexer    = "[", { digit }+, "]" ;
 */
