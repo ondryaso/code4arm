@@ -11,14 +11,16 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 public class StackVariable : UIntBackedVariable, IAddressBackedVariable
 {
     private readonly uint _address;
+    private readonly bool _showFloatIeeeSubvariables;
 
-    public StackVariable(uint address, int index, DebuggerVariableType[] allowedSubtypes, bool showFloatIeeeSubvariables)
+    public StackVariable(uint address, int index, DebuggerVariableType[] allowedSubtypes,
+        bool showFloatIeeeSubvariables)
     {
         _address = address;
+        _showFloatIeeeSubvariables = showFloatIeeeSubvariables;
         Name = $"[{index}]";
         Type = null;
         Reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
-        ShowFloatIeeeSubvariables = showFloatIeeeSubvariables;
 
         this.MakeChildren(allowedSubtypes);
     }
@@ -70,7 +72,6 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
     }
 
     public override IVariable? Parent => null;
-    internal override bool ShowFloatIeeeSubvariables { get; }
 
     public override void SetUInt(uint value, VariableContext context)
     {
@@ -87,8 +88,9 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
     {
         foreach (var type in allowedSubtypes)
         {
-            var variable = new UIntBackedSubtypeVariable(this, type,
-                ReferenceUtils.MakeReference(ContainerType.StackSubtypesValues, _address, type));
+            var variable = new UIntBackedSubtypeVariable<StackVariable>(this, type,
+                ReferenceUtils.MakeReference(ContainerType.StackSubtypesValues, _address, type),
+                _showFloatIeeeSubvariables);
 
             ChildrenInternal.Add(variable.Name, variable);
         }

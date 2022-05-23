@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.Unicorn.Constants;
 
@@ -13,25 +14,42 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
 {
     private readonly int _unicornRegId;
+    private readonly Dictionary<string, IVariable>? _children;
     internal readonly ulong[] Values = new ulong[2];
 
-    public ArmQSimdRegisterVariable(int index)
+    public ArmQSimdRegisterVariable(int index, ArmSimdRegisterVariableOptions options)
     {
         _unicornRegId = Arm.Register.GetQRegister(index);
 
         Name = $"Q{index}";
-        Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 2);
 
-        var a = new ArmDSimdRegisterVariable(index * 2, this, 0);
-        var b = new ArmDSimdRegisterVariable((index * 2) + 1, this, 1);
-        Children = new Dictionary<string, IVariable>() { { a.Name, a }, { b.Name, b } };
+        if (options.ShowS || options.ShowD || options.QSubtypes != null)
+        {
+            Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 2);
+            _children = new Dictionary<string, IVariable>();
+
+            var showS = options.ShowS && !options.ShowD && index < 8;
+            if (showS)
+                this.MakeSChildren(index, options);
+
+            if (options.ShowD)
+                this.MakeDChildren(index, options);
+
+            if (options.QSubtypes != null)
+                this.MakeChildren(options.QSubtypes, options.ShowD, showS);
+        }
+        else
+        {
+            Reference = 0;
+            _children = null;
+        }
     }
 
     public string Name { get; }
     public long Reference { get; }
-    public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IReadOnlyDictionary<string, IVariable>? Children => _children;
     public IVariable? Parent => null;
-    public string Type => "128 b";
+    public string Type => "128-bit SIMD/FP register";
     public bool CanSet => true;
     public bool IsViewOfParent => false;
 
@@ -77,6 +95,44 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
         i.TryWriteBytes(valuesSpan, out _);
 
         context.Engine.Engine.RegWrite(_unicornRegId, valuesSpan);
+    }
+
+    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes, bool ignoreDoubles, bool ignoreFloats)
+    {
+        foreach (var type in allowedSubtypes)
+        {
+            if (ignoreDoubles && type == DebuggerVariableType.Double)
+                continue;
+            if (ignoreFloats && type == DebuggerVariableType.Float)
+                continue;
+
+            /*
+            var variable = new UIntBackedSubtypeVariable<ArmSSimdRegisterVariable>(this, type,
+                ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypesValues, _unicornRegId, type), _showIeee);
+
+            _children!.Add(variable.Name, variable);*/
+            // TODO
+        }
+    }
+
+    private void MakeDChildren(int thisIndex, ArmSimdRegisterVariableOptions options)
+    {
+        var a = new ArmDSimdRegisterVariable(thisIndex * 2, this, 0, options);
+        var b = new ArmDSimdRegisterVariable((thisIndex * 2) + 1, this, 1, options);
+
+        _children!.Add(a.Name, a);
+        _children!.Add(b.Name, b);
+    }
+
+    private void MakeSChildren(int thisIndex, ArmSimdRegisterVariableOptions options)
+    {
+        var sBaseIndex = thisIndex * 4;
+        for (var i = 0; i < 4; i++)
+        {
+            // TODO: add Q-parented S-variables
+            var child = new ArmSSimdRegisterVariable(sBaseIndex + i, options);
+            _children!.Add(child.Name, child);
+        }
     }
 
     public bool NeedsExplicitEvaluationAfterStep => true;
@@ -131,49 +187,76 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
     }
 }
 
-public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>
+public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableBackedVariable<double>,
+    ISettableBackedVariable<ulong>
 {
+    private readonly bool _showIeee;
+    private readonly bool _showAsFloat;
     private readonly int _unicornRegId;
     private readonly ArmQSimdRegisterVariable? _parent;
     private readonly int _parentOffset;
     private ulong _value;
+    private readonly Dictionary<string, IVariable>? _children;
 
-    public ArmDSimdRegisterVariable(int index)
+    public ArmDSimdRegisterVariable(int index, ArmSimdRegisterVariableOptions options)
     {
         _unicornRegId = Arm.Register.GetDRegister(index);
 
         Name = $"D{index}";
+        Type = options.PreferFloatRendering
+            ? "64 bit SIMD/FP register (interpreted as a double-precision floating-point number)"
+            : "64 bit SIMD/FP register";
 
-        if (index < 16)
+        var showS = options.ShowS && index < 16;
+        _showIeee = options.DIeeeSubvariables;
+        _showAsFloat = options.PreferFloatRendering;
+
+        if (showS || options.DIeeeSubvariables || options.DSubtypes != null)
         {
             Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 1);
+            _children = new Dictionary<string, IVariable>();
 
-            var a = new ArmSSimdRegisterVariable(index * 2, this, 0);
-            var b = new ArmSSimdRegisterVariable((index * 2) + 1, this, 1);
-            Children = new Dictionary<string, IVariable>() { { a.Name, a }, { b.Name, b } };
+            if (showS)
+                this.MakeSChildren(index, options);
+
+            if (options.DSubtypes != null)
+                this.MakeChildren(options.DSubtypes, showS);
+
+            if (options.DIeeeSubvariables &&
+                (options.DSubtypes == null || !options.DSubtypes.Contains(DebuggerVariableType.Double)))
+                this.MakeIeeeChildren();
         }
         else
         {
             Reference = 0;
-            Children = null;
+            _children = null;
         }
 
         _parent = null;
         _parentOffset = 0;
     }
 
-    internal ArmDSimdRegisterVariable(int index, ArmQSimdRegisterVariable parent, int parentOffset)
-        : this(index)
+    internal ArmDSimdRegisterVariable(int index, ArmQSimdRegisterVariable parent, int parentOffset,
+        ArmSimdRegisterVariableOptions options)
+        : this(index, options)
     {
         _parent = parent;
         _parentOffset = parentOffset;
     }
 
+    double IBackedVariable<double>.GetBackingValue(VariableContext context)
+    {
+        var valU = this.GetBackingValue(context);
+        return Unsafe.As<ulong, double>(ref valU);
+    }
+
+    public ulong GetBackingValue(VariableContext context) => Value;
+
     public string Name { get; }
     public long Reference { get; }
-    public IReadOnlyDictionary<string, IVariable>? Children { get; }
+    public IReadOnlyDictionary<string, IVariable>? Children => _children;
     public IVariable? Parent => _parent;
-    public string Type => "64 b";
+    public string Type { get; }
     public bool CanSet => true;
     public bool IsViewOfParent => _parent != null;
 
@@ -191,19 +274,21 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>
 
     public string Get(VariableContext context)
     {
-        return Format(Value, context);
+        return this.Format(Value, context);
     }
 
-    private static string Format(ulong value, VariableContext context)
+    private string Format(ulong value, VariableContext context)
     {
-        if (context.Options.ShowSimdRegistersAsFp)
+        if (_showAsFloat || context.NumberFormat == VariableNumberFormat.Float)
         {
             var d = Unsafe.As<ulong, double>(ref value);
 
             return d.ToString(context.CultureInfo);
         }
-
-        return $"0x{value:x}";
+        else
+        {
+            return FormattingUtils.FormatVariable(value, context);
+        }
     }
 
     internal ulong Value
@@ -221,9 +306,54 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>
     public void Set(string value, VariableContext context)
     {
         var parsed = FormattingUtils.ParseNumber64U(value, context.CultureInfo);
-        Value = parsed;
+        this.Set(parsed, context);
+    }
 
-        context.Engine.Engine.RegWrite(_unicornRegId, parsed);
+    public void Set(double value, VariableContext context)
+    {
+        var valU = Unsafe.As<double, ulong>(ref value);
+        this.Set(valU, context);
+    }
+
+    public void Set(ulong value, VariableContext context)
+    {
+        Value = value;
+
+        context.Engine.Engine.RegWrite(_unicornRegId, value);
+    }
+
+    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes, bool ignoreFloats)
+    {
+        foreach (var type in allowedSubtypes)
+        {
+            if (ignoreFloats && type == DebuggerVariableType.Float)
+                continue;
+
+            var variable = new ULongBackedSubtypeVariable<ArmDSimdRegisterVariable>(this, type,
+                ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypesValues, _unicornRegId, type), _showIeee);
+
+            _children!.Add(variable.Name, variable);
+        }
+    }
+
+    private void MakeIeeeChildren()
+    {
+        var sign = new DoublePrecisionIeeeSegmentVariable(this, IeeeSegment.Sign);
+        var exp = new DoublePrecisionIeeeSegmentVariable(this, IeeeSegment.Exponent);
+        var mant = new DoublePrecisionIeeeSegmentVariable(this, IeeeSegment.Mantissa);
+
+        _children!.Add(sign.Name, sign);
+        _children.Add(exp.Name, exp);
+        _children.Add(mant.Name, mant);
+    }
+
+    private void MakeSChildren(int thisIndex, ArmSimdRegisterVariableOptions options)
+    {
+        var a = new ArmSSimdRegisterVariable(thisIndex * 2, this, 0, options);
+        var b = new ArmSSimdRegisterVariable((thisIndex * 2) + 1, this, 1, options);
+
+        _children!.Add(a.Name, a);
+        _children!.Add(b.Name, b);
     }
 
     public bool NeedsExplicitEvaluationAfterStep => true;
@@ -259,8 +389,8 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>
             {
                 var context = traceObserver.Observer.GetTraceTriggerContext();
                 if (traceObserver.Observer is IFormattedTraceObserver formattedObserver)
-                    formattedObserver.TraceTriggered(traceObserver.TraceId, Format(_traceValue, context),
-                        Format(currentValue, context));
+                    formattedObserver.TraceTriggered(traceObserver.TraceId, this.Format(_traceValue, context),
+                        this.Format(currentValue, context));
                 else if (traceObserver.Observer is ITraceObserver<ulong> ulongObserver)
                     ulongObserver.TraceTriggered(traceObserver.TraceId, _traceValue, currentValue);
                 else
@@ -279,50 +409,73 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>
 
 public class ArmSSimdRegisterVariable : UIntBackedVariable
 {
+    private readonly bool _showAsFloat;
+    private readonly bool _showIeee;
     private readonly int _unicornRegId;
-    private readonly ArmDSimdRegisterVariable? _parent;
+    private readonly ArmDSimdRegisterVariable? _dParent;
     private readonly ulong _mask;
     private readonly int _shift;
 
-    public ArmSSimdRegisterVariable(int index)
+    public ArmSSimdRegisterVariable(int index, ArmSimdRegisterVariableOptions options)
     {
+        _showAsFloat = options.PreferFloatRendering;
+        _showIeee = options.SIeeeSubvariables;
         _unicornRegId = Arm.Register.GetSRegister(index);
 
         Name = $"S{index}";
-        Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 0);
+        Type = options.PreferFloatRendering
+            ? "32 bit SIMD/FP register (interpreted as a single-precision floating-point number)"
+            : "32 bit SIMD/FP register";
 
-        // TODO: make this configurable
-        this.MakeChildren(new[] { DebuggerVariableType.Float, DebuggerVariableType.IntS, DebuggerVariableType.IntU });
+        if (options.SSubtypes != null || options.SIeeeSubvariables)
+        {
+            Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 0);
+
+            if (options.SSubtypes != null)
+            {
+                this.MakeChildren(options.SSubtypes);
+            }
+
+            if (options.SIeeeSubvariables &&
+                (options.SSubtypes == null || !options.SSubtypes.Contains(DebuggerVariableType.Float)))
+            {
+                this.MakeIeeeChildren();
+            }
+        }
+        else
+        {
+            Reference = 0;
+        }
     }
 
-    internal ArmSSimdRegisterVariable(int index, ArmDSimdRegisterVariable parent, int parentOffset)
-        : this(index)
+    internal ArmSSimdRegisterVariable(int index, ArmDSimdRegisterVariable dParent, int parentOffset,
+        ArmSimdRegisterVariableOptions options)
+        : this(index, options)
     {
-        _parent = parent;
+        _dParent = dParent;
         _shift = parentOffset * 32;
         _mask = 0xFFFFFFFFul << _shift;
     }
 
     public override string Name { get; }
-    public override string Type => "32 b";
+    public override string Type { get; }
     public override long Reference { get; }
-    public override bool IsViewOfParent => _parent != null;
+    public override bool IsViewOfParent => _dParent != null;
 
     public override uint GetUInt()
     {
-        if (_parent != null)
-            CurrentValue = unchecked((uint)((_parent.Value & _mask) >> _shift));
+        if (_dParent != null)
+            CurrentValue = unchecked((uint)((_dParent.Value & _mask) >> _shift));
 
         return CurrentValue;
     }
 
-    public override IVariable? Parent => _parent;
-    internal override bool ShowFloatIeeeSubvariables => true;
+    public override IVariable? Parent => _dParent;
 
     public override void SetUInt(uint value, VariableContext context)
     {
-        if (_parent != null)
-            _parent.Value = (_parent.Value & ~_mask) | (((ulong)value) << _shift);
+        if (_dParent != null)
+            _dParent.Value = (_dParent.Value & ~_mask) | (((ulong)value) << _shift);
 
         CurrentValue = value;
         context.Engine.Engine.RegWrite(_unicornRegId, value);
@@ -330,10 +483,10 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
 
     public override void Evaluate(VariableContext context)
     {
-        if (_parent != null)
+        if (_dParent != null)
         {
-            _parent.Evaluate(context);
-            CurrentValue = unchecked((uint)((_parent.Value & _mask) >> _shift));
+            _dParent.Evaluate(context);
+            CurrentValue = unchecked((uint)((_dParent.Value & _mask) >> _shift));
 
             return;
         }
@@ -341,21 +494,22 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
         CurrentValue = context.Engine.Engine.RegRead<uint>(_unicornRegId);
     }
 
-    public override string Get(VariableContext context)
+    protected override string Format(uint value, VariableContext context)
     {
-        var value = this.GetUInt();
-
-        if (context.Options.ShowSimdRegistersAsFp)
+        if (_showAsFloat || context.NumberFormat == VariableNumberFormat.Float)
         {
             var d = Unsafe.As<uint, float>(ref value);
 
             return d.ToString(context.CultureInfo);
         }
-
-        return $"0x{value:x}";
+        else
+        {
+            return FormattingUtils.FormatVariable(value, context);
+        }
     }
 
     public override bool NeedsExplicitEvaluationAfterStep => true;
+
     public override bool CanPersist => true;
 
     public override void TraceStep(ExecutionEngine engine)
@@ -368,10 +522,21 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
     {
         foreach (var type in allowedSubtypes)
         {
-            var variable = new UIntBackedSubtypeVariable(this, type,
-                ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypesValues, _unicornRegId, type));
+            var variable = new UIntBackedSubtypeVariable<ArmSSimdRegisterVariable>(this, type,
+                ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypesValues, _unicornRegId, type), _showIeee);
 
             ChildrenInternal.Add(variable.Name, variable);
         }
+    }
+
+    private void MakeIeeeChildren()
+    {
+        var sign = new SinglePrecisionIeeeSegmentVariable(this, IeeeSegment.Sign);
+        var exp = new SinglePrecisionIeeeSegmentVariable(this, IeeeSegment.Exponent);
+        var mant = new SinglePrecisionIeeeSegmentVariable(this, IeeeSegment.Mantissa);
+
+        ChildrenInternal.Add(sign.Name, sign);
+        ChildrenInternal.Add(exp.Name, exp);
+        ChildrenInternal.Add(mant.Name, mant);
     }
 }

@@ -639,8 +639,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             ), true).GetAsProtocol(ctx, true);
 
         retArray[i++] = this.GetOrAddTopLevelVariable("PC",
-                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)",
-                                    false))
+                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
                             .GetAsProtocol(ctx, true);
 
         if (Options.EnableExtendedControlVariables)
@@ -772,9 +771,9 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             var v = this.GetOrAddVariable(reference,
                 () => topLevel switch
                 {
-                    SimdRegisterLevel.S32 => new ArmSSimdRegisterVariable(regNumber),
-                    SimdRegisterLevel.D64 => new ArmDSimdRegisterVariable(regNumber),
-                    SimdRegisterLevel.Q128 => new ArmQSimdRegisterVariable(regNumber),
+                    SimdRegisterLevel.S32 => new ArmSSimdRegisterVariable(regNumber, Options.SimdRegistersOptions),
+                    SimdRegisterLevel.D64 => new ArmDSimdRegisterVariable(regNumber, Options.SimdRegistersOptions),
+                    SimdRegisterLevel.Q128 => new ArmQSimdRegisterVariable(regNumber, Options.SimdRegistersOptions),
                     _ => throw new ConfigurationException("Invalid TopSimdRegistersLevel.")
                 }, true);
 
@@ -1053,12 +1052,12 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                 {
                     case SimdRegisterLevel.D64:
                         this.GetOrAddVariable(reference,
-                            () => new ArmDSimdRegisterVariable(regNum), true);
+                            () => new ArmDSimdRegisterVariable(regNum, Options.SimdRegistersOptions), true);
 
                         break;
                     case SimdRegisterLevel.Q128:
                         this.GetOrAddVariable(reference,
-                            () => new ArmQSimdRegisterVariable(regNum), true);
+                            () => new ArmQSimdRegisterVariable(regNum, Options.SimdRegistersOptions), true);
 
                         break;
                     default:

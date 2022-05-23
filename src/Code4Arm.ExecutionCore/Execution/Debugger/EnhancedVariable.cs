@@ -69,26 +69,22 @@ public class EnhancedVariable<TBackingValue> : ISettableBackedVariable<TBackingV
         => _parent.Set(value, context);
 }
 
-public class EnhancedAddressBackedVariable<TBackingValue> : EnhancedVariable<TBackingValue>, IAddressBackedVariable
+public class EnhancedAddressBackedVariable<TBackingValue, TParent> : EnhancedVariable<TBackingValue>,
+    IAddressBackedVariable where TParent : ISettableBackedVariable<TBackingValue>, IAddressBackedVariable
 {
-    private IAddressBackedVariable _addressBackedParent;
-    
-    public EnhancedAddressBackedVariable(ISettableBackedVariable<TBackingValue> parent, long reference,
-        Func<ISettableBackedVariable<TBackingValue>, IEnumerable<IVariable>> childrenProducer) : base(parent, reference, childrenProducer)
-    {
-        if (parent is not IAddressBackedVariable addressBackedVariable)
-            throw new ArgumentException("Parent must be an IAddressBackedVariable.", nameof(parent));
+    private readonly IAddressBackedVariable _addressBackedParent;
 
-        _addressBackedParent = addressBackedVariable;
+    public EnhancedAddressBackedVariable(TParent parent, long reference,
+        Func<ISettableBackedVariable<TBackingValue>, IEnumerable<IVariable>> childrenProducer) : base(parent, reference,
+        childrenProducer)
+    {
+        _addressBackedParent = parent;
     }
 
-    public EnhancedAddressBackedVariable(ISettableBackedVariable<TBackingValue> parent, long reference,
+    public EnhancedAddressBackedVariable(TParent parent, long reference,
         Func<ISettableBackedVariable<TBackingValue>, IVariable> childProducer) : base(parent, reference, childProducer)
     {
-        if (parent is not IAddressBackedVariable addressBackedVariable)
-            throw new ArgumentException("Parent must be an IAddressBackedVariable.", nameof(parent));
-
-        _addressBackedParent = addressBackedVariable;
+        _addressBackedParent = parent;
     }
 
     public uint GetAddress() => _addressBackedParent.GetAddress();

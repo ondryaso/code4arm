@@ -1,4 +1,4 @@
-﻿// UIntVariable.cs
+// ULongBackedSubvariables.cs
 // Author: Ondřej Ondryáš
 
 using System.Runtime.CompilerServices;
@@ -6,78 +6,16 @@ using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public abstract class UIntBackedVariable : UIntBackedTraceable, IVariable, ISettableBackedVariable<uint>,
-    ISettableBackedVariable<float>
-{
-    protected readonly Dictionary<string, IVariable> ChildrenInternal = new();
-    protected uint CurrentValue;
-
-    float IBackedVariable<float>.GetBackingValue(VariableContext context)
-    {
-        var value = this.GetUInt();
-
-        return Unsafe.As<uint, float>(ref value);
-    }
-
-    public void Set(float value, VariableContext context)
-    {
-        var asUint = Unsafe.As<float, uint>(ref value);
-        this.SetUInt(asUint, context);
-    }
-
-    public void Set(uint value, VariableContext context)
-    {
-        this.SetUInt(value, context);
-    }
-
-    public abstract string Name { get; }
-    public abstract string? Type { get; }
-    public abstract long Reference { get; }
-    public bool CanSet => true;
-    public abstract bool IsViewOfParent { get; }
-    public virtual IReadOnlyDictionary<string, IVariable> Children => ChildrenInternal;
-    public abstract IVariable? Parent { get; }
-
-    public abstract void SetUInt(uint value, VariableContext context);
-    public abstract void Evaluate(VariableContext context);
-
-    public virtual uint GetUInt()
-    {
-        return CurrentValue;
-    }
-
-    public virtual string Get(VariableContext context)
-    {
-        var value = this.GetUInt();
-
-        return this.Format(value, context);
-    }
-
-    public void Set(string value, VariableContext context)
-    {
-        var number = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
-        this.SetUInt(number, context);
-    }
-
-    protected override string Format(uint value, VariableContext context)
-        => FormattingUtils.FormatVariable(value, context);
-
-    public uint GetBackingValue(VariableContext context) => this.GetUInt();
-}
-
-public class UIntBackedSubtypeVariable<TParent> : UIntBackedDependentTraceable, IVariable
-    where TParent : ISettableBackedVariable<uint>, ITraceable
+public class ULongBackedSubtypeVariable<TParent> : ULongBackedDependentTraceable, IVariable
+    where TParent : ISettableBackedVariable<ulong>, ITraceable
 {
     private readonly TParent _parent;
     private readonly DebuggerVariableType _subtype;
 
-    internal UIntBackedSubtypeVariable(TParent parent, DebuggerVariableType subtype, long reference,
+    internal ULongBackedSubtypeVariable(TParent parent, DebuggerVariableType subtype, long reference,
         bool showIeeeSubvariables)
-        : base(parent, uint.MaxValue, 0)
+        : base(parent, ulong.MaxValue, 0)
     {
-        if (subtype is DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double)
-            throw new ArgumentOutOfRangeException(nameof(subtype));
-
         _parent = parent;
         _subtype = subtype;
 
@@ -88,35 +26,38 @@ public class UIntBackedSubtypeVariable<TParent> : UIntBackedDependentTraceable, 
             DebuggerVariableType.CharAscii => "chars",
             DebuggerVariableType.ShortU => "unsigned shorts",
             DebuggerVariableType.ShortS => "signed shorts",
-            DebuggerVariableType.IntU => "unsigned int",
-            DebuggerVariableType.IntS => "signed int",
-            DebuggerVariableType.Float => "float",
+            DebuggerVariableType.IntU => "unsigned ints",
+            DebuggerVariableType.IntS => "signed ints",
+            DebuggerVariableType.Float => "floats",
+            DebuggerVariableType.LongU => "unsigned long",
+            DebuggerVariableType.LongS => "unsigned long",
+            DebuggerVariableType.Double => "double",
             _ => throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null)
         };
 
         Type = null;
-        CanSet = subtype is DebuggerVariableType.IntU or DebuggerVariableType.IntS or DebuggerVariableType.Float;
+        CanSet = subtype is DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double;
         Reference = reference;
         Children = null;
 
         if (!CanSet)
         {
             var c = new Dictionary<string, IVariable>();
-            var count = 4 / subtype.GetSize();
+            var count = 8 / subtype.GetSize();
             for (var i = 0; i < count; i++)
             {
-                var child = new UIntBackedSubtypeAtomicVariable<TParent>(parent, this, subtype, i);
+                var child = new ULongBackedSubtypeAtomicVariable<TParent>(parent, this, subtype, i);
                 c.Add(child.Name, child);
             }
 
             Children = c;
         }
-        else if (subtype is DebuggerVariableType.Float && showIeeeSubvariables &&
-                 parent is ISettableBackedVariable<float> floatBackedParent)
+        else if (subtype is DebuggerVariableType.Double && showIeeeSubvariables &&
+                 parent is ISettableBackedVariable<double> doubleBackedParent)
         {
-            var sign = new SinglePrecisionIeeeSegmentVariable(floatBackedParent, IeeeSegment.Sign);
-            var exp = new SinglePrecisionIeeeSegmentVariable(floatBackedParent, IeeeSegment.Exponent);
-            var mant = new SinglePrecisionIeeeSegmentVariable(floatBackedParent, IeeeSegment.Mantissa);
+            var sign = new DoublePrecisionIeeeSegmentVariable(doubleBackedParent, IeeeSegment.Sign);
+            var exp = new DoublePrecisionIeeeSegmentVariable(doubleBackedParent, IeeeSegment.Exponent);
+            var mant = new DoublePrecisionIeeeSegmentVariable(doubleBackedParent, IeeeSegment.Mantissa);
 
             Children = new Dictionary<string, IVariable>()
                 { { sign.Name, sign }, { exp.Name, exp }, { mant.Name, mant } };
@@ -150,57 +91,60 @@ public class UIntBackedSubtypeVariable<TParent> : UIntBackedDependentTraceable, 
     public void Set(string value, VariableContext context)
     {
         var number = _subtype == DebuggerVariableType.Float
-            ? FormattingUtils.ParseNumber32F(value, context.CultureInfo)
-            : FormattingUtils.ParseNumber32U(value, context.CultureInfo);
+            ? FormattingUtils.ParseNumber64F(value, context.CultureInfo)
+            : FormattingUtils.ParseNumber64U(value, context.CultureInfo);
 
         _parent.Set(number, context);
     }
 
-    protected override string Format(uint value, VariableContext context)
+    protected override string Format(ulong value, VariableContext context)
     {
         if (_subtype is DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii
-            or DebuggerVariableType.ShortU or DebuggerVariableType.ShortS)
+            or DebuggerVariableType.ShortU or DebuggerVariableType.ShortS or DebuggerVariableType.IntU
+            or DebuggerVariableType.IntS)
             return string.Empty;
 
         return _subtype switch
         {
-            DebuggerVariableType.IntU => FormattingUtils.FormatVariable(value, context),
-            DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)value), context),
-            DebuggerVariableType.Float => Unsafe.As<uint, float>(ref value).ToString(context.CultureInfo),
+            DebuggerVariableType.LongU => FormattingUtils.FormatVariable(value, context),
+            DebuggerVariableType.LongS => FormattingUtils.FormatVariable(unchecked((long)value), context),
+            DebuggerVariableType.Double => Unsafe.As<ulong, double>(ref value).ToString(context.CultureInfo),
             _ => string.Empty
         };
     }
 }
 
-public class UIntBackedSubtypeAtomicVariable<TParent> : UIntBackedDependentTraceable, IVariable
-    where TParent : ISettableBackedVariable<uint>, ITraceable
+public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTraceable, IVariable
+    where TParent : ISettableBackedVariable<ulong>, ITraceable
 {
     private readonly TParent _parent;
     private readonly IVariable _treeParent;
     private readonly DebuggerVariableType _subtype;
 
-    private readonly uint _mask;
+    private readonly ulong _mask;
     private readonly int _offset;
 
-    private readonly int _min, _max;
+    private readonly long _min, _max;
 
-    internal UIntBackedSubtypeAtomicVariable(TParent parent, IVariable treeParent,
+    internal ULongBackedSubtypeAtomicVariable(TParent parent, IVariable treeParent,
         DebuggerVariableType subtype, int index)
         : base(parent, subtype switch
         {
             DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii => 0xFF,
-            _ => 0xFFFF
+            DebuggerVariableType.ShortS or DebuggerVariableType.ShortU => 0xFFFF,
+            _ => 0xFFFFFFFF
         }, subtype switch
         {
             DebuggerVariableType.ByteU or DebuggerVariableType.ByteS or DebuggerVariableType.CharAscii => 8 * index,
-            _ => 16 * index
+            DebuggerVariableType.ShortS or DebuggerVariableType.ShortU => 16 * index,
+            _ => 32 * index
         })
     {
-        if (subtype is DebuggerVariableType.IntU or DebuggerVariableType.IntS
-            or DebuggerVariableType.LongU or DebuggerVariableType.LongS
-            or DebuggerVariableType.Float or DebuggerVariableType.Double)
+        if (subtype is DebuggerVariableType.LongU or DebuggerVariableType.LongS or DebuggerVariableType.Double)
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
 
+        // TODO: Support for IEEE
+        
         _parent = parent;
         _treeParent = treeParent;
         _subtype = subtype;
@@ -213,21 +157,26 @@ public class UIntBackedSubtypeAtomicVariable<TParent> : UIntBackedDependentTrace
             _mask = 0xFF;
             _offset = 8 * index;
         }
-        else
+        else if (subtype is DebuggerVariableType.ShortS or DebuggerVariableType.ShortU)
         {
             _mask = 0xFFFF;
             _offset = 16 * index;
         }
+        else
+        {
+            _mask = 0xFFFFFFFF;
+            _offset = 32 * index;
+        }
 
         if (subtype is DebuggerVariableType.ByteS or DebuggerVariableType.ShortS)
         {
-            _min = -((int)_mask / 2) - 1;
-            _max = (int)_mask / 2;
+            _min = -((long)_mask / 2) - 1;
+            _max = (long)_mask / 2;
         }
         else
         {
             _min = 0;
-            _max = (int)_mask;
+            _max = (long)_mask;
         }
 
         Reference = 0;
@@ -255,21 +204,24 @@ public class UIntBackedSubtypeAtomicVariable<TParent> : UIntBackedDependentTrace
         return this.Format(value, context);
     }
 
-    protected override string Format(uint value, VariableContext context)
+    protected override string Format(ulong value, VariableContext context)
     {
         return _subtype switch
         {
-            DebuggerVariableType.ByteU or DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(value, context),
+            DebuggerVariableType.ByteU or DebuggerVariableType.ShortU or DebuggerVariableType.IntU
+                => FormattingUtils.FormatVariable(value, context),
             DebuggerVariableType.ByteS => FormattingUtils.FormatVariable((int)unchecked((sbyte)value), context),
             DebuggerVariableType.CharAscii => $"'{(char)value}'",
             DebuggerVariableType.ShortS => FormattingUtils.FormatVariable((int)unchecked((short)value), context),
+            DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)value), context),
+            DebuggerVariableType.Float => Unsafe.As<ulong, float>(ref value).ToString(context.CultureInfo),
             _ => throw new Exception("Invalid state.")
         };
     }
 
     public void Set(string value, VariableContext context)
     {
-        uint shifted;
+        ulong shifted;
 
         if (_subtype == DebuggerVariableType.CharAscii)
         {
@@ -281,12 +233,12 @@ public class UIntBackedSubtypeAtomicVariable<TParent> : UIntBackedDependentTrace
             if (c < 0 || c > 255)
                 throw new InvalidVariableFormatException("Invalid format. Expected an ASCII char.");
 
-            shifted = ((uint)c) << _offset;
+            shifted = ((ulong)c) << _offset;
         }
         else
         {
-            var parsed = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
-            var parsedI = unchecked((int)parsed);
+            var parsed = FormattingUtils.ParseNumber64U(value, context.CultureInfo);
+            var parsedI = unchecked((long)parsed);
 
             if (parsedI < _min || parsedI > _max)
                 throw new InvalidVariableFormatException(
