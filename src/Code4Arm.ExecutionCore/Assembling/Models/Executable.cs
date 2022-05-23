@@ -212,9 +212,10 @@ public class Executable : IExecutableInfo, IDisposable
 
     private void DetermineDataSectionsStarts(string linkerOutput)
     {
+        linkerOutput = linkerOutput.ReplaceLineEndings("\n");
         var matches = DataSectionRegex.Matches(linkerOutput);
         var starts = matches
-                     .Where(m => m.Groups[2].Value != "0")
+                     .Where(m => m.Groups[2].Value != "0" && !string.IsNullOrWhiteSpace(m.Groups[3].Value))
                      .ToDictionary(m => m.Groups[3].Value,
                          m => ulong.Parse(m.Groups[1].Value, NumberStyles.AllowHexSpecifier));
 
