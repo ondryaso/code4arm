@@ -89,7 +89,6 @@ public class DebuggerOptions
     /// </summary>
     public ArmSimdRegisterVariableOptions SimdRegistersOptions { get; set; } = new()
     {
-        ShowQ = true,
         ShowD = true,
         ShowS = true,
 

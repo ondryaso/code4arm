@@ -29,17 +29,19 @@ public enum ContainerType : uint
 internal static class ReferenceUtils
 {
     public static long MakeReference(ContainerType containerType, int regId = 0, DebuggerVariableType subtype = 0,
-        int simdLevel = 0)
+        int simdLevel = 0, int evaluateId = 0)
     {
-        var ret = (((ulong)containerType) & 0xF) | ((((ulong)subtype) & 0xF) << 4) | ((((uint)regId) & 0xFF) << 8)
-            | ((((uint)simdLevel) & 0x3) << 16);
+        var ret = (((ulong)containerType) & 0xF) | ((((ulong)subtype) & 0xF) << 4) | ((((ulong)regId) & 0xFF) << 8)
+            | ((((ulong)simdLevel) & 0x3) << 16) | ((((ulong)evaluateId) & 0xFF) << 40);
 
         return Unsafe.As<ulong, long>(ref ret);
     }
 
-    public static long MakeReference(ContainerType containerType, uint address, DebuggerVariableType subtype = 0)
+    public static long MakeReference(ContainerType containerType, uint address, DebuggerVariableType subtype = 0,
+        int evaluateId = 0)
     {
-        var ret = (((ulong)containerType) & 0xF) | ((((ulong)subtype) & 0xF) << 4) | (((ulong)address) << 8);
+        var ret = (((ulong)containerType) & 0xF) | ((((ulong)subtype) & 0xF) << 4) | (((ulong)address) << 8)
+            | ((((ulong)evaluateId) & 0xFF) << 40);
 
         return Unsafe.As<ulong, long>(ref ret);
     }
@@ -63,4 +65,7 @@ internal static class ReferenceUtils
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static uint GetTargetAddress(long variablesReference)
         => unchecked((uint)((((ulong)variablesReference) >> 8) & 0xFFFFFFFF));
+
+    public static int GetEvaluateId(long variablesReference)
+        => unchecked((int)((((ulong)variablesReference) >> 40) & 0xFF));
 }

@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Code4Arm.ExecutionCore.Assembling.Models;
+using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Models;
@@ -14,6 +15,7 @@ using ELFSharp.ELF.Sections;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
+// Contains the expression evaluating functionality of DebugProvider.
 internal partial class DebugProvider
 {
     private static readonly Regex TopExpressionRegex = new(
@@ -33,6 +35,8 @@ internal partial class DebugProvider
         RegexOptions.Compiled);
 
     private static Regex GetAddressingRegex() => AddressingRegex;
+
+    private int _currentEvaluateId = 0;
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
@@ -70,7 +74,9 @@ internal partial class DebugProvider
             };
 
         var expressionFormat = string.IsNullOrWhiteSpace(expressionFormatValue)
-            ? ((format?.Hex ?? false) ? ExpressionValueFormat.Hex : (ExpressionValueFormat)Options.VariableNumberFormat)
+            ? ((format?.Hex ?? false)
+                ? ExpressionValueFormat.Hex
+                : (ExpressionValueFormat) Options.VariableNumberFormat)
             : expressionFormatValue switch
             {
                 "x" => ExpressionValueFormat.Hex,
@@ -154,7 +160,7 @@ internal partial class DebugProvider
         }
         else
         {
-            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)valueType,
+            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType) valueType,
                 address);
             variable.Evaluate(ctx);
             var value = variable.Get(ctx);
@@ -166,9 +172,9 @@ internal partial class DebugProvider
                 // subvariables
 
                 reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, address,
-                    DebuggerVariableType.Float);
+                    DebuggerVariableType.Float, _currentEvaluateId++);
 
-                var enhanced = new EnhancedVariable<float>(variable, reference,
+                var enhanced = new EnhancedVariable<float, MemoryVariable>(variable, reference,
                     parent => new[]
                     {
                         new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
@@ -220,7 +226,7 @@ internal partial class DebugProvider
         if (match.Groups["imm_off"].Length > 0)
         {
             // A constant offset is used
-            offset = unchecked((int)FormattingUtils.ParseNumber32U(match.Groups["imm_off"].Value, _clientCulture!));
+            offset = unchecked((int) FormattingUtils.ParseNumber32U(match.Groups["imm_off"].Value, _clientCulture!));
         }
         else if (match.Groups["reg_off"].Length > 0)
         {
@@ -242,20 +248,20 @@ internal partial class DebugProvider
             // Apply shift
             var shiftType = match.Groups["shift"].Value;
             var shiftValue =
-                unchecked((int)FormattingUtils.ParseNumber32U(match.Groups["imm_shift"].Value, _clientCulture!));
+                unchecked((int) FormattingUtils.ParseNumber32U(match.Groups["imm_shift"].Value, _clientCulture!));
 
             offset = shiftType switch
             {
                 "LSL" => offset << shiftValue,
-                "LSR" => unchecked((int)(((uint)offset) >> shiftValue)),
+                "LSR" => unchecked((int) (((uint) offset) >> shiftValue)),
                 "ASR" => offset >> shiftValue,
-                "ROR" => unchecked((int)BitOperations.RotateRight((uint)offset, shiftValue)),
-                "ROL" => unchecked((int)BitOperations.RotateLeft((uint)offset, shiftValue)),
+                "ROR" => unchecked((int) BitOperations.RotateRight((uint) offset, shiftValue)),
+                "ROL" => unchecked((int) BitOperations.RotateLeft((uint) offset, shiftValue)),
                 _ => throw new InvalidExpressionException()
             };
         }
 
-        return (uint)(baseValue + offset);
+        return (uint) (baseValue + offset);
     }
 
     #endregion
@@ -274,6 +280,10 @@ internal partial class DebugProvider
             return this.EvaluateVariablePathExpression(registerExpression, valueType, format)
                 ?? throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
 
+        var index = match.Groups["indexer"].Length > 0
+            ? (int?) int.Parse(match.Groups["indexer"].ValueSpan)
+            : null;
+
         if (match.Groups["reg"].Length > 0)
         {
             // R0–R15
@@ -283,19 +293,16 @@ internal partial class DebugProvider
                 throw new InvalidExpressionException(
                     ExceptionMessages.InvalidExpressionTypeSpecifierUnavailable);
 
-            var index = match.Groups["indexer"].Length > 0
-                ? (int?)int.Parse(match.Groups["indexer"].ValueSpan)
-                : null;
-
             if (index > ((4 / valueTypeSize) - 1))
                 throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
 
-            var debuggerVarType = (valueTypeSize == 4 || valueType == ExpressionValueType.Default) 
-                ? null : (DebuggerVariableType?)valueType;
+            var debuggerVarType = (valueTypeSize == 4 || valueType == ExpressionValueType.Default)
+                ? null
+                : (DebuggerVariableType?) valueType;
             var variable = this.GetRegisterVariable(match.Groups["reg"].Value, debuggerVarType, index,
                 format == ExpressionValueFormat.Ieee);
 
-            var variableFormat = (VariableNumberFormat)format;
+            var variableFormat = (VariableNumberFormat) format;
 
             if (format is ExpressionValueFormat.Default or ExpressionValueFormat.Ieee)
                 variableFormat = Options.VariableNumberFormat;
@@ -306,9 +313,49 @@ internal partial class DebugProvider
 
             return variable.GetAsEvaluateResponse(ctx, true);
         }
-        else if (match.Groups["s_reg"].Length > 0)
+        else
         {
-            // (byte)R0[1]
+            var level = (match.Groups["s_reg"].Length > 0)
+                ? 0
+                : ((match.Groups["d_reg"].Length > 0) ? 1 : 2);
+
+            var name = level switch
+            {
+                0 => $"S{match.Groups["s_reg"].Value}",
+                1 => $"D{match.Groups["d_reg"].Value}",
+                2 => $"Q{match.Groups["q_reg"].Value}"
+            };
+
+            var levelSize = (4 << level);
+            var valueTypeSize = valueType.GetSize();
+
+            if (valueTypeSize > levelSize)
+                throw new InvalidExpressionException(
+                    ExceptionMessages.InvalidExpressionTypeSpecifierUnavailable);
+
+            if (index > ((levelSize / valueTypeSize) - 1))
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            var debuggerVarType = (valueTypeSize == levelSize || valueType == ExpressionValueType.Default)
+                ? null
+                : (DebuggerVariableType?) valueType;
+
+            var variable = this.GetSimdRegisterVariable(name, level, debuggerVarType, index,
+                format == ExpressionValueFormat.Ieee);
+
+            var variableFormat = (VariableNumberFormat) format;
+
+            if (format is ExpressionValueFormat.Default or ExpressionValueFormat.Ieee)
+                variableFormat = Options.SimdRegistersOptions.PreferFloatRendering
+                    ? VariableNumberFormat.Float
+                    : Options.VariableNumberFormat;
+
+            if (valueType is ExpressionValueType.Float or ExpressionValueType.Double)
+                variableFormat = VariableNumberFormat.Float;
+
+            var ctx = new VariableContext(_engine, _clientCulture!, Options, variableFormat);
+
+            return variable.GetAsEvaluateResponse(ctx, true);
         }
 
         return new EvaluateResponse();
@@ -319,7 +366,8 @@ internal partial class DebugProvider
         var regId = GetRegisterId(regName);
         if (subtype.HasValue || ieee)
         {
-            var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId);
+            var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId,
+                evaluateId: _currentEvaluateId++);
             var rv = new RegisterVariable(reference, regId, regName, subtype ?? DebuggerVariableType.Float,
                 ieee || Options.ShowFloatIeeeSubvariables);
             this.AddOrUpdateVariable(rv);
@@ -338,6 +386,62 @@ internal partial class DebugProvider
                 throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
 
             return new RegisterVariable(0, regId, regName, null, false);
+        }
+    }
+
+    private IVariable GetSimdRegisterVariable(string regName, int simdLevel, DebuggerVariableType? subtype, int? index,
+        bool ieee)
+    {
+        var regId = GetRegisterId(regName);
+
+        var subtypeArray = subtype.HasValue ? new[] {subtype.Value} : null;
+        var simdOptions = new ArmSimdRegisterVariableOptions()
+        {
+            ShowD = false,
+            ShowS = false,
+            QSubtypes = simdLevel == 2 ? subtypeArray : null,
+            DSubtypes = simdLevel == 1 ? subtypeArray : null,
+            SSubtypes = simdLevel == 0 ? subtypeArray : null,
+            DIeeeSubvariables = ieee,
+            SIeeeSubvariables = ieee,
+            PreferFloatRendering = false
+        };
+
+        IVariable variable = simdLevel switch
+        {
+            0 => new ArmSSimdRegisterVariable(Arm.Register.GetSRegisterNumber(regId), simdOptions),
+            1 => new ArmDSimdRegisterVariable(Arm.Register.GetDRegisterNumber(regId), simdOptions),
+            2 => new ArmQSimdRegisterVariable(Arm.Register.GetQRegisterNumber(regId), simdOptions),
+            _ => throw new ArgumentException("Invalid SIMD level.", nameof(simdLevel))
+        };
+
+        if (subtype.HasValue || ieee)
+        {
+            var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId, simdLevel: simdLevel,
+                evaluateId: _currentEvaluateId++);
+
+            // Encapsulate the SIMD variable to provide a custom reference
+            var enhanced = new EnhancedVariable<IVariable>(variable, reference);
+            this.AddOrUpdateVariable(enhanced);
+
+            if (!index.HasValue)
+                return enhanced;
+
+            if (!(enhanced.Children?.FirstOrDefault().Value.Children?.TryGetValue($"[{index}]", out var subVar)
+                    ?? false))
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            return subVar;
+        }
+        else
+        {
+            if (index is > 0)
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            if (variable.Reference != 0)
+                throw new Exception("Invalid variable state.");
+
+            return variable;
         }
     }
 
@@ -397,11 +501,11 @@ internal partial class DebugProvider
 
         if (valueType != ExpressionValueType.Default)
         {
-            var varType = (DebuggerVariableType)valueType;
+            var varType = (DebuggerVariableType) valueType;
             // TODO: try to get matching subvalue child?
         }
 
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, (VariableNumberFormat)format);
+        var ctx = new VariableContext(_engine, _clientCulture!, Options, (VariableNumberFormat) format);
         targetVariable.Evaluate(ctx);
         var val = targetVariable.Get(ctx);
 
@@ -472,7 +576,7 @@ internal partial class DebugProvider
         if (fieldVal == null)
             return -1;
 
-        return (int)fieldVal;
+        return (int) fieldVal;
     }
 
     private uint GetSymbolAddress(string symbolName)

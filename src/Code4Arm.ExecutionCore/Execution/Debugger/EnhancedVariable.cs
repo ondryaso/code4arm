@@ -3,17 +3,21 @@
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
-public class EnhancedVariable<TBackingValue> : ISettableBackedVariable<TBackingValue>
+public class EnhancedVariable<TContainedVariable> : IVariable
+    where TContainedVariable : IVariable
 {
-    private readonly ISettableBackedVariable<TBackingValue> _parent;
+    private readonly TContainedVariable _containedVariable;
 
-    public EnhancedVariable(ISettableBackedVariable<TBackingValue> parent, long reference,
-        Func<ISettableBackedVariable<TBackingValue>, IEnumerable<IVariable>> childrenProducer)
+    public TContainedVariable ContainedVariable => _containedVariable;
+
+    public EnhancedVariable(TContainedVariable containedVariable, long reference,
+        Func<EnhancedVariable<TContainedVariable>, IEnumerable<IVariable>> childrenProducer)
     {
-        _parent = parent;
+        _containedVariable = containedVariable;
 
         var children =
-            new Dictionary<string, IVariable>(_parent.Children ?? Enumerable.Empty<KeyValuePair<string, IVariable>>());
+            new Dictionary<string, IVariable>(_containedVariable.Children ??
+                Enumerable.Empty<KeyValuePair<string, IVariable>>());
 
         var produced = childrenProducer(this);
         foreach (var child in produced)
@@ -25,13 +29,14 @@ public class EnhancedVariable<TBackingValue> : ISettableBackedVariable<TBackingV
         Reference = reference;
     }
 
-    public EnhancedVariable(ISettableBackedVariable<TBackingValue> parent, long reference,
-        Func<ISettableBackedVariable<TBackingValue>, IVariable> childProducer)
+    public EnhancedVariable(TContainedVariable containedVariable, long reference,
+        Func<EnhancedVariable<TContainedVariable>, IVariable> childProducer)
     {
-        _parent = parent;
+        _containedVariable = containedVariable;
 
         var children =
-            new Dictionary<string, IVariable>(_parent.Children ?? Enumerable.Empty<KeyValuePair<string, IVariable>>());
+            new Dictionary<string, IVariable>(_containedVariable.Children ??
+                Enumerable.Empty<KeyValuePair<string, IVariable>>());
 
         var produced = childProducer(this);
         children.Add(produced.Name, produced);
@@ -40,48 +45,128 @@ public class EnhancedVariable<TBackingValue> : ISettableBackedVariable<TBackingV
         Reference = reference;
     }
 
+    public EnhancedVariable(TContainedVariable containedVariable, long reference)
+    {
+        _containedVariable = containedVariable;
+        Children = containedVariable.Children;
+        Reference = reference;
+    }
+
     public long Reference { get; }
-    public IReadOnlyDictionary<string, IVariable> Children { get; }
+    public IReadOnlyDictionary<string, IVariable>? Children { get; }
 
-    public string Name => _parent.Name;
+    public string Name => _containedVariable.Name;
 
-    public string? Type => _parent.Type;
+    public string? Type => _containedVariable.Type;
 
-    public bool CanSet => _parent.CanSet;
+    public bool CanSet => _containedVariable.CanSet;
 
-    public bool IsViewOfParent => _parent.IsViewOfParent;
+    public bool IsViewOfParent => _containedVariable.IsViewOfParent;
 
-    public IVariable? Parent => _parent.Parent;
+    public IVariable? Parent => _containedVariable.Parent;
 
     public void Evaluate(VariableContext context)
-        => _parent.Evaluate(context);
+        => _containedVariable.Evaluate(context);
 
     public string Get(VariableContext context)
-        => _parent.Get(context);
+        => _containedVariable.Get(context);
 
     public void Set(string value, VariableContext context)
-        => _parent.Set(value, context);
-
-    public TBackingValue GetBackingValue(VariableContext context)
-        => _parent.GetBackingValue(context);
-
-    public void Set(TBackingValue value, VariableContext context)
-        => _parent.Set(value, context);
+        => _containedVariable.Set(value, context);
 }
 
-public class EnhancedAddressBackedVariable<TBackingValue, TParent> : EnhancedVariable<TBackingValue>,
-    IAddressBackedVariable where TParent : ISettableBackedVariable<TBackingValue>, IAddressBackedVariable
+public class EnhancedVariable<TBackingValue, TContainedVariable> : ISettableBackedVariable<TBackingValue>
+    where TContainedVariable : ISettableBackedVariable<TBackingValue>
+{
+    private readonly TContainedVariable _containedVariable;
+
+    public TContainedVariable ContainedVariable => _containedVariable;
+
+    public EnhancedVariable(TContainedVariable containedVariable, long reference,
+        Func<EnhancedVariable<TBackingValue, TContainedVariable>, IEnumerable<IVariable>> childrenProducer)
+    {
+        _containedVariable = containedVariable;
+
+        var children =
+            new Dictionary<string, IVariable>(_containedVariable.Children ??
+                Enumerable.Empty<KeyValuePair<string, IVariable>>());
+
+        var produced = childrenProducer(this);
+        foreach (var child in produced)
+        {
+            children.Add(child.Name, child);
+        }
+
+        Children = children;
+        Reference = reference;
+    }
+
+    public EnhancedVariable(TContainedVariable containedVariable, long reference,
+        Func<EnhancedVariable<TBackingValue, TContainedVariable>, IVariable> childProducer)
+    {
+        _containedVariable = containedVariable;
+
+        var children =
+            new Dictionary<string, IVariable>(_containedVariable.Children ??
+                Enumerable.Empty<KeyValuePair<string, IVariable>>());
+
+        var produced = childProducer(this);
+        children.Add(produced.Name, produced);
+
+        Children = children;
+        Reference = reference;
+    }
+
+    public EnhancedVariable(TContainedVariable containedVariable, long reference)
+    {
+        _containedVariable = containedVariable;
+        Children = containedVariable.Children;
+        Reference = reference;
+    }
+
+    public long Reference { get; }
+    public IReadOnlyDictionary<string, IVariable>? Children { get; }
+
+    public string Name => _containedVariable.Name;
+
+    public string? Type => _containedVariable.Type;
+
+    public bool CanSet => _containedVariable.CanSet;
+
+    public bool IsViewOfParent => _containedVariable.IsViewOfParent;
+
+    public IVariable? Parent => _containedVariable.Parent;
+
+    public void Evaluate(VariableContext context)
+        => _containedVariable.Evaluate(context);
+
+    public string Get(VariableContext context)
+        => _containedVariable.Get(context);
+
+    public void Set(string value, VariableContext context)
+        => _containedVariable.Set(value, context);
+
+    public TBackingValue GetBackingValue(VariableContext context)
+        => _containedVariable.GetBackingValue(context);
+
+    public void Set(TBackingValue value, VariableContext context)
+        => _containedVariable.Set(value, context);
+}
+
+public class EnhancedAddressBackedVariable<TBackingValue, TContainedVariable>
+    : EnhancedVariable<TBackingValue, TContainedVariable>, IAddressBackedVariable
+    where TContainedVariable : ISettableBackedVariable<TBackingValue>, IAddressBackedVariable
 {
     private readonly IAddressBackedVariable _addressBackedParent;
 
-    public EnhancedAddressBackedVariable(TParent parent, long reference,
+    public EnhancedAddressBackedVariable(TContainedVariable parent, long reference,
         Func<ISettableBackedVariable<TBackingValue>, IEnumerable<IVariable>> childrenProducer) : base(parent, reference,
         childrenProducer)
     {
         _addressBackedParent = parent;
     }
 
-    public EnhancedAddressBackedVariable(TParent parent, long reference,
+    public EnhancedAddressBackedVariable(TContainedVariable parent, long reference,
         Func<ISettableBackedVariable<TBackingValue>, IVariable> childProducer) : base(parent, reference, childProducer)
     {
         _addressBackedParent = parent;
