@@ -12,7 +12,7 @@ public static class ExceptionMessages
     public const string InvalidExpressionAddressing = "Invalid addressing expression: the general syntax is (type) [ Rx/address/symbol, Roffset/offset_value, shift shift_value ] :format";
     public const string InvalidExpressionTypeSpecifierUnavailable = "The value type specifier cannot be used for this register.";
     public const string InvalidExpressionIndexer = "Invalid subtype index.";
-
+    public const string InvalidExpressionNotSettable = "Value cannot be set for this expression.";
     
     public const string InvalidVariable = "Invalid variable reference.";
     public const string ExecutableNotLoaded = "No executable loaded.";

@@ -41,9 +41,50 @@ internal partial class DebugProvider
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
     {
+        this.CheckInitialized();
+
+        var (targetVar, targetContext, targetResponse) = this.GetExpressionTarget(expression, context, format);
+
+        if (targetResponse != null)
+            return targetResponse;
+
+        if (targetVar == null)
+            throw new Exception("Invalid internal state.");
+
+        return targetVar.GetAsEvaluateResponse(targetContext, true);
+    }
+
+    public SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format)
+    {
+        this.CheckInitialized();
+
+        var (targetVar, targetContext, targetResponse) = this.GetExpressionTarget(expression, null, format);
+
+        if (targetResponse != null || targetVar == null)
+            throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionNotSettable);
+
+        targetVar.Set(value, targetContext);
+        targetVar.Evaluate(targetContext);
+
+        return new SetExpressionResponse()
+        {
+            Type = targetVar.Type,
+            Value = targetVar.Get(targetContext),
+            NamedVariables = targetVar.Children?.Count ?? 0,
+            VariablesReference = targetVar.Reference
+        };
+    }
+
+    private (IVariable? TargetVariable, VariableContext Context, EvaluateResponse? Response) GetExpressionTarget(
+        string expression, EvaluateArgumentsContext? context, ValueFormat? format)
+    {
         // expr!!! variablesReference . childName
         if (expression.StartsWith("!!!") && expression.Length > 3)
-            return this.EvaluateDirectVariableExpression(expression, context, format);
+        {
+            var target = this.EvaluateDirectVariableExpression(expression);
+
+            return (target, new VariableContext(_engine, _clientCulture, Options, format), null);
+        }
 
         var topLevelMatch = GetTopExpressionRegex().Match(expression);
         var expressionValue = topLevelMatch.Groups["expr"].Value.Trim();
@@ -86,20 +127,27 @@ internal partial class DebugProvider
                 _ => throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionFormatSpecifier)
             };
 
+        if (expressionValue[0] == '&')
+        {
+            var result = this.EvaluateSymbolAddressExpression(expressionValue, expressionType, expressionFormat);
+
+            return (null, default, result);
+        }
+
         // Determine expression type (addressing_expr | register_expr | symbol_addr | variable_path)
         // Use primitive first-character lookup before throwing the regex at the expression
-        return expressionValue[0] switch
+        var (targetVar, targetContext) = expressionValue[0] switch
         {
             '[' => this.EvaluateAddressingExpression(expressionValue, expressionType, expressionFormat),
             'R' or 'S' or 'Q' or 'D' => this.EvaluateRegisterExpression(expressionValue, expressionType,
                 expressionFormat),
-            '&' => this.EvaluateSymbolAddressExpression(expressionValue, expressionType, expressionFormat),
             _ => this.EvaluateVariablePathExpression(expressionValue, expressionType, expressionFormat, true)!
         };
+
+        return (targetVar, targetContext, null);
     }
 
-    private EvaluateResponse EvaluateDirectVariableExpression(string expression, EvaluateArgumentsContext? context,
-        ValueFormat? format)
+    private IVariable EvaluateDirectVariableExpression(string expression)
     {
         var divider = expression.IndexOf('!', 3);
         var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
@@ -118,29 +166,27 @@ internal partial class DebugProvider
                 throw new InvalidExpressionException();
         }
 
-        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
-        var value = toSet.GetEvaluated(ctx);
-
-        return new EvaluateResponse()
-        {
-            Result = value,
-            Type = toSet.Type,
-            VariablesReference = toSet.Reference,
-            NamedVariables = toSet.Children?.Count ?? 0
-        };
+        return toSet;
     }
 
     #region Addressing expressions
 
-    private EvaluateResponse EvaluateAddressingExpression(string addressingExpression, ExpressionValueType valueType,
+    private (IVariable, VariableContext) EvaluateAddressingExpression(string addressingExpression,
+        ExpressionValueType valueType,
         ExpressionValueFormat format)
     {
         var match = GetAddressingRegex().Match(addressingExpression);
 
         // If invalid, try to interpret the expression as a variable path; if that fails, throw
         if (!match.Success)
-            return this.EvaluateVariablePathExpression(addressingExpression, valueType, format)
-                ?? throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
+        {
+            var ret = this.EvaluateVariablePathExpression(addressingExpression, valueType, format);
+
+            if (ret.Item1 == null)
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
+
+            return ret!;
+        }
 
         var address = this.GetAddress(match);
 
@@ -156,42 +202,33 @@ internal partial class DebugProvider
         {
             var variable = new StringVariable($"_expr.{address}", address);
 
-            return variable.GetAsEvaluateResponse(ctx, true);
+            return (variable, ctx);
         }
         else
         {
             var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)valueType,
                 address);
-            variable.Evaluate(ctx);
-            var value = variable.Get(ctx);
-            var reference = variable.Reference;
 
-            if (format == ExpressionValueFormat.Ieee && valueType == ExpressionValueType.Float)
-            {
-                // IEEE format: enclose the memory variable with an EnhancedVariable that adds the IEEE segment
-                // subvariables
+            if (format != ExpressionValueFormat.Ieee || valueType != ExpressionValueType.Float)
+                return (variable, ctx);
 
-                reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, address,
-                    DebuggerVariableType.Float, _nextEvaluateVariableId++);
+            // IEEE format: enclose the memory variable with an EnhancedVariable that adds the IEEE segment
+            // subvariables
 
-                var enhanced = new EnhancedVariable<float, MemoryVariable>(variable, reference,
-                    parent => new[]
-                    {
-                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
-                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
-                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
-                    });
+            var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, address,
+                DebuggerVariableType.Float, _nextEvaluateVariableId++);
 
-                this.AddOrUpdateVariable(enhanced);
-            }
+            var enhanced = new EnhancedVariable<float, MemoryVariable>(variable, reference,
+                parent => new[]
+                {
+                    new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
+                    new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
+                    new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
+                });
 
-            return new EvaluateResponse()
-            {
-                Result = value,
-                Type = variable.Type,
-                MemoryReference = address.ToString(),
-                VariablesReference = reference
-            };
+            this.AddOrUpdateVariable(enhanced);
+
+            return (enhanced, ctx);
         }
     }
 
@@ -266,7 +303,8 @@ internal partial class DebugProvider
 
     #endregion
 
-    private EvaluateResponse EvaluateRegisterExpression(string registerExpression, ExpressionValueType valueType,
+    private (IVariable, VariableContext) EvaluateRegisterExpression(string registerExpression,
+        ExpressionValueType valueType,
         ExpressionValueFormat format)
     {
         if (valueType == ExpressionValueType.String)
@@ -277,8 +315,14 @@ internal partial class DebugProvider
 
         // If invalid, try to interpret the expression as a variable path; if that fails, throw
         if (!match.Success)
-            return this.EvaluateVariablePathExpression(registerExpression, valueType, format)
-                ?? throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
+        {
+            var ret = this.EvaluateVariablePathExpression(registerExpression, valueType, format);
+
+            if (ret.Item1 == null)
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
+
+            return ret!;
+        }
 
         var index = match.Groups["indexer"].Length > 0
             ? (int?)int.Parse(match.Groups["indexer"].ValueSpan)
@@ -311,7 +355,7 @@ internal partial class DebugProvider
 
             var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat);
 
-            return variable.GetAsEvaluateResponse(ctx, true);
+            return (variable, ctx);
         }
         else
         {
@@ -355,10 +399,8 @@ internal partial class DebugProvider
 
             var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat);
 
-            return variable.GetAsEvaluateResponse(ctx, true);
+            return (variable, ctx);
         }
-
-        return new EvaluateResponse();
     }
 
     private IVariable GetRegisterVariable(string regName, DebuggerVariableType? subtype, int? index, bool ieee)
@@ -469,7 +511,7 @@ internal partial class DebugProvider
         };
     }
 
-    private EvaluateResponse? EvaluateVariablePathExpression(string variablePathExpression,
+    private (IVariable?, VariableContext) EvaluateVariablePathExpression(string variablePathExpression,
         ExpressionValueType valueType, ExpressionValueFormat format, bool throwOnFailure = false)
     {
         if (valueType == ExpressionValueType.String)
@@ -484,7 +526,7 @@ internal partial class DebugProvider
             if (throwOnFailure)
                 throw new InvalidExpressionException(ExceptionMessages.InvalidVariable);
             else
-                return null;
+                return (null, default);
 
         var targetVariable = topVariable;
 
@@ -496,7 +538,7 @@ internal partial class DebugProvider
                 if (throwOnFailure)
                     throw new InvalidExpressionException($"Invalid variable in path: {varName}");
                 else
-                    return null;
+                    return (null, default);
         }
 
         if (valueType != ExpressionValueType.Default)
@@ -506,65 +548,8 @@ internal partial class DebugProvider
         }
 
         var ctx = new VariableContext(_engine, _clientCulture, Options, (VariableNumberFormat)format);
-        targetVariable.Evaluate(ctx);
-        var val = targetVariable.Get(ctx);
 
-        return new EvaluateResponse()
-        {
-            Result = val,
-            Type = targetVariable.Type,
-            VariablesReference = targetVariable.Reference,
-            NamedVariables = targetVariable.Children?.Count ?? 0
-        };
-    }
-
-    public SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format)
-    {
-        this.CheckInitialized();
-
-        if (expression.StartsWith("!!!") && expression.Length > 3)
-        {
-            var divider = expression.IndexOf('!', 3);
-            var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
-
-            if (!long.TryParse(referenceSpan, out var reference))
-                throw new InvalidExpressionException();
-
-            if (!_variables.TryGetValue(reference, out var toSet))
-                throw new InvalidExpressionException();
-
-            if (divider != -1)
-            {
-                var childName = expression[(divider + 1)..];
-
-                if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
-                    throw new InvalidExpressionException();
-            }
-
-            var ctx = new VariableContext(_engine, _clientCulture, Options, format);
-            toSet.Set(value, ctx);
-
-            while (toSet.IsViewOfParent)
-            {
-                if (toSet.Parent == null)
-                    break;
-
-                toSet = toSet.Parent;
-            }
-
-            toSet.Evaluate(ctx);
-            var val = toSet.Get(ctx);
-            ;
-
-            return new SetExpressionResponse()
-            {
-                Type = toSet.Type,
-                Value = val,
-                VariablesReference = toSet.Reference
-            };
-        }
-
-        throw new InvalidExpressionException();
+        return (targetVariable, ctx);
     }
 
     private static int GetRegisterId(string name)
