@@ -36,7 +36,7 @@ internal partial class DebugProvider
 
     private static Regex GetAddressingRegex() => AddressingRegex;
 
-    private int _currentEvaluateId = 0;
+    private int _nextEvaluateVariableId = 0;
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
@@ -76,7 +76,7 @@ internal partial class DebugProvider
         var expressionFormat = string.IsNullOrWhiteSpace(expressionFormatValue)
             ? ((format?.Hex ?? false)
                 ? ExpressionValueFormat.Hex
-                : (ExpressionValueFormat) Options.VariableNumberFormat)
+                : (ExpressionValueFormat)Options.VariableNumberFormat)
             : expressionFormatValue switch
             {
                 "x" => ExpressionValueFormat.Hex,
@@ -118,7 +118,7 @@ internal partial class DebugProvider
                 throw new InvalidExpressionException();
         }
 
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         var value = toSet.GetEvaluated(ctx);
 
         return new EvaluateResponse()
@@ -149,7 +149,7 @@ internal partial class DebugProvider
             valueType = ExpressionValueType.ByteU;
 
         // IEEE format is handled later
-        var ctx = new VariableContext(_engine, _clientCulture!, Options,
+        var ctx = new VariableContext(_engine, _clientCulture, Options,
             format == ExpressionValueFormat.Ieee ? ExpressionValueFormat.Default : format);
 
         if (valueType == ExpressionValueType.String)
@@ -160,7 +160,7 @@ internal partial class DebugProvider
         }
         else
         {
-            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType) valueType,
+            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)valueType,
                 address);
             variable.Evaluate(ctx);
             var value = variable.Get(ctx);
@@ -172,7 +172,7 @@ internal partial class DebugProvider
                 // subvariables
 
                 reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, address,
-                    DebuggerVariableType.Float, _currentEvaluateId++);
+                    DebuggerVariableType.Float, _nextEvaluateVariableId++);
 
                 var enhanced = new EnhancedVariable<float, MemoryVariable>(variable, reference,
                     parent => new[]
@@ -202,7 +202,7 @@ internal partial class DebugProvider
         if (match.Groups["imm"].Length > 0)
         {
             // Base is a constant
-            baseValue = FormattingUtils.ParseNumber32U(match.Groups["imm"].Value, _clientCulture!);
+            baseValue = FormattingUtils.ParseNumber32U(match.Groups["imm"].Value, _clientCulture);
         }
         else if (match.Groups["reg"].Length > 0)
         {
@@ -226,7 +226,7 @@ internal partial class DebugProvider
         if (match.Groups["imm_off"].Length > 0)
         {
             // A constant offset is used
-            offset = unchecked((int) FormattingUtils.ParseNumber32U(match.Groups["imm_off"].Value, _clientCulture!));
+            offset = unchecked((int)FormattingUtils.ParseNumber32U(match.Groups["imm_off"].Value, _clientCulture));
         }
         else if (match.Groups["reg_off"].Length > 0)
         {
@@ -248,20 +248,20 @@ internal partial class DebugProvider
             // Apply shift
             var shiftType = match.Groups["shift"].Value;
             var shiftValue =
-                unchecked((int) FormattingUtils.ParseNumber32U(match.Groups["imm_shift"].Value, _clientCulture!));
+                unchecked((int)FormattingUtils.ParseNumber32U(match.Groups["imm_shift"].Value, _clientCulture));
 
             offset = shiftType switch
             {
                 "LSL" => offset << shiftValue,
-                "LSR" => unchecked((int) (((uint) offset) >> shiftValue)),
+                "LSR" => unchecked((int)(((uint)offset) >> shiftValue)),
                 "ASR" => offset >> shiftValue,
-                "ROR" => unchecked((int) BitOperations.RotateRight((uint) offset, shiftValue)),
-                "ROL" => unchecked((int) BitOperations.RotateLeft((uint) offset, shiftValue)),
+                "ROR" => unchecked((int)BitOperations.RotateRight((uint)offset, shiftValue)),
+                "ROL" => unchecked((int)BitOperations.RotateLeft((uint)offset, shiftValue)),
                 _ => throw new InvalidExpressionException()
             };
         }
 
-        return (uint) (baseValue + offset);
+        return (uint)(baseValue + offset);
     }
 
     #endregion
@@ -281,7 +281,7 @@ internal partial class DebugProvider
                 ?? throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionAddressing);
 
         var index = match.Groups["indexer"].Length > 0
-            ? (int?) int.Parse(match.Groups["indexer"].ValueSpan)
+            ? (int?)int.Parse(match.Groups["indexer"].ValueSpan)
             : null;
 
         if (match.Groups["reg"].Length > 0)
@@ -298,18 +298,18 @@ internal partial class DebugProvider
 
             var debuggerVarType = (valueTypeSize == 4 || valueType == ExpressionValueType.Default)
                 ? null
-                : (DebuggerVariableType?) valueType;
+                : (DebuggerVariableType?)valueType;
             var variable = this.GetRegisterVariable(match.Groups["reg"].Value, debuggerVarType, index,
                 format == ExpressionValueFormat.Ieee);
 
-            var variableFormat = (VariableNumberFormat) format;
+            var variableFormat = (VariableNumberFormat)format;
 
             if (format is ExpressionValueFormat.Default or ExpressionValueFormat.Ieee)
                 variableFormat = Options.VariableNumberFormat;
             if (valueType == ExpressionValueType.Float)
                 variableFormat = VariableNumberFormat.Float;
 
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, variableFormat);
+            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat);
 
             return variable.GetAsEvaluateResponse(ctx, true);
         }
@@ -338,12 +338,12 @@ internal partial class DebugProvider
 
             var debuggerVarType = (valueTypeSize == levelSize || valueType == ExpressionValueType.Default)
                 ? null
-                : (DebuggerVariableType?) valueType;
+                : (DebuggerVariableType?)valueType;
 
             var variable = this.GetSimdRegisterVariable(name, level, debuggerVarType, index,
                 format == ExpressionValueFormat.Ieee);
 
-            var variableFormat = (VariableNumberFormat) format;
+            var variableFormat = (VariableNumberFormat)format;
 
             if (format is ExpressionValueFormat.Default or ExpressionValueFormat.Ieee)
                 variableFormat = Options.SimdRegistersOptions.PreferFloatRendering
@@ -353,7 +353,7 @@ internal partial class DebugProvider
             if (valueType is ExpressionValueType.Float or ExpressionValueType.Double)
                 variableFormat = VariableNumberFormat.Float;
 
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, variableFormat);
+            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat);
 
             return variable.GetAsEvaluateResponse(ctx, true);
         }
@@ -367,7 +367,7 @@ internal partial class DebugProvider
         if (subtype.HasValue || ieee)
         {
             var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId,
-                evaluateId: _currentEvaluateId++);
+                evaluateId: _nextEvaluateVariableId++);
             var rv = new RegisterVariable(reference, regId, regName, subtype ?? DebuggerVariableType.Float,
                 ieee || Options.ShowFloatIeeeSubvariables);
             this.AddOrUpdateVariable(rv);
@@ -394,7 +394,7 @@ internal partial class DebugProvider
     {
         var regId = GetRegisterId(regName);
 
-        var subtypeArray = subtype.HasValue ? new[] {subtype.Value} : null;
+        var subtypeArray = subtype.HasValue ? new[] { subtype.Value } : null;
         var simdOptions = new ArmSimdRegisterVariableOptions()
         {
             ShowD = false,
@@ -418,7 +418,7 @@ internal partial class DebugProvider
         if (subtype.HasValue || ieee)
         {
             var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId, simdLevel: simdLevel,
-                evaluateId: _currentEvaluateId++);
+                evaluateId: _nextEvaluateVariableId++);
 
             // Encapsulate the SIMD variable to provide a custom reference
             var enhanced = new EnhancedVariable<IVariable>(variable, reference);
@@ -463,7 +463,7 @@ internal partial class DebugProvider
         return new EvaluateResponse()
         {
             Result = FormattingUtils.FormatVariable(address,
-                new VariableContext(null!, _clientCulture!, Options, format)),
+                new VariableContext(null!, _clientCulture, Options, format)),
             Type = "address",
             MemoryReference = address.ToString()
         };
@@ -501,11 +501,11 @@ internal partial class DebugProvider
 
         if (valueType != ExpressionValueType.Default)
         {
-            var varType = (DebuggerVariableType) valueType;
+            var varType = (DebuggerVariableType)valueType;
             // TODO: try to get matching subvalue child?
         }
 
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, (VariableNumberFormat) format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, (VariableNumberFormat)format);
         targetVariable.Evaluate(ctx);
         var val = targetVariable.Get(ctx);
 
@@ -541,7 +541,7 @@ internal partial class DebugProvider
                     throw new InvalidExpressionException();
             }
 
-            var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+            var ctx = new VariableContext(_engine, _clientCulture, Options, format);
             toSet.Set(value, ctx);
 
             while (toSet.IsViewOfParent)
@@ -576,7 +576,7 @@ internal partial class DebugProvider
         if (fieldVal == null)
             return -1;
 
-        return (int) fieldVal;
+        return (int)fieldVal;
     }
 
     private uint GetSymbolAddress(string symbolName)

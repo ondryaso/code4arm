@@ -18,32 +18,36 @@ using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
-using MediatR;
 using Newtonsoft.Json.Linq;
 using StepBackMode = Code4Arm.ExecutionCore.Execution.Configuration.StepBackMode;
 
 namespace Code4Arm.ExecutionCore.Execution;
 
+/// <summary>
+/// The <see cref="DebugProvider"/> class provides most of the debugging functionality that is not directly related
+/// to the execution process. This includes mainly handling requests that provide information about the executable
+/// (Sources, Goto targets, Breakpoint locations etc.) or that provide debugging features (Variables, Expressions etc.).
+/// </summary>
 internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocator, IFormattedTraceObserver
 {
     private readonly ExecutionEngine _engine;
     private InitializeRequestArguments? _clientInfo;
-    private CultureInfo? _clientCulture;
+    private CultureInfo _clientCulture;
 
     private readonly Dictionary<long, IVariable> _variables = new();
     private readonly Dictionary<string, IVariable> _topLevel = new();
 
     private readonly Dictionary<long, ITraceable> _steppedTraceables = new();
     private readonly Dictionary<long, ITraceable> _hookTraceables = new();
-    private long _traceableId = long.MinValue;
-
+    private long _nextTraceableId = long.MinValue;
 
     private Executable Executable => (_engine.ExecutableInfo as Executable) ?? throw new ExecutableNotLoadedException();
 
-    public DebugProvider(ExecutionEngine engine, DebuggerOptions options, IMediator mediator)
+    public DebugProvider(ExecutionEngine engine, DebuggerOptions options)
     {
         _engine = engine;
         Options = options;
+        _clientCulture = CultureInfo.InvariantCulture;
     }
 
     public DebuggerOptions Options { get; set; }
@@ -403,13 +407,13 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             return new Breakpoint() { Verified = false };
 
         if (traceable.NeedsExplicitEvaluationAfterStep)
-            _steppedTraceables.Add(_traceableId, traceable);
+            _steppedTraceables.Add(_nextTraceableId, traceable);
         else
-            _hookTraceables.Add(_traceableId, traceable);
+            _hookTraceables.Add(_nextTraceableId, traceable);
 
-        traceable.InitTrace(_engine, this, _traceableId);
+        traceable.InitTrace(_engine, this, _nextTraceableId);
 
-        return new Breakpoint() { Id = _traceableId++, Verified = true };
+        return new Breakpoint() { Id = _nextTraceableId++, Verified = true };
     }
 
     #endregion
@@ -623,7 +627,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     /// </summary>
     private IEnumerable<Variable> MakeControlRegistersVariables(ValueFormat? format)
     {
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         var retArray = new Variable[Options.EnableExtendedControlVariables ? 5 : 2];
         var i = 0;
 
@@ -721,7 +725,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     private IEnumerable<Variable> MakeRegistersVariables(ValueFormat? format, int start, int count)
     {
         var end = start + count;
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         var retArray = new Variable[count];
 
         for (var i = start; i < end; i++)
@@ -749,7 +753,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     private IEnumerable<Variable> MakeSimdRegistersVariables(ValueFormat? format, int start, int count)
     {
         var end = start + count;
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         var topLevel = Options.TopSimdRegistersLevel;
         var retArray = new Variable[count];
 
@@ -797,7 +801,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             return Enumerable.Empty<Variable>();
 
         var retArray = new Variable[stack];
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
 
         for (var i = 0; i < stack; i += 4)
         {
@@ -868,7 +872,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         if (_symbolsForVariables.Count == 0)
             this.DetermineDataSymbols();
 
-        var ctx = new VariableContext(_engine, _clientCulture!, Options, format);
+        var ctx = new VariableContext(_engine, _clientCulture, Options, format);
         var retArray = new Variable[_symbolsForVariables.Count];
         var i = 0;
 
@@ -1321,7 +1325,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         var utfByteCount = Encoding.UTF8.GetByteCount(dataEncoded);
         var rented = utfByteCount <= ExecutionEngine.MaxArrayPoolSize;
         var bytes = rented ? _engine.ArrayPool.Rent(utfByteCount) : new byte[utfByteCount];
-        
+
         Encoding.UTF8.GetBytes(dataEncoded, bytes);
 
         if (Base64.DecodeFromUtf8InPlace(bytes[..utfByteCount], out var dataSize) != OperationStatus.Done)

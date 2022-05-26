@@ -134,6 +134,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     internal DwarfLineAddressResolver? LineResolver;
     internal AddressBreakpoint? CurrentBreakpoint;
+
     /// <summary>
     /// If false, Breakpoints will be disabled and DataBreakpoints will continue execution without stopping.
     /// </summary>
@@ -144,12 +145,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// The current value of the program counter. Updated from Unicorn after an end of an emulation cycle.
     /// </summary>
     internal uint CurrentPc;
+
     /// <summary>
     /// The line (zero-indexed) in a source pointed to by <see cref="CurrentStopSourceIndex"/> that contains the
     /// instruction at the memory address determined by <see cref="CurrentPc"/>. Updated after an end of an emulation
     /// cycle. May be -1 if the line cannot be determined.
     /// </summary>
     internal int CurrentStopLine;
+
     /// <summary>
     /// An index to the <see cref="IExecutableInfo.Sources"/> array of the current <see cref="ExecutableInfo"/> that
     /// determines the source file that contains the instruction at the memory address determined by
@@ -160,9 +163,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     internal StopCause LastStopCause = StopCause.Normal;
     internal StopData LastStopData;
-    
+
     internal readonly ArrayPool<byte> ArrayPool;
-    
+
     private readonly ILogger<ExecutionEngine> _logger;
     private readonly IMediator _mediator;
     private readonly DebugProvider _debugProvider;
@@ -221,7 +224,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _executionId = Guid.NewGuid();
         _emulatedOut = new StringWriter();
 
-        _debugProvider = new DebugProvider(this, debuggerOptions, _mediator);
+        _debugProvider = new DebugProvider(this, debuggerOptions);
 
         if (options.StepBackMode != StepBackMode.None)
         {
@@ -451,7 +454,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         foreach (var segment in _exe.Segments)
         {
             // TODO: this could also be used for certain StepBack variants
-            if (Options.EnableAccurateExecutionTracking && segment.Permissions.HasFlag(MemorySegmentPermissions.Execute))
+            if (Options.EnableAccurateExecutionTracking &&
+                segment.Permissions.HasFlag(MemorySegmentPermissions.Execute))
             {
                 var callback = new CodeHookNativeCallback(this.CodeHookNativeHandler);
                 var handle = Engine.AddNativeHook(callback, UniConst.Hook.Code, segment.StartAddress,
