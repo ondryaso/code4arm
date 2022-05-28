@@ -457,34 +457,53 @@ internal partial class DebugProvider
             _ => throw new ArgumentException("Invalid SIMD level.", nameof(simdLevel))
         };
 
-        if (subtype.HasValue || ieee)
+        if (subtype.HasValue && index.HasValue)
+        {
+            if (!(variable.Children?.FirstOrDefault().Value.Children?.TryGetValue($"[{index}]", out variable!)
+                    ?? false))
+                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
+
+            index = 0;
+        }
+
+        if ((variable.Reference != 0 && variable.Children is { Count: not 0 }) || ieee)
         {
             var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId, simdLevel: simdLevel,
                 evaluateId: _nextEvaluateVariableId++);
 
             // Encapsulate the SIMD variable to provide a custom reference
-            var enhanced = new EnhancedVariable<IVariable>(variable, reference);
+            IVariable enhanced;
+
+            // HACK: IEEE for (float)Dx[i]:ieee
+            if (ieee && subtype == DebuggerVariableType.Float &&
+                variable is ULongBackedSubtypeAtomicVariable<ArmDSimdRegisterVariable> x)
+            {
+                enhanced = new EnhancedVariable<float, ULongBackedSubtypeAtomicVariable<ArmDSimdRegisterVariable>>(x,
+                    reference, parent => new[]
+                    {
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
+                    }
+                );
+            }
+            else
+            {
+                enhanced = new EnhancedVariable<IVariable>(variable, reference);
+            }
+
             this.AddOrUpdateVariable(enhanced);
 
-            if (!index.HasValue)
-                return enhanced;
-
-            if (!(enhanced.Children?.FirstOrDefault().Value.Children?.TryGetValue($"[{index}]", out var subVar)
-                    ?? false))
-                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
-
-            return subVar;
+            return enhanced;
         }
-        else
-        {
-            if (index is > 0)
-                throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
 
-            if (variable.Reference != 0)
-                throw new Exception("Invalid variable state.");
+        if (index is > 0)
+            throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionIndexer);
 
-            return variable;
-        }
+        if (variable.Reference != 0)
+            throw new Exception("Invalid variable state.");
+
+        return variable;
     }
 
     private EvaluateResponse EvaluateSymbolAddressExpression(string symbolAddressExpression,

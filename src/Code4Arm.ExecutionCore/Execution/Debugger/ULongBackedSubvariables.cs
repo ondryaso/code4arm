@@ -114,7 +114,8 @@ public class ULongBackedSubtypeVariable<TParent> : ULongBackedDependentTraceable
     }
 }
 
-public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTraceable, IVariable
+public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTraceable, IVariable,
+    ISettableBackedVariable<float>
     where TParent : ISettableBackedVariable<ulong>, ITraceable
 {
     private readonly TParent _parent;
@@ -144,7 +145,7 @@ public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTra
             throw new ArgumentOutOfRangeException(nameof(subtype), subtype, null);
 
         // TODO: Support for IEEE
-        
+
         _parent = parent;
         _treeParent = treeParent;
         _subtype = subtype;
@@ -168,10 +169,15 @@ public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTra
             _offset = 32 * index;
         }
 
-        if (subtype is DebuggerVariableType.ByteS or DebuggerVariableType.ShortS)
+        if (subtype is DebuggerVariableType.ByteS or DebuggerVariableType.ShortS or DebuggerVariableType.IntS)
         {
             _min = -((long)_mask / 2) - 1;
             _max = (long)_mask / 2;
+        }
+        else if (subtype is DebuggerVariableType.Float)
+        {
+            _min = long.MinValue;
+            _max = long.MaxValue;
         }
         else
         {
@@ -182,6 +188,26 @@ public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTra
         Reference = 0;
         CanSet = true;
         Children = null;
+    }
+
+    public float GetBackingValue(VariableContext context)
+    {
+        if (_subtype != DebuggerVariableType.Float)
+            throw new InvalidOperationException();
+
+        var value = (_parent.GetBackingValue(context) >> _offset) & _mask;
+
+        return Unsafe.As<ulong, float>(ref value);
+    }
+
+    public void Set(float value, VariableContext context)
+    {
+        var valueU = (ulong)Unsafe.As<float, uint>(ref value);
+        var shifted = (valueU & _mask) << _offset;
+
+        _parent.Evaluate(context);
+        var newValue = (_parent.GetBackingValue(context) & ~(_mask << _offset)) | shifted;
+        _parent.Set(newValue, context);
     }
 
     public string Name { get; }
@@ -237,7 +263,10 @@ public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTra
         }
         else
         {
-            var parsed = FormattingUtils.ParseNumber64U(value, context.CultureInfo);
+            var parsed = _subtype == DebuggerVariableType.Float
+                ? FormattingUtils.ParseNumber32U(value, context.CultureInfo)
+                : FormattingUtils.ParseNumber64U(value, context.CultureInfo);
+
             var parsedI = unchecked((long)parsed);
 
             if (parsedI < _min || parsedI > _max)

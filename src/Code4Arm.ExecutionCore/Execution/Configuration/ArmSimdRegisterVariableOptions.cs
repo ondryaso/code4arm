@@ -5,9 +5,8 @@ using Code4Arm.ExecutionCore.Execution.Debugger;
 
 namespace Code4Arm.ExecutionCore.Execution.Configuration;
 
-public class ArmSimdRegisterVariableOptions
+public record ArmSimdRegisterVariableOptions
 {
-    public bool ShowQ { get; init; }
     public DebuggerVariableType[]? QSubtypes { get; init; }
 
     public bool ShowD { get; init; }

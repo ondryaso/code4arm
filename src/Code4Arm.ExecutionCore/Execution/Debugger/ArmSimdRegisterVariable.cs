@@ -36,7 +36,7 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
                 this.MakeDChildren(index, options);
 
             if (options.QSubtypes != null)
-                this.MakeChildren(options.QSubtypes, options.ShowD, showS);
+                this.MakeChildren(options.QSubtypes, options.ShowD, showS, index, options);
         }
         else
         {
@@ -97,7 +97,8 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
         context.Engine.Engine.RegWrite(_unicornRegId, valuesSpan);
     }
 
-    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes, bool ignoreDoubles, bool ignoreFloats)
+    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes, bool ignoreDoubles, bool ignoreFloats,
+        int thisIndex, ArmSimdRegisterVariableOptions options)
     {
         foreach (var type in allowedSubtypes)
         {
@@ -105,13 +106,20 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
                 continue;
             if (ignoreFloats && type == DebuggerVariableType.Float)
                 continue;
+            
+            // TODO: Subvariables for the 128-bit Q-registers
 
-            /*
-            var variable = new UIntBackedSubtypeVariable<ArmSSimdRegisterVariable>(this, type,
-                ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypesValues, _unicornRegId, type), _showIeee);
+            if (type is DebuggerVariableType.Double or DebuggerVariableType.LongU && !ignoreDoubles)
+            {
+                // Temporary solution
+                this.MakeDChildren(thisIndex, options with { PreferFloatRendering = type == DebuggerVariableType.Double });
+            }
 
-            _children!.Add(variable.Name, variable);*/
-            // TODO
+            if (type is DebuggerVariableType.Float or DebuggerVariableType.IntU && thisIndex < 8 && !ignoreFloats)
+            {
+                // Temporary solution
+                this.MakeSChildren(thisIndex, options with { PreferFloatRendering = type == DebuggerVariableType.Float });
+            }
         }
     }
 
@@ -247,6 +255,7 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableB
     double IBackedVariable<double>.GetBackingValue(VariableContext context)
     {
         var valU = this.GetBackingValue(context);
+
         return Unsafe.As<ulong, double>(ref valU);
     }
 
