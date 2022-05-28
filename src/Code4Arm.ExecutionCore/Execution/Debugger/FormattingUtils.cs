@@ -74,12 +74,11 @@ internal static class FormattingUtils
         ReadOnlySpan<char> span;
         var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
-        var bS = value.StartsWith("0b");
-        var bE = value.EndsWith("b");
+        var binary = IsBinaryNumber(value, out var bS);
         var hS = value.StartsWith("0x");
         var hE = value.EndsWith("x") || value.EndsWith("h");
 
-        if (bS || bE)
+        if (binary)
             return ParseBinary32(value[bS ? (2..) : (..^1)]);
 
         if (hS || hE)
@@ -118,17 +117,37 @@ internal static class FormattingUtils
         throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32Float);
     }
 
+    public static bool IsBinaryNumber(string value, out bool modifierAtStart)
+    {
+        if (value.StartsWith("0b"))
+        {
+            modifierAtStart = true;
+
+            return true;
+        }
+
+        if (value.EndsWith("b") && !value.StartsWith("0x"))
+        {
+            modifierAtStart = false;
+
+            return true;
+        }
+
+        modifierAtStart = false;
+
+        return false;
+    }
+
     public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
         var numberStyle = NumberStyles.Integer | NumberStyles.AllowThousands;
 
-        var bS = value.StartsWith("0b");
-        var bE = value.EndsWith("b");
+        var binary = IsBinaryNumber(value, out var bS);
         var hS = value.StartsWith("0x");
         var hE = value.EndsWith("x") || value.EndsWith("h");
 
-        if (bS || bE)
+        if (binary)
             return ParseBinary64(value[bS ? (2..) : (..^1)]);
 
         if (hS || hE)

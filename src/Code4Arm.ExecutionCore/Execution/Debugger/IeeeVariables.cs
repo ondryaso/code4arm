@@ -108,7 +108,7 @@ public class SinglePrecisionIeeeSegmentVariable : IVariable
         {
             valU = FormattingUtils.ParseNumber32U(value, context.CultureInfo);
 
-            if (_segment == IeeeSegment.Exponent && !value.StartsWith("0b")) // exp is in biased encoding
+            if (_segment == IeeeSegment.Exponent && !FormattingUtils.IsBinaryNumber(value, out _)) // exp is in biased encoding
                 valU += 127;
         }
 
