@@ -1268,6 +1268,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             this.DetermineCurrentStopPositions();
             await this.HandleEmulatedOutputBuffer();
+            _debugProvider.ClearEvaluateVariables();
 
             try
             {
@@ -1308,6 +1309,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
 
             await this.HandleEmulatedOutputBuffer();
+            _debugProvider.ClearEvaluateVariables();
             await this.HandleStopCause();
 
             if (!Enum.IsDefined(e.Error))

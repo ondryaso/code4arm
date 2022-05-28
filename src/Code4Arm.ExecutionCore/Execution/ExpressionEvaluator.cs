@@ -36,7 +36,25 @@ internal partial class DebugProvider
 
     private static Regex GetAddressingRegex() => AddressingRegex;
 
-    private int _nextEvaluateVariableId = 0;
+    private int _nextEvaluateVariableId = 1;
+    private int _lastEvaluateVariableClearPoint = 1;
+
+    public void ClearEvaluateVariables()
+    {
+        var toDelete = _variables.Where(varPair =>
+        {
+            var evaluateId = ReferenceUtils.GetEvaluateId(varPair.Key);
+
+            return (evaluateId >= _lastEvaluateVariableClearPoint && evaluateId < _nextEvaluateVariableId);
+        }).Select(varPair => varPair.Value);
+
+        foreach (var deleted in toDelete)
+        {
+            this.RemoveVariable(deleted);
+        }
+
+        _lastEvaluateVariableClearPoint = _nextEvaluateVariableId = 1;
+    }
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
