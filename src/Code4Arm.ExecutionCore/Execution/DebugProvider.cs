@@ -1401,9 +1401,16 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         var exeSources = Executable.Sources;
 
         // Source references are indices in the executable sources array offset by +1
-        var reference = this.GetSourceReference(source) - 1;
+        try
+        {
+            var reference = this.GetSourceReference(source) - 1;
 
-        return exeSources.Count <= reference ? null : exeSources[reference].BuildPath;
+            return exeSources.Count <= reference ? null : exeSources[reference].BuildPath;
+        }
+        catch (InvalidSourceException)
+        {
+            return null;
+        }
     }
 
     public AssembledObject? GetObjectForSource(Source source)
@@ -1411,9 +1418,16 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         var exeSourceObjects = Executable.SourceObjects;
 
         // Source references are indices in the executable sources array offset by +1
-        var reference = this.GetSourceReference(source) - 1;
+        try
+        {
+            var reference = this.GetSourceReference(source) - 1;
 
-        return exeSourceObjects.Count <= reference ? null : exeSourceObjects[reference];
+            return exeSourceObjects.Count <= reference ? null : exeSourceObjects[reference];
+        }
+        catch (InvalidSourceException)
+        {
+            return null;
+        }
     }
 
     private int GetSourceReference(Source? source)
