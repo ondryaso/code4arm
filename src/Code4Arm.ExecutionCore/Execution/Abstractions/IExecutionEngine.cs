@@ -28,7 +28,7 @@ public interface IExecutionEngine : IDisposable
     IEnumerable<Breakpoint> SetBreakpoints(Source file, IEnumerable<SourceBreakpoint> breakpoints);
     IEnumerable<Breakpoint> SetExceptionBreakpoints(IEnumerable<string> filterIds);
     IEnumerable<Breakpoint> SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints);
-    IEnumerable<Breakpoint> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
+    Task<IEnumerable<Breakpoint>> SetInstructionBreakpoints(IEnumerable<InstructionBreakpoint> instructionBreakpoints);
 
     /// <summary>
     /// (Re-)initializes the virtual memory from the loaded executable and starts the execution thread.
@@ -49,10 +49,10 @@ public interface IExecutionEngine : IDisposable
     Task Launch();
 
     // terminates and launches
-    Task Restart(bool debug);
+    Task Restart(bool debug, int enterTimeout = Timeout.Infinite);
     Task GotoTarget(long targetId, int enterTimeout = Timeout.Infinite);
     Task Continue(int enterTimeout = Timeout.Infinite);
-    Task ReverseContinue();
+    Task ReverseContinue(int enterTimeout = Timeout.Infinite);
     Task Step(int enterTimeout = Timeout.Infinite);
     Task StepBack(int enterTimeout = Timeout.Infinite);
     Task StepOut(int enterTimeout = Timeout.Infinite);

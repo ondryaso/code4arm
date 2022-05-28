@@ -16,6 +16,8 @@ public static class ExceptionMessages
     
     public const string InvalidVariable = "Invalid variable reference.";
     public const string ExecutableNotLoaded = "No executable loaded.";
+    public const string InvalidExecutionState = "Cannot perform this action while execution is in state {0}.";
+    public const string InvalidExecutionLaunchState = "Execution has already been launched.";
     public const string InvalidSource = "Invalid source reference.";
     public const string NotInitialized = "The debugger is not initialized. Issue an Initialize request first.";
     public const string InvalidVariableFormat = "Invalid input format.";
@@ -33,6 +35,6 @@ public static class ExceptionMessages
     public const string InvalidMemoryRead = "Invalid memory read (memory not mapped).";
     public const string InvalidMemoryWrite = "Invalid memory write (memory not mapped).";
     public const string InvalidMemorySize = "Invalid memory operation – requested amount is too big or negative.";
-    
 
+    public const string GeneralError = "An unexpected critical error occured. Terminating execution.";
 }

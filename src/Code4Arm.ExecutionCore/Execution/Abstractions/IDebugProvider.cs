@@ -16,7 +16,7 @@ public interface IDebugProvider
     IEnumerable<GotoTarget> GetGotoTargets(Source source, int line, int? column);
     SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format);
 
-    SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value,
+    Task<SetVariableResponse> SetVariable(long parentVariablesReference, string variableName, string value,
         ValueFormat? format);
 
     DataBreakpointInfoResponse GetDataBreakpointInfo(long parentVariablesReference, string variableName);
@@ -31,7 +31,8 @@ public interface IDebugProvider
 
     IEnumerable<Variable> GetChildVariables(long parentVariablesReference, int? start, int? count, ValueFormat? format);
 
-    IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset, long? instructionOffset,
+    Task<IEnumerable<DisassembledInstruction>> Disassemble(string memoryReference, long? byteOffset,
+        long? instructionOffset,
         long instructionCount, bool resolveSymbols);
 
     #region Wrappers over DP's arguments objects
@@ -47,7 +48,7 @@ public interface IDebugProvider
     SetExpressionResponse SetExpression(SetExpressionArguments arguments)
         => this.SetExpression(arguments.Expression, arguments.Value, arguments.Format);
 
-    SetVariableResponse SetVariable(SetVariableArguments arguments)
+    Task<SetVariableResponse> SetVariable(SetVariableArguments arguments)
         => this.SetVariable(arguments.VariablesReference, arguments.Name, arguments.Value, arguments.Format);
 
     EvaluateResponse EvaluateExpression(EvaluateArguments arguments)
@@ -56,7 +57,7 @@ public interface IDebugProvider
     IEnumerable<BreakpointLocation> GetBreakpointLocations(BreakpointLocationsArguments arguments)
         => this.GetBreakpointLocations(arguments.Source, arguments.Line, arguments.EndLine);
 
-    IEnumerable<DisassembledInstruction> Disassemble(DisassembleArguments arguments)
+    Task<IEnumerable<DisassembledInstruction>> Disassemble(DisassembleArguments arguments)
         => this.Disassemble(arguments.MemoryReference, arguments.Offset, arguments.InstructionOffset,
             arguments.InstructionCount, arguments.ResolveSymbols);
 

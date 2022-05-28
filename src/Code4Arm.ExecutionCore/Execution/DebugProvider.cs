@@ -18,6 +18,7 @@ using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Constants;
 using ELFSharp.ELF.Sections;
+using Gee.External.Capstone.Arm;
 using Newtonsoft.Json.Linq;
 using StepBackMode = Code4Arm.ExecutionCore.Execution.Configuration.StepBackMode;
 
@@ -82,10 +83,10 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             SupportsCompletionsRequest = false,
             SupportsConditionalBreakpoints = false,
             SupportsDataBreakpoints = true,
-            SupportsDisassembleRequest = false, // TODO
+            SupportsDisassembleRequest = true,
             SupportsExceptionOptions = false,
             SupportsFunctionBreakpoints = false,
-            SupportsInstructionBreakpoints = false, // TODO
+            SupportsInstructionBreakpoints = true,
             SupportsLogPoints = true,
             SupportsModulesRequest = false, // TODO?
             SupportsRestartFrame = false,
@@ -142,10 +143,133 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         return new Container<ExceptionBreakpointsFilter>();
     }
 
-    public IEnumerable<DisassembledInstruction> Disassemble(string memoryReference, long? byteOffset,
+    public async Task<IEnumerable<DisassembledInstruction>> Disassemble(string memoryReference, long? byteOffset,
         long? instructionOffset, long instructionCount,
-        bool resolveSymbols) =>
-        throw new NotImplementedException();
+        bool resolveSymbols)
+    {
+        if (!uint.TryParse(memoryReference, out var address))
+            throw new Exception(); // TODO
+
+        if (byteOffset.HasValue)
+            address += (uint)byteOffset.Value;
+
+        if (instructionOffset.HasValue)
+            address += (uint)(instructionOffset.Value * 4);
+
+        // Align address to 4 bytes
+        address = ((address + 3) / 4) * 4;
+        var bytesCount = (int)(instructionCount * 4);
+
+        var (startAddress, endAddress) = this.DetermineMappedMemoryRegion(address, bytesCount);
+        if (startAddress == 0 && endAddress == 0)
+        {
+            return Enumerable.Range(0, (int)instructionCount).Select(i => new DisassembledInstruction()
+            {
+                Address = (address + i * 4).ToString(),
+                Instruction = "INVALID MEMORY ADDRESS",
+                InstructionBytes = "00 00 00 00"
+            });
+        }
+
+        var actualCount = (int)(endAddress - startAddress);
+        var bytesOffset = (int)(startAddress - address);
+
+        byte[]? rentedBytes = null;
+
+        try
+        {
+            byte[] bytes;
+            if (actualCount < ExecutionEngine.MaxArrayPoolSize)
+            {
+                bytes = _engine.ArrayPool.Rent(actualCount);
+                rentedBytes = bytes;
+            }
+            else
+            {
+                bytes = new byte[actualCount];
+            }
+
+            _engine.Engine.MemRead(startAddress, bytes, (nuint)actualCount);
+
+            var cap = new CapstoneArmDisassembler(ArmDisassembleMode.Arm | ArmDisassembleMode.V8)
+                { EnableInstructionDetails = true, EnableSkipDataMode = true };
+            var disAsm = cap.Disassemble(bytes, startAddress, actualCount / 4);
+
+            var ret = new List<DisassembledInstruction>((int)instructionCount);
+            var ix = 0;
+
+            for (var i = 0; i < instructionCount; i++)
+            {
+                var instrOffset = i * 4;
+                var instrAddress = address + instrOffset;
+                if (instrAddress < startAddress || instrAddress >= endAddress)
+                {
+                    ret.Add(new DisassembledInstruction()
+                    {
+                        Address = instrAddress.ToString(),
+                        Instruction = "INVALID MEMORY ADDRESS",
+                        InstructionBytes = "00 00 00 00"
+                    });
+
+                    continue;
+                }
+
+                var (line, sourceIndex) = this.GetAddressInfo((uint)instrAddress);
+                var source = sourceIndex == -1 ? null : await this.GetSource(sourceIndex);
+                var instrBytes = bytes[(instrOffset - bytesOffset)..(instrOffset - bytesOffset + 4)];
+                var dis = disAsm[ix++];
+
+                ret.Add(new DisassembledInstruction()
+                {
+                    Address = instrAddress.ToString(),
+                    Instruction = $"{dis.Mnemonic} {dis.Operand}",
+                    Line = line == -1 ? null : this.LineToClient(line),
+                    Location = source,
+                    InstructionBytes = $"{instrBytes[3]:X2} {instrBytes[2]:X2} {instrBytes[1]:X2} {instrBytes[0]:X2}"
+                });
+            }
+
+            return ret;
+        }
+        catch (UnicornException e)
+        {
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead, e);
+        }
+        finally
+        {
+            if (rentedBytes != null)
+                _engine.ArrayPool.Return(rentedBytes);
+        }
+    }
+
+    public (int Line, int SourceIndex) GetAddressInfo(uint address)
+    {
+        var lineInfo = _engine.LineResolver!.GetSourceLine(address, out var displacement);
+
+        if (lineInfo == default)
+            return (-1, -1);
+
+        if (displacement != 0)
+        {
+            return (-1, _engine.DetermineSourceIndexForAddress(address));
+        }
+        else
+        {
+            var line = (int)lineInfo.Line - 1; // in DWARF, the lines are numbered from 1
+            var i = 0;
+            foreach (var exeSource in _engine.ExecutableInfo!.Sources)
+            {
+                if (exeSource.BuildPath.Equals(lineInfo.File.Path, StringComparison.OrdinalIgnoreCase))
+                    break;
+
+                i++;
+            }
+
+            var sourceIndex = (i == _engine.ExecutableInfo!.Sources.Count ? -1 : i);
+
+            return (line, sourceIndex);
+        }
+    }
 
     public IEnumerable<GotoTarget> GetGotoTargets(Source source, int line, int? column)
     {
@@ -444,7 +568,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     /// <summary>
     /// Sets a variable, identified by its parent's Variables Reference number and its name.
     /// </summary>
-    public SetVariableResponse SetVariable(long parentVariablesReference, string variableName, string value,
+    public async Task<SetVariableResponse> SetVariable(long parentVariablesReference, string variableName, string value,
         ValueFormat? format)
     {
         this.CheckInitialized();
@@ -458,6 +582,14 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         targetVariable.Set(value, ctx);
 
         targetVariable.Evaluate(ctx);
+
+        if (targetVariable.IsViewOfParent)
+        {
+            await _engine.SendEvent(new InvalidatedEvent()
+            {
+                Areas = new Container<InvalidatedAreas>(InvalidatedAreas.Variables)
+            });
+        }
 
         return new SetVariableResponse()
         {
@@ -1216,15 +1348,15 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     #region Memory
 
-    private int DetermineMappedMemorySize(uint address, int targetCount)
+    private (uint StartAddress, uint EndAddress) DetermineMappedMemoryRegion(uint startAddress, int targetCount)
     {
-        var endAddress = (uint)(address + targetCount);
+        var endAddress = (uint)(startAddress + targetCount);
         MemorySegment? startSegment = null;
         MemorySegment? endSegment = null;
 
         foreach (var segment in _engine.Segments)
         {
-            if (segment.StartAddress <= address && segment.EndAddress > address)
+            if (segment.StartAddress <= startAddress && segment.EndAddress > startAddress)
                 startSegment = segment;
 
             if (segment.StartAddress <= endAddress && segment.EndAddress >= endAddress)
@@ -1232,13 +1364,28 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         }
 
         if (startSegment == null)
-            return -1;
+        {
+            var target = startAddress;
+            foreach (var segment in _engine.Segments.OrderBy(s => s.StartAddress))
+            {
+                if (segment.StartAddress > target)
+                {
+                    startAddress = segment.StartAddress;
+                    startSegment = segment;
+
+                    break;
+                }
+            }
+
+            if (startSegment == null)
+                return (0, 0);
+        }
 
         if (startSegment == endSegment ||
             startSegment.EndAddress == endSegment?.StartAddress) // Continuous block of memory
-            return targetCount;
+            return (startAddress, endAddress);
 
-        return (int)(startSegment.EndAddress - address);
+        return (startAddress, startSegment.EndAddress);
     }
 
     public ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset)
@@ -1252,10 +1399,13 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         if (count is < 0 or > int.MaxValue)
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemorySize);
 
-        var actualCount = this.DetermineMappedMemorySize(address, (int)count);
+        var mappedRegion = this.DetermineMappedMemoryRegion(address, (int)count);
+        var actualCount = (int)(mappedRegion.EndAddress - mappedRegion.StartAddress);
 
-        if (actualCount is -1 or 0)
+        if (mappedRegion.StartAddress == mappedRegion.EndAddress && mappedRegion.EndAddress == 0)
             return new ReadMemoryResponse() { Address = string.Empty, UnreadableBytes = count };
+
+        address = mappedRegion.StartAddress;
 
         var bufferSize = Base64.GetMaxEncodedToUtf8Length(actualCount);
         bufferSize = Math.Max(bufferSize, actualCount);
@@ -1278,7 +1428,6 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                 _engine.Engine.MemRead(address, bytes, (nuint)actualCount);
 
                 var resp = this.ReadMemory(address, bytes, count, actualCount);
-                _engine.ArrayPool.Return(bytes);
 
                 return resp;
             }
@@ -1292,10 +1441,12 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         }
         catch (UnicornException e)
         {
+            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead, e);
+        }
+        finally
+        {
             if (rentedBytes != null)
                 _engine.ArrayPool.Return(rentedBytes);
-
-            throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryRead, e);
         }
     }
 
@@ -1331,22 +1482,21 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         if (Base64.DecodeFromUtf8InPlace(bytes[..utfByteCount], out var dataSize) != OperationStatus.Done)
             throw new Exception(); // Shouldn't happen
 
-        var mappedSize = this.DetermineMappedMemorySize(address, dataSize);
+        var mappedRegion = this.DetermineMappedMemoryRegion(address, dataSize);
+        var mappedSize = (int)(mappedRegion.EndAddress - mappedRegion.StartAddress);
 
         if (mappedSize < dataSize && !allowPartial)
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite);
 
         try
         {
-            _engine.Engine.MemWrite(address, bytes, (nuint)mappedSize);
+            _engine.Engine.MemWrite(mappedRegion.StartAddress, bytes, (nuint)mappedSize);
         }
         catch (UnicornException e)
         {
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemoryWrite, e);
         }
 
-        // This doesn't 100% satisfy the protocol: when allowPartial is true, the write will be successful if it ends
-        // in unmapped memory but not when it starts in one.
         return new WriteMemoryResponse()
         {
             BytesWritten = mappedSize
@@ -1464,6 +1614,11 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         }
 
         throw new InvalidSourceException();
+    }
+
+    internal async Task<Source> GetSource(int sourceIndex)
+    {
+        return await this.GetSource(sourceIndex, _engine.ExecutableInfo!.Sources[sourceIndex]);
     }
 
     internal async Task<Source> GetSource(int sourceIndex, ExecutableSource exeSource)

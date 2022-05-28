@@ -43,4 +43,7 @@ public static class ExceptionCodes
     
     public const int InvalidMemoryOperationId = 111;
     public const string InvalidMemoryOperation = "invalidMemoryOperation";
+
+    public const int InvalidExecutionStateId = 112;
+    public const string InvalidExecutionState = "invalidState";
 }

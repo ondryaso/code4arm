@@ -48,12 +48,23 @@ internal partial class DebugProvider
             return (evaluateId >= _lastEvaluateVariableClearPoint && evaluateId < _nextEvaluateVariableId);
         }).Select(varPair => varPair.Value);
 
+        // This is not optimal as it may keep children that are no longer needed.
+        // However, deleting all children would also delete the children variables for Variables (e.g. subtypes of a
+        // register expression) as they share variable references.
+        // The solution to this would be to rework the variable mechanism so that the the IVariable objects don't carry
+        // the references – they would be managed entirely by the Debug Provider.
         foreach (var deleted in toDelete)
         {
-            this.RemoveVariable(deleted);
+            _variables.Remove(deleted.Reference);
         }
 
         _lastEvaluateVariableClearPoint = _nextEvaluateVariableId = 1;
+    }
+
+    public void ClearVariables()
+    {
+        _variables.Clear();
+        _topLevel.Clear();
     }
 
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,

@@ -122,7 +122,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<DisassembleResponse> Disassemble(DisassembleArguments arguments)
     {
         var dp = await this.GetDebugProvider();
-        var result = dp.Disassemble(arguments);
+        var result = await dp.Disassemble(arguments);
 
         return new DisassembleResponse() { Instructions = new Container<DisassembledInstruction>(result) };
     }
@@ -206,7 +206,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
 
             foreach (var invalidObject in build.InvalidObjects)
             {
-                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, ErrorCodes.AssembleId, 
+                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, ErrorCodes.AssembleId,
                     ErrorCodes.Assemble, invalidObject.AssemblerErrors + "\n");
             }
 
@@ -260,7 +260,6 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<NextResponse> Next(NextArguments arguments)
     {
         var exe = await this.GetExecution();
-        // TODO: handle state
         await exe.Step();
 
         return new NextResponse();
@@ -269,8 +268,6 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<PauseResponse> Pause(PauseArguments arguments)
     {
         var exe = await this.GetExecution();
-        // TODO: handle state
-
         await exe.Pause();
 
         return new PauseResponse();
@@ -287,9 +284,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<RestartResponse> Restart(RestartArguments arguments)
     {
         var exe = await this.GetExecution();
-
-        // TODO
-        Task.Run(async () => await exe.Restart(!(arguments.Arguments?.NoDebug ?? false)));
+        await exe.Restart(!(arguments.Arguments?.NoDebug ?? false));
 
         return new RestartResponse();
     }
@@ -297,9 +292,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<ReverseContinueResponse> ReverseContinue(ReverseContinueArguments arguments)
     {
         var exe = await this.GetExecution();
-
-        // TODO
-        Task.Run(async () => await exe.ReverseContinue());
+        await exe.ReverseContinue();
 
         return new ReverseContinueResponse();
     }
@@ -364,7 +357,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
         SetInstructionBreakpointsArguments arguments)
     {
         var exe = await this.GetExecution();
-        var result = exe.SetInstructionBreakpoints(arguments.Breakpoints);
+        var result = await exe.SetInstructionBreakpoints(arguments.Breakpoints);
 
         return new SetInstructionBreakpointsResponse()
             { Breakpoints = new Container<Breakpoint>(result) };
@@ -373,7 +366,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<SetVariableResponse> SetVariable(SetVariableArguments arguments)
     {
         var dp = await this.GetDebugProvider();
-        var result = dp.SetVariable(arguments);
+        var result = await dp.SetVariable(arguments);
 
         return result;
     }
