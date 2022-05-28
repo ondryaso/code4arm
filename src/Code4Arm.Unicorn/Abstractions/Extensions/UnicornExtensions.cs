@@ -192,7 +192,7 @@ public static class UnicornExtensions
 
         if (localLe == unicornLe || size == 1)
         {
-            MemWriteDirect(unicorn, address, value);
+            MemWriteDirect(unicorn, address, value, targetSize);
 
             return;
         }
