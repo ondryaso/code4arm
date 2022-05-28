@@ -51,7 +51,7 @@ public class StringVariable : IVariable, IAddressBackedVariable
     public void Set(string value, VariableContext context)
     {
         var encoding = context.Options.CStringEncoding;
-        var byteCount = encoding.GetByteCount(value);
+        var byteCount = encoding.GetByteCount(value) + 1;
 
         try
         {
@@ -59,12 +59,14 @@ public class StringVariable : IVariable, IAddressBackedVariable
             {
                 Span<byte> bytes = stackalloc byte[byteCount];
                 encoding.GetBytes(value.AsSpan(), bytes);
+                bytes[^1] = 0;
                 context.Engine.Engine.MemWrite(_address, bytes);
             }
             else
             {
                 var bytes = new byte[byteCount];
                 encoding.GetBytes(value.AsSpan(), bytes);
+                bytes[^1] = 0;
                 context.Engine.Engine.MemWrite(_address, bytes);
             }
         }
