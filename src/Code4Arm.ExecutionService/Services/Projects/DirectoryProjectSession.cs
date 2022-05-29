@@ -34,8 +34,7 @@ public class DirectoryProjectSession : BaseProjectSession
     public string DirectoryPath => _rootDirectoryPath;
 
     public DirectoryProjectSession(string rootDirectoryPath,
-        IOptionsMonitor<AssemblerOptions> assemblerOptions, IOptionsMonitor<LinkerOptions> linkerOptions,
-        ILoggerFactory loggerFactory)
+        AssemblerOptions assemblerOptions, LinkerOptions linkerOptions, ILoggerFactory loggerFactory)
         : base(assemblerOptions, linkerOptions, loggerFactory)
     {
         _rootDirectoryPath = rootDirectoryPath;
@@ -114,7 +113,7 @@ public class DirectoryProjectSession : BaseProjectSession
 
         _needsReload = false;
         _dirty = false;
-        
+
         if (_needsFullReload)
         {
             // This could, in theory, lead to some files getting missed, but it's highly improbable

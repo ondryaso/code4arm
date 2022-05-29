@@ -197,7 +197,7 @@ public class ExecutionOptions
     /// <summary>
     /// Controls the initial values of general-purpose registers (R0 to R13/LR).
     /// </summary>
-    public RegisterInitOptions RegisterInitOptions { get; set; } = RegisterInitOptions.Clear;
+    public RegisterInitOptions RegisterInitOptions { get; set; } = RegisterInitOptions.Randomize;
 
     /// <summary>
     /// Controls the initial values of all the SIMD/FP registers.

@@ -23,7 +23,7 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
 
         Name = $"Q{index}";
 
-        if (options.ShowS || options.ShowD || options.QSubtypes != null)
+        if (options.ShowS || options.ShowD || options.QSubtypes is { Length: not 0 })
         {
             Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 2);
             _children = new Dictionary<string, IVariable>();
@@ -35,7 +35,7 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
             if (options.ShowD)
                 this.MakeDChildren(index, options);
 
-            if (options.QSubtypes != null)
+            if (options.QSubtypes is { Length: not 0 })
                 this.MakeChildren(options.QSubtypes, options.ShowD, showS, index, options);
         }
         else
@@ -100,25 +100,27 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
     private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes, bool ignoreDoubles, bool ignoreFloats,
         int thisIndex, ArmSimdRegisterVariableOptions options)
     {
-        foreach (var type in allowedSubtypes)
+        foreach (var type in allowedSubtypes.Distinct())
         {
             if (ignoreDoubles && type == DebuggerVariableType.Double)
                 continue;
             if (ignoreFloats && type == DebuggerVariableType.Float)
                 continue;
-            
+
             // TODO: Subvariables for the 128-bit Q-registers
 
             if (type is DebuggerVariableType.Double or DebuggerVariableType.LongU && !ignoreDoubles)
             {
                 // Temporary solution
-                this.MakeDChildren(thisIndex, options with { PreferFloatRendering = type == DebuggerVariableType.Double });
+                this.MakeDChildren(thisIndex,
+                    options with { PreferFloatRendering = type == DebuggerVariableType.Double });
             }
 
             if (type is DebuggerVariableType.Float or DebuggerVariableType.IntU && thisIndex < 8 && !ignoreFloats)
             {
                 // Temporary solution
-                this.MakeSChildren(thisIndex, options with { PreferFloatRendering = type == DebuggerVariableType.Float });
+                this.MakeSChildren(thisIndex,
+                    options with { PreferFloatRendering = type == DebuggerVariableType.Float });
             }
         }
     }
@@ -219,7 +221,7 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableB
         _showIeee = options.DIeeeSubvariables;
         _showAsFloat = options.PreferFloatRendering;
 
-        if (showS || options.DIeeeSubvariables || options.DSubtypes != null)
+        if (showS || options.DIeeeSubvariables || options.DSubtypes is { Length: not 0 })
         {
             Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 1);
             _children = new Dictionary<string, IVariable>();
@@ -227,11 +229,12 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableB
             if (showS)
                 this.MakeSChildren(index, options);
 
-            if (options.DSubtypes != null)
+            if (options.DSubtypes is { Length: not 0 })
                 this.MakeChildren(options.DSubtypes, showS);
 
             if (options.DIeeeSubvariables &&
-                (options.DSubtypes == null || !options.DSubtypes.Contains(DebuggerVariableType.Double)))
+                (options.DSubtypes is not { Length: not 0 } ||
+                    !options.DSubtypes.Contains(DebuggerVariableType.Double)))
                 this.MakeIeeeChildren();
         }
         else
@@ -333,7 +336,7 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableB
 
     private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes, bool ignoreFloats)
     {
-        foreach (var type in allowedSubtypes)
+        foreach (var type in allowedSubtypes.Distinct())
         {
             if (ignoreFloats && type == DebuggerVariableType.Float)
                 continue;
@@ -436,17 +439,17 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
             ? "32 bit SIMD/FP register (interpreted as a single-precision floating-point number)"
             : "32 bit SIMD/FP register";
 
-        if (options.SSubtypes != null || options.SIeeeSubvariables)
+        if (options.SSubtypes is { Length: not 0 } || options.SIeeeSubvariables)
         {
             Reference = ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypes, _unicornRegId, 0, 0);
 
-            if (options.SSubtypes != null)
+            if (options.SSubtypes is { Length: not 0 })
             {
                 this.MakeChildren(options.SSubtypes);
             }
 
             if (options.SIeeeSubvariables &&
-                (options.SSubtypes == null || !options.SSubtypes.Contains(DebuggerVariableType.Float)))
+                (options.SSubtypes is not { Length: not 0 } || !options.SSubtypes.Contains(DebuggerVariableType.Float)))
             {
                 this.MakeIeeeChildren();
             }
@@ -529,7 +532,7 @@ public class ArmSSimdRegisterVariable : UIntBackedVariable
 
     private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes)
     {
-        foreach (var type in allowedSubtypes)
+        foreach (var type in allowedSubtypes.Distinct())
         {
             var variable = new UIntBackedSubtypeVariable<ArmSSimdRegisterVariable>(this, type,
                 ReferenceUtils.MakeReference(ContainerType.SimdRegisterSubtypesValues, _unicornRegId, type), _showIeee);

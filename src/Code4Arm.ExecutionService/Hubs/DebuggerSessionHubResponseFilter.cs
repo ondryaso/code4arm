@@ -66,7 +66,7 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
         }
         catch (Exception e)
         {
-            var logger = _loggerFactory.CreateLogger<DebuggerSessionHub>();
+            var logger = _loggerFactory.CreateLogger(invocationContext.Hub.GetType());
             var correlationId = Guid.NewGuid();
             logger.LogWarning(e,
                 "Unhandled execution/debugger exception. Connection ID: {Id}. Correlation ID: {Correlation}.",
@@ -84,14 +84,14 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
             return new DebuggerResponse()
             {
                 Success = false,
-                Message = ExceptionCodes.UnexpectedError,
+                Message = ExecutionCore.Execution.Exceptions.ExceptionCodes.UnexpectedError,
                 Body = new
                 {
                     error = new Message()
                     {
                         Format =
                             "Unexpected execution service error. Connection ID: {connId}. Correlation ID: {corrId}.",
-                        Id = ExceptionCodes.UnexpectedErrorId,
+                        Id = ExecutionCore.Execution.Exceptions.ExceptionCodes.UnexpectedErrorId,
                         ShowUser = false,
                         SendTelemetry = true,
                         Variables = new Dictionary<string, string>()

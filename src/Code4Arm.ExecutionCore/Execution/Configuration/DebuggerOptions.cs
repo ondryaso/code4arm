@@ -52,12 +52,7 @@ public class DebuggerOptions
     /// <see cref="DebuggerVariableType.LongS"/>, <see cref="DebuggerVariableType.LongU"/> and <see cref="DebuggerVariableType.Double"/> cannot be used here
     /// because the registers are 32 bits wide.
     /// </remarks>
-    public DebuggerVariableType[] RegistersSubtypes { get; set; } =
-    {
-        DebuggerVariableType.ByteU,
-        DebuggerVariableType.ByteS, /*DebuggerVariableType.CharAscii, DebuggerVariableType.ShortU,
-        DebuggerVariableType.ShortS,*/ DebuggerVariableType.IntU, DebuggerVariableType.IntS, DebuggerVariableType.Float
-    };
+    public DebuggerVariableType[] RegistersSubtypes { get; set; } = Array.Empty<DebuggerVariableType>();
 
     /// <summary>
     /// Different subtypes to break stack values into. 
@@ -66,12 +61,7 @@ public class DebuggerOptions
     /// <see cref="DebuggerVariableType.LongS"/>, <see cref="DebuggerVariableType.LongU"/> and <see cref="DebuggerVariableType.Double"/> cannot be used here
     /// because the stack is read as an array of 32bit values.
     /// </remarks>
-    public DebuggerVariableType[] StackVariablesSubtypes { get; set; } =
-    {
-        DebuggerVariableType
-            .ByteU, /*DebuggerVariableType.ByteS, DebuggerVariableType.CharAscii, DebuggerVariableType.ShortU,
-        DebuggerVariableType.ShortS,*/ DebuggerVariableType.IntU, DebuggerVariableType.IntS, DebuggerVariableType.Float
-    };
+    public DebuggerVariableType[] StackVariablesSubtypes { get; set; } = Array.Empty<DebuggerVariableType>();
 
     /// <summary>
     /// If true, all variables, including subvariables, that carry a float or double value, will have child variables
@@ -85,7 +75,7 @@ public class DebuggerOptions
     public SimdRegisterLevel TopSimdRegistersLevel { get; set; } = SimdRegisterLevel.Q128;
 
     /// <summary>
-    /// 
+    /// Controls the behaviour of SIMD/FP register variables.
     /// </summary>
     public ArmSimdRegisterVariableOptions SimdRegistersOptions { get; set; } = new()
     {
@@ -97,9 +87,9 @@ public class DebuggerOptions
 
         PreferFloatRendering = true,
 
-        QSubtypes = new[] { DebuggerVariableType.LongU, DebuggerVariableType.IntU },
-        DSubtypes = new[] { DebuggerVariableType.IntU, DebuggerVariableType.Float, DebuggerVariableType.Double },
-        SSubtypes = new[] { DebuggerVariableType.IntU, DebuggerVariableType.Float, DebuggerVariableType.ByteS }
+        QSubtypes = Array.Empty<DebuggerVariableType>(),
+        DSubtypes = Array.Empty<DebuggerVariableType>(),
+        SSubtypes = Array.Empty<DebuggerVariableType>()
     };
 
     /// <summary>

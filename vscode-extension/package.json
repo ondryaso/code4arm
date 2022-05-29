@@ -215,6 +215,166 @@
                             "sourceFiles": {
                                 "type": "array",
                                 "description": "An array of source file names, in linking order."
+                            },
+                            "debuggerOptions": {
+                                "type": "object",
+                                "description": "Debugger-related options (overrides extension configuration),",
+                                "properties": {
+                                    "enableAutomaticDataVariables": {
+                                        "type": "boolean",
+                                        "description": "Show recognized data section symbols as Variables."
+                                    },
+                                    "enableStackVariables": {
+                                        "type": "boolean",
+                                        "description": "Show on-stack data as Variables."
+                                    },
+                                    "enableRegistersVariables": {
+                                        "type": "boolean",
+                                        "description": "Show general-purpose registers as Variables."
+                                    },
+                                    "enableSimdVariables": {
+                                        "type": "boolean",
+                                        "description": "Show SIMD/FP registers as Variables."
+                                    },
+                                    "enableControlVariables": {
+                                        "type": "boolean",
+                                        "description": "Show APSR (Application Processor State Register) and PC (Program Counter/R15) as Variables."
+                                    },
+                                    "enableExtendedControlVariables": {
+                                        "type": "boolean",
+                                        "description": "Show CPSR, FPEXC and FPSCR as Variables."
+                                    },
+                                    "variableNumberFormat": {
+                                        "type": "string",
+                                        "enum": ["Decimal", "Hex", "Binary", "Float"],
+                                        "default": "Decimal",
+                                        "description": "The format to show Variable values in."
+                                    },
+                                    "registersSubtypes": {
+                                        "type": "array",
+                                        "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for register Variables.",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "Float"],
+                                            "enumDescriptions": [
+                                                "unsigned bytes (8-bit integers)",
+                                                "signed bytes (8-bit integers)",
+                                                "ASCII characters",
+                                                "unsigned shorts (16-bit integers)",
+                                                "signed shorts (16-bit integers)",
+                                                "unsigned int (32-bit integer)",
+                                                "signed int (32-bit integer)",
+                                                "float (32-bit IEEE 754 floating point number)"
+                                            ]
+                                        }
+                                    },
+                                    "stackVariablesSubtypes": {
+                                        "type": "array",
+                                        "description": "Controls what child Variables that represent an on-stack value split into smaller data types will be created for stack Variables.",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "Float"],
+                                            "enumDescriptions": [
+                                                "unsigned bytes (8-bit integers)",
+                                                "signed bytes (8-bit integers)",
+                                                "ASCII characters",
+                                                "unsigned shorts (16-bit integers)",
+                                                "signed shorts (16-bit integers)",
+                                                "unsigned int (32-bit integer)",
+                                                "signed int (32-bit integer)",
+                                                "float (32-bit IEEE 754 floating point number)"
+                                            ]
+                                        }
+                                    },
+                                    "showFloatIeeeSubvariables": {
+                                        "type": "boolean",
+                                        "description": "Show decomposition into sign, exponent and mantissa for float and double Variables."
+                                    },
+                                    "topSimdRegistersLevel": {
+                                        "type": "string",
+                                        "description": "Controls the largest class of SIMD/FP registers that will be shown as Variables.",
+                                        "enum": ["S32", "D64", "Q128"],
+                                        "enumDescriptions": [
+                                            "S registers (32-bit vector/float registers S0 to S15)",
+                                            "D registers (64-bit vector/double registers D0 to D31)",
+                                            "Q registers (128-bit vector registers Q0 to Q15)"
+                                        ]
+                                    },
+                                    "simdRegistersOptions": {
+                                        "type": "object",
+                                        "description": "Controls the behaviour of SIMD/FP register Variables.",
+                                        "properties": {
+                                            "dSubtypes": {
+                                                "type": "array",
+                                                "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for D-register Variables.",
+                                                "items": {
+                                                    "type": "string",
+                                                    "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "LongU", "LongS", "Float", "Double"],
+                                                    "enumDescriptions": [
+                                                        "unsigned bytes (8-bit integers)",
+                                                        "signed bytes (8-bit integers)",
+                                                        "ASCII characters",
+                                                        "unsigned shorts (16-bit integers)",
+                                                        "signed shorts (16-bit integers)",
+                                                        "unsigned ints (32-bit integers)",
+                                                        "signed ints (32-bit integers)",
+                                                        "unsigned long (64-bit integer)",
+                                                        "signed long (64-bit integer)",
+                                                        "floats (32-bit IEEE 754 floating point numbers)",
+                                                        "double (64-bit IEEE 754 floating point number)"
+                                                    ]
+                                                }
+                                            },
+                                            "sSubtypes": {
+                                                "type": "array",
+                                                "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for S-register Variables.",
+                                                "items": {
+                                                    "type": "string",
+                                                    "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "Float"],
+                                                    "enumDescriptions": [
+                                                        "unsigned bytes (8-bit integers)",
+                                                        "signed bytes (8-bit integers)",
+                                                        "ASCII characters",
+                                                        "unsigned shorts (16-bit integers)",
+                                                        "signed shorts (16-bit integers)",
+                                                        "unsigned int (32-bit integer)",
+                                                        "signed int (32-bit integer)",
+                                                        "float (32-bit IEEE 754 floating point number)"
+                                                    ]
+                                                }
+                                            },
+                                            "showD": {
+                                                "type": "boolean",
+                                                "description": "Show D-registers as child Variables in Q-register Variables."
+                                            },
+                                            "showS": {
+                                                "type": "boolean",
+                                                "description": "Show S-registers as child Variables in D-register Variables."
+                                            },
+                                            "dIeeeSubvariables": {
+                                                "type": "boolean",
+                                                "description": "Show decomposition into sign, exponent and mantissa for D-register Variables."
+                                            },
+                                            "sIeeeSubvariables": {
+                                                "type": "boolean",
+                                                "description": "Show decomposition into sign, exponent and mantissa for S-register Variables."
+                                            },
+                                            "preferFloatRendering": {
+                                                "type": "boolean",
+                                                "description": "Show D- and S- register's values as floating-point numbers."
+                                            }
+                                        }
+                                    },
+                                    "cStringMaxLength": {
+                                        "type": "number",
+                                        "description": "Maximum length of null-terminated C-strings (in bytes)."
+                                    },
+                                    "cStringEncoding": {
+                                        "type": "string",
+                                        "description": "Encoding to interpret null-terminated C-strings in.",
+                                        "enum": [ "utf-8", "us-ascii", "utf-16", "unicodeFFFE", "utf-32", "utf-32BE", "iso-8859-1" ]
+                                    }
+                                }
                             }
                         }
                     }

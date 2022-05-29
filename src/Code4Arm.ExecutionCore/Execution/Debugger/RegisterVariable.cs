@@ -14,7 +14,10 @@ public class RegisterVariable : UnstructuredRegisterVariable
         _showIeeeFloatSubvariables = showIeeeFloatSubvariables;
         Reference = ReferenceUtils.MakeReference(ContainerType.RegisterSubtypes, unicornRegisterId);
 
-        this.MakeChildren(allowedSubtypes);
+        if (allowedSubtypes is { Length: not 0 })
+        {
+            this.MakeChildren(allowedSubtypes);
+        }
     }
 
     public RegisterVariable(long reference, int unicornRegisterId, string name, DebuggerVariableType? targetSubtype,
@@ -35,9 +38,9 @@ public class RegisterVariable : UnstructuredRegisterVariable
 
     public override long Reference { get; }
 
-    private void MakeChildren(DebuggerVariableType[] allowedSubtypes)
+    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes)
     {
-        foreach (var type in allowedSubtypes)
+        foreach (var type in allowedSubtypes.Distinct())
         {
             var variable = new UIntBackedSubtypeVariable<RegisterVariable>(this, type,
                 ReferenceUtils.MakeReference(ContainerType.RegisterSubtypesValues, UnicornRegisterId, type),

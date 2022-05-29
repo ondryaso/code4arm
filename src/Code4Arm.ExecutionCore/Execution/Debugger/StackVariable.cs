@@ -20,9 +20,13 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
         _showFloatIeeeSubvariables = showFloatIeeeSubvariables;
         Name = $"[{index}]";
         Type = null;
+        
         Reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
 
-        this.MakeChildren(allowedSubtypes);
+        if (allowedSubtypes is { Length: not 0 })
+        {
+            this.MakeChildren(allowedSubtypes);
+        }
     }
 
     public override string Name { get; }
@@ -84,9 +88,9 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
         CurrentValue = context.Engine.Engine.MemReadSafe<uint>(_address);
     }
 
-    private void MakeChildren(DebuggerVariableType[] allowedSubtypes)
+    private void MakeChildren(IEnumerable<DebuggerVariableType> allowedSubtypes)
     {
-        foreach (var type in allowedSubtypes)
+        foreach (var type in allowedSubtypes.Distinct())
         {
             var variable = new UIntBackedSubtypeVariable<StackVariable>(this, type,
                 ReferenceUtils.MakeReference(ContainerType.StackSubtypesValues, _address, type),

@@ -72,24 +72,8 @@ export class Code4ArmDebugSession extends ProtocolServer {
     }
 
 
-    private handleServiceLog(category: string, timestamp: string, logLevel: ServiceLogLevel,
-        eventId: number, eventName: string | null, message: string) {
-        if (logLevel === ServiceLogLevel.None)
-            return;
-
-        // const time = new Date(timestamp);
-        const msg = message; // `!! [${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}.${time.getMilliseconds()}] ${category}: ${message}`;
-
-        switch (logLevel) {
-            case ServiceLogLevel.Trace:
-            case ServiceLogLevel.Debug:
-            case ServiceLogLevel.Information:
-                this.log(msg);
-                break;
-            default:
-                this.logError(msg);
-                break;
-        }
+    private handleServiceLog(eventId: number, message: string, description: string) {
+        this.log(description);
     }
 
     private async ensureConnected(): Promise<boolean> {
@@ -97,8 +81,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             const _this = this;
 
             this.connection.on('HandleEvent', (eventName: string, body: any | null) => { _this.handleRemoteEvent(eventName, body); });
-            this.connection.on('Log', (category: string, timestamp: string, logLevel: ServiceLogLevel,
-                id: number, name: string | null, message: string) => { _this.handleServiceLog(category, timestamp, logLevel, id, name, message); });
+            this.connection.on('Log', (id: number, name: string, message: string) => { _this.handleServiceLog(id, name, message); });
 
             this.connection.onclose((error?: Error) => { _this.handleConnectionClose(error) });
 

@@ -1,48 +1,50 @@
 // DebuggerSessionHub.cs
 // Author: Ondřej Ondryáš
 
-using System.Runtime.CompilerServices;
-using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
-using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.ExecutionService.HubRequests;
-using Code4Arm.ExecutionService.Services;
-using MediatR;
+using Code4Arm.ExecutionService.Services.Abstractions;
 using Microsoft.AspNetCore.SignalR;
+using ISession = Code4Arm.ExecutionService.Services.Abstractions.ISession;
 using Thread = Code4Arm.ExecutionCore.Protocol.Models.Thread;
 
 namespace Code4Arm.ExecutionService.Hubs;
 
-public class DebuggerSessionHub : Hub<IDebuggerSession>
+public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession : ISession
 {
-    private readonly IMediator _mediator;
-    private readonly SessionManager _sessionManager;
-    private readonly ILogger<DebuggerSessionHub> _logger;
+    private readonly ISessionManager<TSession> _sessionManager;
+    private readonly ILogger<DebuggerSessionHub<TSession>> _logger;
 
-    public DebuggerSessionHub(IMediator mediator, SessionManager sessionManager, ILogger<DebuggerSessionHub> logger)
+    public DebuggerSessionHub(ISessionManager<TSession> sessionManager,
+        ILogger<DebuggerSessionHub<TSession>> logger)
     {
-        _mediator = mediator;
         _sessionManager = sessionManager;
         _logger = logger;
     }
 
-    private ValueTask<Session> GetSession()
+    private async ValueTask<ISession> GetSession()
     {
-        return _sessionManager.GetSession(Context.ConnectionId);
+        var currentId = await _sessionManager.GetSessionId(Context.ConnectionId);
+
+        if (currentId == null)
+            throw new HubException(); // TODO
+
+        var session = await _sessionManager.GetSession(currentId);
+
+        if (session == null)
+            throw new HubException(); // TODO
+
+        return session;
     }
 
-    private async ValueTask<IExecutionEngine> GetExecution(bool checkLoaded = true,
-        [CallerMemberName] string caller = "")
+    private async ValueTask<IExecutionEngine> GetExecution()
     {
         var session = await this.GetSession();
-        var execution = session.GetEngine();
-
-        if (checkLoaded && (execution.State == ExecutionState.Unloaded))
-            throw new ExecutableNotLoadedException();
+        var execution = await session.GetEngine();
 
         return execution;
     }
@@ -50,7 +52,7 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     private async ValueTask<IDebugProvider> GetDebugProvider()
     {
         var session = await this.GetSession();
-        var execution = session.GetEngine();
+        var execution = await session.GetEngine();
 
         if (execution.DebugProvider == null)
             throw new HubException("No executable loaded.");
@@ -61,29 +63,25 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     private async ValueTask<IDebugProtocolSourceLocator> GetSourceLocator()
     {
         var session = await this.GetSession();
+        var execution = await session.GetEngine();
 
-        if (session.ProjectSession == null)
-            throw new HubException("No project loaded.");
-
-        return session.GetEngine().SourceLocator;
+        return execution.SourceLocator;
     }
 
     public override async Task OnConnectedAsync()
     {
-        await _sessionManager.OpenSession(Context.ConnectionId);
+        var sessionId = await _sessionManager.CreateSession();
+        await _sessionManager.AssignConnection(Context.ConnectionId, sessionId, ConnectionType.Tool);
+        await _sessionManager.AssignConnection(Context.ConnectionId, sessionId, ConnectionType.Debugger);
+
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await _sessionManager.CloseSession(Context.ConnectionId);
-        await base.OnDisconnectedAsync(exception);
-    }
 
-    public async Task SetLogLevel(LogLevel level)
-    {
-        var session = await this.GetSession();
-        session.SetRemoteLogLevel(level);
+        await base.OnDisconnectedAsync(exception);
     }
 
     public async Task<BreakpointLocationsResponse> BreakpointLocations(BreakpointLocationsArguments arguments)
@@ -176,73 +174,10 @@ public class DebuggerSessionHub : Hub<IDebuggerSession>
     public async Task<LaunchResponse> Launch(CustomLaunchArguments arguments)
     {
         var session = await this.GetSession();
+        await session.BuildAndLoad(arguments);
 
-        // TODO: check state
-
-        if (arguments.SourceDirectory != null)
-        {
-            session.InitFromDirectory(arguments.SourceDirectory);
-        }
-        else if (arguments.SourceFiles != null)
-        {
-            session.InitFromFiles(arguments.SourceFiles);
-        }
-        else
-        {
-            throw new DebuggerException(ErrorCodes.NoLaunchTargetId, ErrorCodes.NoLaunchTarget,
-                DebuggerExceptionType.User,
-                "No build target specified. Either 'sourceDirectory' or 'sourceFiles' must be present in launch.json");
-        }
-
-        var build = await session.ProjectSession.Build(false);
-        if (build.State == MakeResultState.InvalidObjects)
-        {
-            if (build.InvalidObjects == null)
-            {
-                _logger.LogError("InvalidObjects state but InvalidObjects is null.");
-
-                throw new HubException("Unexpected execution service state (InvalidObjects null).");
-            }
-
-            foreach (var invalidObject in build.InvalidObjects)
-            {
-                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, ErrorCodes.AssembleId,
-                    ErrorCodes.Assemble, invalidObject.AssemblerErrors + "\n");
-            }
-
-            throw new DebuggerException(ErrorCodes.AssembleId, ErrorCodes.Assemble, DebuggerExceptionType.User,
-                $"Cannot assemble {build.InvalidObjects?.Count} source(s). Check output for error details.");
-        }
-
-        if (build.State == MakeResultState.LinkingError)
-        {
-            if (build.LinkerError != null)
-                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Error, ErrorCodes.LinkId,
-                    ErrorCodes.Link, build.LinkerError + "\n");
-
-            throw new DebuggerException(ErrorCodes.LinkId, ErrorCodes.Link, DebuggerExceptionType.User,
-                "Cannot link assembled objects. Check output for more details.");
-        }
-
-        if (build.Executable == null)
-        {
-            _logger.LogError("Build successful but executable is null.");
-
-            throw new HubException("Unexpected execution service error (Executable null).");
-        }
-
-        foreach (var validObject in build.ValidObjects)
-        {
-            if (!string.IsNullOrWhiteSpace(validObject.AssemblerErrors))
-            {
-                await Clients.Caller.Log("Code4Arm.Build", DateTime.UtcNow, LogLevel.Warning, ErrorCodes.AssembleId,
-                    ErrorCodes.Assemble, validObject.AssemblerErrors + "\n");
-            }
-        }
-
-        var exe = session.GetEngine();
-        await exe.LoadExecutable(build.Executable!);
-
+        var exe = await session.GetEngine();
+        
         await Clients.Caller.HandleEvent(EventNames.Initialized, null);
         await exe.InitLaunch(!arguments.NoDebug);
 

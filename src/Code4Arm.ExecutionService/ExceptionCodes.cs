@@ -1,10 +1,13 @@
-// ErrorCodes.cs
+// ExceptionCodes.cs
 // Author: Ondřej Ondryáš
 
 namespace Code4Arm.ExecutionService;
 
-public static class ErrorCodes
+public static class ExceptionCodes
 {
+    public const int UnexpectedErrorId = ExecutionCore.Execution.Exceptions.ExceptionCodes.UnexpectedErrorId;
+    public const string UnexpectedError = ExecutionCore.Execution.Exceptions.ExceptionCodes.UnexpectedError;
+    
     public const int NoLaunchTargetId = 200;
     public const string NoLaunchTarget = "noTarget";
     

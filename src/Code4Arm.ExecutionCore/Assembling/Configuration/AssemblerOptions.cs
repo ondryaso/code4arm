@@ -7,8 +7,8 @@ namespace Code4Arm.ExecutionCore.Assembling.Configuration;
 
 public class AssemblerOptions
 {
-    public string GasPath { get; set; } = "as"; // TODO
-    public string[]? GasOptions { get; set; } = { "-march=armv8.6-a+fp16+simd" };
+    public string GasPath { get; set; }
+    public string[]? GasOptions { get; set; }
     public string? SourceHeaderPath { get; set; } = Utils.GetSupportFile("source_header.s");
     public int TimeoutMs { get; } = 5000;
 }

@@ -43,7 +43,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     private long _nextTraceableId = long.MinValue;
 
     private Executable Executable => (_engine.ExecutableInfo as Executable) ?? throw new ExecutableNotLoadedException();
-
+    public InitializeRequestArguments? ClientInfo => _clientInfo;
+    
     public DebugProvider(ExecutionEngine engine, DebuggerOptions options)
     {
         _engine = engine;

@@ -14,7 +14,7 @@ public class FilesProjectSession : BaseProjectSession
     private readonly object _loadingLocker = new();
 
     public FilesProjectSession(IEnumerable<string> files, string? name,
-        IOptionsMonitor<AssemblerOptions> assemblerOptions, IOptionsMonitor<LinkerOptions> linkerOptions,
+        AssemblerOptions assemblerOptions, LinkerOptions linkerOptions,
         ILoggerFactory loggerFactory)
         : base(assemblerOptions, linkerOptions, loggerFactory)
     {

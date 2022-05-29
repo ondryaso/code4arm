@@ -15,25 +15,29 @@ namespace Code4Arm.ExecutionService.Services.Projects;
 public abstract class BaseProjectSession : IProjectSession
 {
     private bool _disposed;
-    protected Assembler? Assembler;
+    protected Assembler Assembler;
     private MakeResult? _lastResult;
-
-    private readonly IDisposable _assemblerOptionsChangeHandler;
-    private readonly IDisposable _linkerOptionsChangeHandler;
 
     public abstract string Name { get; }
     public abstract IEnumerable<IAsmFile> GetFiles();
     public abstract IAsmFile? GetFile(string name);
     public abstract bool Dirty { get; }
 
-    public BaseProjectSession(IOptionsMonitor<AssemblerOptions> assemblerOptions,
-        IOptionsMonitor<LinkerOptions> linkerOptions, ILoggerFactory loggerFactory)
+    public BaseProjectSession(AssemblerOptions assemblerOptions, LinkerOptions linkerOptions,
+        ILoggerFactory loggerFactory)
     {
-        Assembler = new Assembler(assemblerOptions.CurrentValue, linkerOptions.CurrentValue, loggerFactory);
+        Assembler = new Assembler(assemblerOptions, linkerOptions, loggerFactory);
         Assembler.UseFunctionSimulators(new IFunctionSimulator[] {new Printf()}); // TODO: get from DI?
+    }
 
-        _assemblerOptionsChangeHandler = assemblerOptions.OnChange(opt => Assembler.AssemblerOptions = opt);
-        _linkerOptionsChangeHandler = linkerOptions.OnChange(opt => Assembler.LinkerOptions = opt);
+    public void UseAssemblerOptions(AssemblerOptions options)
+    {
+        Assembler.AssemblerOptions = options;
+    }
+
+    public void UseLinkerOptions(LinkerOptions options)
+    {
+        Assembler.LinkerOptions = options;
     }
 
     public async Task<MakeResult> Build(bool rebuild)
@@ -66,9 +70,6 @@ public abstract class BaseProjectSession : IProjectSession
 
         if (disposing)
         {
-            _assemblerOptionsChangeHandler.Dispose();
-            _linkerOptionsChangeHandler.Dispose();
-
             Assembler?.Dispose();
 
             if (_lastResult.HasValue)
