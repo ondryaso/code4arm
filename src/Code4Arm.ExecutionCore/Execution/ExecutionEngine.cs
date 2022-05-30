@@ -216,6 +216,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly StringWriter _emulatedOut;
     public TextWriter EmulatedOutput => _emulatedOut;
 
+    public Task? CurrentExecutionTask { get; private set; }
+
     public ExecutionEngine(ExecutionOptions options, DebuggerOptions debuggerOptions, IMediator mediator,
         ILogger<ExecutionEngine> systemLogger)
     {
@@ -634,13 +636,32 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
         }
 
-        // TODO: Initialize the CPU somehow and switch to User mode ???
-        // This just switches it to User mode (16 because of RES1 at bit 4)
-        Engine.RegWrite(Arm.Register.CPSR, 16);
-        Engine.RegWrite(Arm.Register.SP, StackTopAddress);
+        // Enable NEON/VFP
+        var p15 = new Arm.CoprocessorRegister()
+        {
+            CoprocessorId = 15,
+            Is64Bit = 0,
+            SecurityState = 0,
+            Crn = 1,
+            Crm = 0,
+            Opcode1 = 0,
+            Opcode2 = 2
+        };
 
-        // VFP
+        // MRC P15, 0, Rx, C1, C0, 2
+        // ORR Rx, Rx, 0xF00000
+        // MCR P15, 0, Rx, C1, C0, 2
+        Engine.RegRead(Arm.Register.CP_REG, ref p15);
+        p15.Value |= 0xF00000;
+        Engine.RegWrite(Arm.Register.CP_REG, p15);
+
+        // MOV Rx, 0x40000000; FMXR FPEXC, R0
         Engine.RegWrite(Arm.Register.FPEXC, 0x40000000);
+
+        // Switch to User mode (16 because of RES1 at bit 4)
+        Engine.RegWrite(Arm.Register.CPSR, 16);
+
+        Engine.RegWrite(Arm.Register.SP, StackTopAddress);
     }
 
     private void UnmapAllMemory()
@@ -1490,7 +1511,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             var startAddress = _exe.EntryPoint;
 
-            _ = Task.Run(async () =>
+            CurrentExecutionTask = Task.Run(async () =>
             {
                 try
                 {
@@ -1702,7 +1723,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var startAddress = CurrentPc;
         try
         {
-            _ = Task.Run(async () =>
+            CurrentExecutionTask = Task.Run(async () =>
             {
                 if (_currentCts.IsCancellationRequested)
                 {

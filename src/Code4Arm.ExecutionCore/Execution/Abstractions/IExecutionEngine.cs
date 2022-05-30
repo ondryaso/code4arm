@@ -17,6 +17,8 @@ public interface IExecutionEngine : IDisposable
     IRuntimeInfo? RuntimeInfo { get; }
     IDebugProvider DebugProvider { get; }
     IDebugProtocolSourceLocator SourceLocator { get; }
+    
+    Task? CurrentExecutionTask { get; }
 
     IUnicorn Engine { get; }
 
