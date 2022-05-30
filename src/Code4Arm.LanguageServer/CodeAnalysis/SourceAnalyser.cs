@@ -1090,13 +1090,17 @@ public class SourceAnalyser : ISourceAnalyser
 
     private struct OperandAnalysisChain
     {
+        public OperandAnalysisChain()
+        {
+        }
+
         public int ErroneousOperandIndex { get; set; } = -1;
         public int EndLinePosition { get; set; } = -1;
         public LineAnalysisState EndLineState { get; set; } = LineAnalysisState.InvalidOperands;
-        public bool MissingOperands { get; set; }
+        public bool MissingOperands { get; set; } = false;
         public List<AnalysedOperand> Operands { get; } = new();
 
-        public OperandConsumingState ConsumingState { get; set; }
+        public OperandConsumingState ConsumingState { get; set; } = OperandConsumingState.ConsumingOperand;
 
         public OperandAnalysisChain Clone()
         {
