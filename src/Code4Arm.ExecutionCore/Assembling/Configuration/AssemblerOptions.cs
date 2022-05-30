@@ -7,7 +7,7 @@ namespace Code4Arm.ExecutionCore.Assembling.Configuration;
 
 public class AssemblerOptions
 {
-    public string GasPath { get; set; }
+    public string GasPath { get; set; } = string.Empty;
     public string[]? GasOptions { get; set; }
     public string? SourceHeaderPath { get; set; } = Utils.GetSupportFile("source_header.s");
     public int TimeoutMs { get; } = 5000;

@@ -412,7 +412,8 @@ internal partial class DebugProvider
             {
                 0 => $"S{match.Groups["s_reg"].Value}",
                 1 => $"D{match.Groups["d_reg"].Value}",
-                2 => $"Q{match.Groups["q_reg"].Value}"
+                2 => $"Q{match.Groups["q_reg"].Value}",
+                _ => throw new Exception("Won't happen")
             };
 
             var levelSize = (4 << level);

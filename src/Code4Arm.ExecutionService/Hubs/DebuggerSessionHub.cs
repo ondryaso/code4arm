@@ -125,10 +125,10 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
         return new DisassembleResponse() { Instructions = new Container<DisassembledInstruction>(result) };
     }
 
-    public async Task<DisconnectResponse> Disconnect(DisconnectArguments arguments)
+    public Task<DisconnectResponse> Disconnect(DisconnectArguments arguments)
     {
         // TODO
-        return new DisconnectResponse();
+        return Task.FromResult(new DisconnectResponse());
     }
 
     public async Task<EvaluateResponse> Evaluate(EvaluateArguments arguments)

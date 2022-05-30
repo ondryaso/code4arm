@@ -5,7 +5,7 @@ namespace Code4Arm.ExecutionCore.Assembling.Configuration;
 
 public class LinkerOptions
 {
-    public string LdPath { get; set; }
+    public string LdPath { get; set; } = string.Empty;
     public string[]? LdOptions { get; set; }
     public string[]? LdTrailOptions { get; set; }
     public string? LinkerScript { get; set; } = Utils.GetSupportFile("linker_script.x");
