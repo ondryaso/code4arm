@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CoreExperiments": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

@@ -5,22 +5,22 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
         <NoWarn>VSTHRD200</NoWarn>
+        <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
-        <PackageReference Include="Moq" Version="4.16.1" />
-        <PackageReference Include="NUnit" Version="3.13.2" />
-        <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
-        <PackageReference Include="coverlet.collector" Version="3.1.0" />
-        <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.5" />
-        <PackageReference Include="System.IO.Abstractions.TestingHelpers" Version="16.1.11" />
-        
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0"/>
+        <PackageReference Include="Moq" Version="4.16.1"/>
+        <PackageReference Include="NUnit" Version="3.13.2"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="4.2.1"/>
+        <PackageReference Include="coverlet.collector" Version="3.1.0"/>
+        <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.5"/>
+        <PackageReference Include="System.IO.Abstractions.TestingHelpers" Version="16.1.11"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Code4Arm.LanguageServer\Code4Arm.LanguageServer.csproj" />
+        <ProjectReference Include="..\Code4Arm.LanguageServer\Code4Arm.LanguageServer.csproj"/>
     </ItemGroup>
 
 </Project>
