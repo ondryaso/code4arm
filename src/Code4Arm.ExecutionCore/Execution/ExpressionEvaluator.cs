@@ -238,22 +238,38 @@ internal partial class DebugProvider
             var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)valueType,
                 address);
 
-            if (format != ExpressionValueFormat.Ieee || valueType != ExpressionValueType.Float)
+            if (format != ExpressionValueFormat.Ieee ||
+                valueType is not (ExpressionValueType.Float or ExpressionValueType.Double))
                 return (variable, ctx);
 
             // IEEE format: enclose the memory variable with an EnhancedVariable that adds the IEEE segment
             // subvariables
 
             var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, address,
-                DebuggerVariableType.Float, _nextEvaluateVariableId++);
+                (DebuggerVariableType)valueType, _nextEvaluateVariableId++);
 
-            var enhanced = new EnhancedVariable<float, MemoryVariable>(variable, reference,
-                parent => new[]
-                {
-                    new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
-                    new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
-                    new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
-                });
+            IVariable enhanced;
+            
+            if (valueType == ExpressionValueType.Float)
+            { 
+                enhanced = new EnhancedVariable<float, MemoryVariable>(variable, reference,
+                    parent => new[]
+                    {
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
+                        new SinglePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
+                    });
+            }
+            else
+            {
+                enhanced = new EnhancedVariable<double, MemoryVariable>(variable, reference,
+                    parent => new[]
+                    {
+                        new DoublePrecisionIeeeSegmentVariable(parent, IeeeSegment.Sign),
+                        new DoublePrecisionIeeeSegmentVariable(parent, IeeeSegment.Exponent),
+                        new DoublePrecisionIeeeSegmentVariable(parent, IeeeSegment.Mantissa)
+                    });
+            }
 
             this.AddOrUpdateVariable(enhanced);
 
