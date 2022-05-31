@@ -1,15 +1,14 @@
 // LocalSession.cs
 // Author: Ondřej Ondryáš
 
-using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using AutoMapper;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
-using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionService.ClientConfiguration;
 using Code4Arm.ExecutionService.Configuration;
@@ -95,8 +94,10 @@ public class LocalSession : ISession
     private readonly IOptionsMonitor<LinkerOptions> _linkerOptionsMonitor;
     private readonly IOptionsMonitor<ExecutionOptions> _executionOptionsMonitor;
     private readonly IOptionsMonitor<DebuggerOptions> _debuggerOptionsMonitor;
+    private readonly IOptionsMonitor<ServiceOptions> _serviceOptMon;
 
-    private bool _refreshEngine, _forceRebuild;
+    private bool _forceRebuild;
+    private OptionChangeBehavior _engineOptionsChangeBehavior;
 
     public LocalSession(ISessionManager manager, string sessionId, IMediator mediator, ILoggerFactory loggerFactory,
         IMapper mapper,
@@ -120,6 +121,7 @@ public class LocalSession : ISession
         _linkerOptionsMonitor = ldOptMon;
         _executionOptionsMonitor = exeOptMon;
         _debuggerOptionsMonitor = dbgOptMon;
+        _serviceOptMon = serviceOptMon;
 
         this.UpdateAssemblerOptions(null);
         this.UpdateLinkerOptions(null);
@@ -137,7 +139,8 @@ public class LocalSession : ISession
         if (_engine == null)
             this.RefreshEngine();
 
-        if (_refreshEngine && _engine.State is ExecutionState.Unloaded or ExecutionState.Finished)
+        if (_engineOptionsChangeBehavior == OptionChangeBehavior.RecreateEngine
+            && _engine.State is ExecutionState.Unloaded or ExecutionState.Finished)
             this.RefreshEngine();
 
         return ValueTask.FromResult<IExecutionEngine>(_engine);
@@ -165,7 +168,12 @@ public class LocalSession : ISession
         this.UpdateDebuggerOptions(arguments);
 
         var exe = await this.GetEngine();
-        await exe.LoadExecutable(buildResult.Executable!);
+
+        if (_engineOptionsChangeBehavior == OptionChangeBehavior.ReloadExecutable || exe.ExecutableInfo == null)
+        {
+            await exe.LoadExecutable(buildResult.Executable!);
+            _engineOptionsChangeBehavior = OptionChangeBehavior.None;
+        }
 
         async Task<MakeResult> Build()
         {
@@ -244,14 +252,32 @@ public class LocalSession : ISession
 
     private void UpdateExecutionOptions(ISessionLaunchArguments? arguments)
     {
-        // TODO
-        _executionOptions = _executionOptionsMonitor.CurrentValue;
-        _refreshEngine = true;
+        var configuredOptions = _mapper.Map<ExecutionOptions>(_executionOptionsMonitor.CurrentValue);
+
+        if (_sessionExecutionOptions != null)
+            _mapper.Map(_sessionExecutionOptions, configuredOptions);
+
+        if (arguments?.ExecutionOptions != null)
+            _mapper.Map(arguments.ExecutionOptions, configuredOptions);
+
+        var serviceOptions = _serviceOptMon.CurrentValue;
+        if (!serviceOptions.EnableCustomExecutionTimeout)
+            configuredOptions.Timeout = _executionOptionsMonitor.CurrentValue.Timeout;
+
+        if (!serviceOptions.EnableCustomStackSize)
+            configuredOptions.StackSize = _executionOptionsMonitor.CurrentValue.StackSize;
+
+        var compResult = _executionOptions.Compare(configuredOptions);
+        _executionOptions = configuredOptions;
+        if (_engine != null)
+            _engine.Options = configuredOptions;
+                
+        _engineOptionsChangeBehavior = compResult;
     }
 
     private void UpdateDebuggerOptions(ISessionLaunchArguments? arguments)
     {
-        var configuredOptions = _debuggerOptionsMonitor.CurrentValue;
+        var configuredOptions = _mapper.Map<DebuggerOptions>(_debuggerOptionsMonitor.CurrentValue);
 
         if (_sessionDebuggerOptions != null)
             _mapper.Map(_sessionDebuggerOptions, configuredOptions);
@@ -263,6 +289,37 @@ public class LocalSession : ISession
 
         if (_engine != null)
             _engine.DebugProvider.Options = _debuggerOptions;
+    }
+
+    private static bool MemberwiseCompare(object? a, object? b)
+    {
+        if (a == null || b == null)
+            return a == b;
+
+        var type = a.GetType();
+
+        if (b.GetType() != type)
+            return false;
+
+        if (type.IsPrimitive || type.IsEnum)
+            return a.Equals(b);
+
+        var equatable = typeof(IEquatable<>).MakeGenericType(type);
+        if (type.IsAssignableTo(equatable))
+        {
+            return (bool)(equatable.GetMethod("Equals", BindingFlags.Default, new[] { type })?
+                .Invoke(a, new[] { b }) ?? throw new Exception());
+        }
+
+        var properties = type.GetProperties();
+
+        foreach (var property in properties)
+        {
+            if (!MemberwiseCompare(property.GetValue(a), property.GetValue(b)))
+                return false;
+        }
+
+        return true;
     }
 
     [MemberNotNull(nameof(_engine))]
@@ -277,7 +334,7 @@ public class LocalSession : ISession
         if (oldClientInfo != null)
             _engine.DebugProvider.Initialize(oldClientInfo);
 
-        _refreshEngine = false;
+        _engineOptionsChangeBehavior = OptionChangeBehavior.None;
         this.EngineCreated?.Invoke(this, new EngineCreatedEventArgs(_engine, old));
     }
 

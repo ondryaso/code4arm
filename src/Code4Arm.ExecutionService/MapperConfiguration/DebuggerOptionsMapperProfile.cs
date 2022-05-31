@@ -23,5 +23,7 @@ public class DebuggerOptionsMapperProfile : Profile
 
         this.CreateMap<DebuggerOptionsOverlay, DebuggerOptionsOverlay>()
             .IgnoreNullSourceProperties();
+
+        this.CreateMap<DebuggerOptions, DebuggerOptions>();
     }
 }

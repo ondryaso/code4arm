@@ -1,6 +1,8 @@
 // ExecutionOptions.cs
 // Author: Ondřej Ondryáš
 
+using System.Reflection;
+
 namespace Code4Arm.ExecutionCore.Execution.Configuration;
 
 /// <summary>
@@ -138,17 +140,20 @@ public class ExecutionOptions
     /// <summary>
     /// The size of emulation stack memory. The default is 2 MiB. 
     /// </summary>
+    [OptionChangeBehavior(OptionChangeBehavior.ReloadExecutable)]
     public uint StackSize { get; set; } = 2 * 1024 * 1024;
 
     /// <summary>
     /// Sets a specific stack address that will be used every time an executable is loaded.
     /// Only used when <see cref="StackPlacementOptions"/> contains the <see cref="Configuration.StackPlacementOptions.FixedAddress"/> flag.
     /// </summary>
+    [OptionChangeBehavior(OptionChangeBehavior.ReloadExecutable)]
     public uint ForcedStackAddress { get; set; } = 0x40000000;
 
     /// <summary>
     /// Controls whether the emulated stack should be pre-filled with random data.
     /// </summary>
+    [OptionChangeBehavior(OptionChangeBehavior.ReloadExecutable)]
     public StackPlacementOptions StackPlacementOptions { get; set; } =
         StackPlacementOptions.FixedAddress;
 
@@ -157,6 +162,7 @@ public class ExecutionOptions
     /// This should be always set to <see cref="Configuration.StackPointerType.FullDescending"/> because that's the
     /// behaviour required by Armv8. With other configurations, some debugger features may not work.
     /// </summary>
+    [OptionChangeBehavior(OptionChangeBehavior.ReloadExecutable)]
     public StackPointerType StackPointerType { get; set; } = StackPointerType.FullDescending;
 
     /// <summary>
@@ -177,6 +183,7 @@ public class ExecutionOptions
     /// This means that often there's more accessible memory around these segments. Setting this option to true will
     /// cause execution to halt when these are accessed (anyhow), as if they were unmapped memory.
     /// </remarks>
+    [OptionChangeBehavior(OptionChangeBehavior.RecreateEngine)]
     public bool UseStrictMemoryAccess { get; set; } = true;
 
     /// <summary>
@@ -192,6 +199,7 @@ public class ExecutionOptions
     /// instruction executions (this is not possible without reading and comparing the traced register value after
     /// each instruction).
     /// </remarks>
+    [OptionChangeBehavior(OptionChangeBehavior.ReloadExecutable)]
     public bool EnableAccurateExecutionTracking { get; set; } = true;
 
     /// <summary>
@@ -209,5 +217,36 @@ public class ExecutionOptions
     /// <summary>
     /// Controls the Step Back mode.
     /// </summary>
+    [OptionChangeBehavior(OptionChangeBehavior.RecreateEngine)]
     public StepBackMode StepBackMode { get; set; } = StepBackMode.CaptureOnStep;
+
+    public OptionChangeBehavior Compare(ExecutionOptions other)
+    {
+        var type = typeof(ExecutionOptions);
+        var properties = type.GetProperties();
+        var ret = OptionChangeBehavior.None;
+
+        foreach (var property in properties)
+        {
+            var behaviourAttribute = property.GetCustomAttribute<OptionChangeBehaviorAttribute>();
+
+            if (behaviourAttribute is null or { Behavior: OptionChangeBehavior.None })
+                continue;
+
+            var thisValue = property.GetValue(this);
+            var otherValue = property.GetValue(other);
+
+            if (!(thisValue?.Equals(otherValue) ?? false))
+            {
+                // RecreateEngine implies ReloadExecutable; when one property triggers recreating executable,
+                // we can just return that and not check the rest of the properties
+                if (behaviourAttribute.Behavior == OptionChangeBehavior.RecreateEngine)
+                    return OptionChangeBehavior.RecreateEngine;
+
+                ret = OptionChangeBehavior.ReloadExecutable;
+            }
+        }
+
+        return ret;
+    }
 }

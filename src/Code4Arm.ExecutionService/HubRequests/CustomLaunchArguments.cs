@@ -11,4 +11,5 @@ public record CustomLaunchArguments(string? SourceDirectory, string[]? SourceFil
     ISessionLaunchArguments
 {
     public DebuggerOptionsOverlay? DebuggerOptions { get; init; }
+    public ExecutionOptionsOverlay ExecutionOptions { get; init; }
 }

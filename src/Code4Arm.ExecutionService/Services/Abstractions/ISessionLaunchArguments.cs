@@ -11,4 +11,5 @@ public interface ISessionLaunchArguments
     string[]? SourceFiles { get; }
 
     DebuggerOptionsOverlay? DebuggerOptions { get; }
+    ExecutionOptionsOverlay ExecutionOptions { get; }
 }

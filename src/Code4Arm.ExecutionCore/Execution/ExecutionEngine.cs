@@ -204,7 +204,17 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public uint StackTopAddress { get; private set; }
     public uint StackEndAddress { get; private set; }
 
-    internal ExecutionOptions Options => _options;
+    public ExecutionOptions Options
+    {
+        get => _options;
+        set
+        {
+            if (State == ExecutionState.Running || IsPaused)
+                throw new InvalidOperationException("Cannot change options while an execution is in progress.");
+
+            _options = value;
+        }
+    }
 
     public IReadOnlyList<MemorySegment> Segments =>
         _segments as IReadOnlyList<MemorySegment> ?? ImmutableList<MemorySegment>.Empty;
