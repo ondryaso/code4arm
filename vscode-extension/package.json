@@ -136,46 +136,484 @@
                 }
             }
         ],
-        "configuration": {
-            "title": "Code4Arm",
-            "properties": {
-                "code4arm.showCodeLens": {
-                    "description": "Show CodeLens over function labels.",
-                    "type": "boolean",
-                    "default": true
-                },
-                "code4arm.instructionFilter": {
-                    "description": "Controls which instructions are suggested in code completions.",
-                    "type": "string",
-                    "default": "Basic",
-                    "enum": [
-                        "Basic",
-                        "Uncommon",
-                        "Advanced"
-                    ],
-                    "enumDescriptions": [
-                        "Only the most basic instructions, including arithmetic, logic and data manipulation instructions.",
-                        "Basic instructions with addition of less frequently used arithmetic instructions.",
-                        "All instructions, including the system-level ones."
-                    ]
-                },
-                "code4arm.instructionBlacklist": {
-                    "description": "Prohibits specified instructions from showing up in code completions.",
-                    "type": "array",
-                    "default": []
-                },
-                "code4arm.showUncommonMnemonicVariants": {
-                    "markdownDescription": "Show specific and less frequently used variants of mnemonics, e.g. `ADD SP, #<const>`.",
-                    "type": "boolean",
-                    "default": false
-                },
-                "code4arm.showSimdInstructions": {
-                    "markdownDescription": "Suggest SIMD/FP instructions in code completions.",
-                    "type": "boolean",
-                    "default": true
+        "configuration": [
+            {
+                "title": "Editor",
+                "properties": {
+                    "code4arm.editor.showCodeLens": {
+                        "description": "Show CodeLens over function labels.",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "code4arm.editor.instructionFilter": {
+                        "description": "Controls which instructions are suggested in code completions.",
+                        "type": "string",
+                        "default": "Basic",
+                        "enum": [
+                            "Basic",
+                            "Uncommon",
+                            "Advanced"
+                        ],
+                        "enumDescriptions": [
+                            "Only the most basic instructions, including arithmetic, logic and data manipulation instructions.",
+                            "Basic instructions with addition of less frequently used arithmetic instructions.",
+                            "All instructions, including the system-level ones."
+                        ]
+                    },
+                    "code4arm.editor.instructionBlacklist": {
+                        "description": "Prohibits specified instructions from showing up in code completions.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": []
+                    },
+                    "code4arm.editor.showUncommonMnemonicVariants": {
+                        "markdownDescription": "Show specific and less frequently used variants of mnemonics, e.g. `ADD SP, #<const>`.",
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "code4arm.editor.showSimdInstructions": {
+                        "markdownDescription": "Suggest SIMD/FP instructions in code completions.",
+                        "type": "boolean",
+                        "default": true
+                    }
+                }
+            },
+            {
+                "title": "Runtime",
+                "properties": {
+                    "code4arm.runtime.timeout": {
+                        "order": 10,
+                        "type": "integer",
+                        "markdownDescription": "The maximum time (in milliseconds) the emulated program may run for. Use `-1` for unlimited time. This setting may be limited by the execution service.",
+                        "minimum": -1,
+                        "maximum": 3600000,
+                        "default": 5000
+                    },
+                    "code4arm.runtime.stackSize": {
+                        "order": 20,
+                        "type": "integer",
+                        "description": "The size of emulated memory allocated for the stack (in bytes). The actual size will be rounded up to a multiple of 4096. This setting may be limited by the execution service.",
+                        "minimum": 4096,
+                        "maximum": 1073741824,
+                        "default": 1048576
+                    },
+                    "code4arm.runtime.forcedStackAddress": {
+                        "order": 31,
+                        "type": ["integer", "null"],
+                        "markdownDescription": "Sets a specific address the stack memory will be placed at. Only used when `#code4arm.runtime.stackPlacementOptions` contains the `FixedAddress` option.",
+                        "minimum": 0,
+                        "default": null
+                    },
+                    "code4arm.runtime.stackPlacementOptions": {
+                        "order": 30,
+                        "type": "array",
+                        "description": "Determines the behaviour of the emulated stack memory placement and initialization.",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "FixedAddress",
+                                "RandomizeAddress",
+                                "AlwaysKeepFirstAddress",
+                                "ClearData",
+                                "RandomizeData",
+                                "KeepData"
+                            ],
+                            "markdownEnumDescriptions": [
+                                "The stack will always be placed on the address specified by `#code4arm.runtime.forcedStackAddress#`. Cannot be used together with `RandomizeAddress` or `AlwaysKeepFirstAddress`.",
+                                "The stack will be placed on a random address, generated at each launch.",
+                                "When launching for the first time, the stack address will be generated randomly. At successive launches, the address will be kept the same (but only when the segments from the executable don't overlap it).",
+                                "The stack memory will be cleared (set to zeros) at each launch.",
+                                "The stack memory will be randomized at each launch.",
+                                "The stack data will always be kept, even if the stack is moved to another location before a successive launch."
+                            ]
+                        },
+                        "default": ["RandomizeAddress", "ClearData"]
+                    },
+                    "code4arm.runtime.stackPointerType": {
+                        "order": 100,
+                        "type": "string",
+                        "description": "The position in the allocated stack memory that the initial Stack Pointer will point to.",
+                        "deprecated": true,
+                        "markdownDeprecationMessage": "This should never be set to any other value than `FullDescending`, as that's what the Armv8 specification requires. When other values are used, some debugger features may not work.",
+                        "enum": [
+                            "FullDescending",
+                            "FullAscending",
+                            "EmptyDescending",
+                            "EmptyAscending"
+                        ],
+                        "enumDescriptions": [
+                            "The initial SP value is a word-aligned address right after the last word-aligned address in the stack space.",
+                            "The initial SP value is a word-aligned address right before the first word-aligned address in the stack space.",
+                            "The initial SP value is the last word-aligned address in the stack space.",
+                            "The initial SP value is the first word-aligned address in the stack space."
+                        ],
+                        "default": "FullDescending"
+                    },
+                    "code4arm.runtime.randomizeExtraAllocatedSpaceContents": {
+                        "order": 40,
+                        "type": "boolean",
+                        "description": "Controls whether space around memory segments defined by the executable should be filled with random data.",
+                        "default": true
+                    },
+                    "code4arm.runtime.useStrictMemoryAccess": {
+                        "order": 50,
+                        "type": "boolean",
+                        "description": "Controls whether space around memory segments defined by the executable should be inaccessible.",
+                        "default": false
+                    },
+                    "code4arm.runtime.enableAccurateExecutionTracking": {
+                        "order": 99,
+                        "type": "boolean",
+                        "description": "Controls whether the executable will be instrumented on each instruction. It is recommended not to disable this as it may lead to unexpected behaviour in the debugger.",
+                        "default": true
+                    },
+                    "code4arm.runtime.registerInitOptions": {
+                        "order": 60,
+                        "type": "string",
+                        "description": "Controls the initial values of general-purpose registers (R0 to R13/LR).",
+                        "enum": [
+                            "Clear",
+                            "Randomize",
+                            "Keep",
+                            "RandomizeFirst"
+                        ],
+                        "enumDescriptions": [
+                            "Clear registers at each launch.",
+                            "Randomize registers at each launch.",
+                            "Clear registers at the first launch and then keep their values.",
+                            "Randomize registers at the first launch and then keep their values."
+                        ],
+                        "default": "Clear"
+                    },
+                    "code4arm.runtime.simdRegisterInitOptions": {
+                        "order": 70,
+                        "type": "string",
+                        "description": "Controls the initial values of all the SIMD/FP registers. When filling with random values, the 64b Dx registers are used as the target, the random values being valid double precision floating point numbers between -1024.0 and 1024.0.",
+                        "enum": [
+                            "Clear",
+                            "Randomize",
+                            "Keep",
+                            "RandomizeFirst"
+                        ],
+                        "enumDescriptions": [
+                            "Clear registers at each launch.",
+                            "Randomize registers at each launch.",
+                            "Clear registers at the first launch and then keep their values.",
+                            "Randomize registers at the first launch and then keep their values."
+                        ],
+                        "default": "Randomize"
+                    },
+                    "code4arm.runtime.stepBackMode": {
+                        "order": 80,
+                        "type": "string",
+                        "description": "Controls the debugger's ability to capture processor contexts and step backwards when paused.",
+                        "enum": [
+                            "None",
+                            "CaptureOnStep"
+                        ],
+                        "enumDescriptions": [
+                            "Step Back is disabled.",
+                            "The CPU state is saved every time a step is performed. The program may only be stepped back to the first instruction in the chain. When Continue is executed, the saved contexts are cleared."
+                        ],
+                        "default": "CaptureOnStep"
+                    }
+                }
+            },
+            {
+                "title": "Debugger",
+                "properties": {
+                    "code4arm.debugger.enableAutomaticDataVariables": {
+                        "order": 10,
+                        "type": "boolean",
+                        "description": "Show recognized data section symbols as Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.enableStackVariables": {
+                        "order": 10,
+                        "type": "boolean",
+                        "description": "Show on-stack data as Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.enableRegistersVariables": {
+                        "order": 10,
+                        "type": "boolean",
+                        "description": "Show general-purpose registers as Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.enableSimdVariables": {
+                        "order": 10,
+                        "type": "boolean",
+                        "description": "Show SIMD/FP registers as Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.enableControlVariables": {
+                        "order": 10,
+                        "type": "boolean",
+                        "description": "Show APSR (Application Processor State Register) and PC (Program Counter/R15) as Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.enableExtendedControlVariables": {
+                        "order": 10,
+                        "type": "boolean",
+                        "description": "Show CPSR, FPEXC and FPSCR as Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.variableNumberFormat": {
+                        "order": 20,
+                        "type": "string",
+                        "enum": [
+                            "Decimal",
+                            "Hex",
+                            "Binary",
+                            "Float"
+                        ],
+                        "default": "Decimal",
+                        "description": "The format to show Variable values in."
+                    },
+                    "code4arm.debugger.registersSubtypes": {
+                        "order": 30,
+                        "type": "array",
+                        "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for register Variables.",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "ByteU",
+                                "ByteS",
+                                "CharAscii",
+                                "ShortU",
+                                "ShortS",
+                                "IntU",
+                                "IntS",
+                                "Float"
+                            ],
+                            "enumDescriptions": [
+                                "unsigned bytes (8-bit integers)",
+                                "signed bytes (8-bit integers)",
+                                "ASCII characters",
+                                "unsigned shorts (16-bit integers)",
+                                "signed shorts (16-bit integers)",
+                                "unsigned int (32-bit integer)",
+                                "signed int (32-bit integer)",
+                                "float (32-bit IEEE 754 floating point number)"
+                            ]
+                        },
+                        "default": ["ByteU", "ShortU", "ShortS", "IntU", "IntS", "Float"]
+                    },
+                    "code4arm.debugger.stackVariablesSubtypes": {
+                        "order": 31,
+                        "type": "array",
+                        "description": "Controls what child Variables that represent an on-stack value split into smaller data types will be created for stack Variables.",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "ByteU",
+                                "ByteS",
+                                "CharAscii",
+                                "ShortU",
+                                "ShortS",
+                                "IntU",
+                                "IntS",
+                                "Float"
+                            ],
+                            "enumDescriptions": [
+                                "unsigned bytes (8-bit integers)",
+                                "signed bytes (8-bit integers)",
+                                "ASCII characters",
+                                "unsigned shorts (16-bit integers)",
+                                "signed shorts (16-bit integers)",
+                                "unsigned int (32-bit integer)",
+                                "signed int (32-bit integer)",
+                                "float (32-bit IEEE 754 floating point number)"
+                            ]
+                        },
+                        "default": ["ByteU", "IntS", "Float"]
+                    },
+                    "code4arm.debugger.showFloatDecomposition": {
+                        "order": 21,
+                        "type": "boolean",
+                        "description": "Show decomposition into sign, exponent and mantissa for float and double Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.topSimdRegistersLevel": {
+                        "order": 40,
+                        "type": "string",
+                        "description": "Controls the largest class of SIMD/FP registers that will be shown as Variables.",
+                        "enum": [
+                            "S32",
+                            "D64",
+                            "Q128"
+                        ],
+                        "enumDescriptions": [
+                            "S registers (32-bit vector/float registers S0 to S15)",
+                            "D registers (64-bit vector/double registers D0 to D31)",
+                            "Q registers (128-bit vector registers Q0 to Q15)"
+                        ],
+                        "default": "Q128"
+                    },
+                    "code4arm.debugger.simdRegistersOptions.dSubtypes": {
+                        "order": 44,
+                        "type": "array",
+                        "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for D-register Variables.",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "ByteU",
+                                "ByteS",
+                                "CharAscii",
+                                "ShortU",
+                                "ShortS",
+                                "IntU",
+                                "IntS",
+                                "LongU",
+                                "LongS",
+                                "Float",
+                                "Double"
+                            ],
+                            "enumDescriptions": [
+                                "unsigned bytes (8-bit integers)",
+                                "signed bytes (8-bit integers)",
+                                "ASCII characters",
+                                "unsigned shorts (16-bit integers)",
+                                "signed shorts (16-bit integers)",
+                                "unsigned ints (32-bit integers)",
+                                "signed ints (32-bit integers)",
+                                "unsigned long (64-bit integer)",
+                                "signed long (64-bit integer)",
+                                "floats (32-bit IEEE 754 floating point numbers)",
+                                "double (64-bit IEEE 754 floating point number)"
+                            ]
+                        },
+                        "default": ["ByteU", "ShortU", "IntU", "LongU", "Float", "Double"]
+                    },
+                    "code4arm.debugger.simdRegistersOptions.sSubtypes": {
+                        "order": 43,
+                        "type": "array",
+                        "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for S-register Variables.",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "ByteU",
+                                "ByteS",
+                                "CharAscii",
+                                "ShortU",
+                                "ShortS",
+                                "IntU",
+                                "IntS",
+                                "Float"
+                            ],
+                            "enumDescriptions": [
+                                "unsigned bytes (8-bit integers)",
+                                "signed bytes (8-bit integers)",
+                                "ASCII characters",
+                                "unsigned shorts (16-bit integers)",
+                                "signed shorts (16-bit integers)",
+                                "unsigned int (32-bit integer)",
+                                "signed int (32-bit integer)",
+                                "float (32-bit IEEE 754 floating point number)"
+                            ]
+                        },
+                        "default": ["ByteU", "ShortU", "IntU", "Float"]
+                    },
+                    "code4arm.debugger.simdRegistersOptions.showD": {
+                        "order": 42,
+                        "type": "boolean",
+                        "description": "Show D-registers as child Variables in Q-register Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.simdRegistersOptions.showS": {
+                        "order": 41,
+                        "type": "boolean",
+                        "description": "Show S-registers as child Variables in D-register Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.simdRegistersOptions.dFloatDecompositionSubvariables": {
+                        "order": 46,
+                        "type": "boolean",
+                        "description": "Show decomposition into sign, exponent and mantissa for D-register Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.simdRegistersOptions.sFloatDecompositionSubvariables": {
+                        "order": 45,
+                        "type": "boolean",
+                        "description": "Show decomposition into sign, exponent and mantissa for S-register Variables.",
+                        "default": true
+                    },
+                    "code4arm.debugger.simdRegistersOptions.preferFloatRendering": {
+                        "order": 47,
+                        "type": "boolean",
+                        "description": "Show D- and S- register's values as floating-point numbers.",
+                        "default": true
+                    },
+                    "code4arm.debugger.cStringMaxLength": {
+                        "order": 50,
+                        "type": "integer",
+                        "description": "Maximum length of null-terminated C-strings (in bytes).",
+                        "minimum": 1,
+                        "default": 256
+                    },
+                    "code4arm.debugger.cStringEncoding": {
+                        "order": 50,
+                        "type": "string",
+                        "description": "Encoding to interpret null-terminated C-strings in.",
+                        "enum": [
+                            "utf-8",
+                            "us-ascii",
+                            "utf-16",
+                            "unicodeFFFE",
+                            "utf-32",
+                            "utf-32BE",
+                            "iso-8859-1"
+                        ],
+                        "default": "utf-8"
+                    }
+                }
+            },
+            {
+                "title": "Assembling and linking",
+                "properties": {
+                    "code4arm.build.assemblerOptions": {
+                        "type": ["array", "null"],
+                        "description": "Command-line arguments to pass to the as assembler. Use null to use the default value specified by the service.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": ["-march=armv8.6-a+fp16+simd"]
+                    },
+                    "code4arm.build.ldOptions": {
+                        "type": ["array", "null"],
+                        "description": "Command-line arguments to pass to the ld linker before object files. Use null to use the default value specified by the service.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": null
+                    },
+                    "code4arm.build.ldTrailOptions": {
+                        "type": ["array", "null"],
+                        "description": "Command-line arguments to pass to the ld linker after object files. Use null to use the default value specified by the service.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": null
+                    },
+                    "code4arm.build.trampolineStartAddress": {
+                        "type": ["integer", "null"],
+                        "description": "Address of the start of the function simulator trampoline memory block.",
+                        "minimum": 0,
+                        "maximum": 4294963199,
+                        "default": 4278190080
+                    },
+                    "code4arm.build.trampolineEndAddress": {
+                        "type": ["integer", "null"],
+                        "description": "Address of the end of the function simulator trampoline memory block.",
+                        "minimum": 0,
+                        "maximum": 4294963199,
+                        "default": 4294963199
+                    }
                 }
             }
-        },
+        ],
         "configurationDefaults": {
             "[arm-ual]": {
                 "editor.semanticHighlighting.enabled": true
