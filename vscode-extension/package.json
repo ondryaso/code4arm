@@ -202,7 +202,9 @@
                 "type": "code4arm-runtime",
                 "label": "Code4Arm Emulator & Debugger",
                 "runtime": "node",
-                "languages": ["arm-ual"],
+                "languages": [
+                    "arm-ual"
+                ],
                 "configurationAttributes": {
                     "launch": {
                         "required": [],
@@ -214,11 +216,14 @@
                             },
                             "sourceFiles": {
                                 "type": "array",
-                                "description": "An array of source file names, in linking order."
+                                "description": "An array of source file names, in linking order.",
+                                "items": {
+                                    "type": "string"
+                                }
                             },
                             "debuggerOptions": {
                                 "type": "object",
-                                "description": "Debugger-related options (overrides extension configuration),",
+                                "description": "Debugger-related options (overrides extension configuration)",
                                 "properties": {
                                     "enableAutomaticDataVariables": {
                                         "type": "boolean",
@@ -246,7 +251,12 @@
                                     },
                                     "variableNumberFormat": {
                                         "type": "string",
-                                        "enum": ["Decimal", "Hex", "Binary", "Float"],
+                                        "enum": [
+                                            "Decimal",
+                                            "Hex",
+                                            "Binary",
+                                            "Float"
+                                        ],
                                         "default": "Decimal",
                                         "description": "The format to show Variable values in."
                                     },
@@ -255,7 +265,16 @@
                                         "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for register Variables.",
                                         "items": {
                                             "type": "string",
-                                            "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "Float"],
+                                            "enum": [
+                                                "ByteU",
+                                                "ByteS",
+                                                "CharAscii",
+                                                "ShortU",
+                                                "ShortS",
+                                                "IntU",
+                                                "IntS",
+                                                "Float"
+                                            ],
                                             "enumDescriptions": [
                                                 "unsigned bytes (8-bit integers)",
                                                 "signed bytes (8-bit integers)",
@@ -273,7 +292,16 @@
                                         "description": "Controls what child Variables that represent an on-stack value split into smaller data types will be created for stack Variables.",
                                         "items": {
                                             "type": "string",
-                                            "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "Float"],
+                                            "enum": [
+                                                "ByteU",
+                                                "ByteS",
+                                                "CharAscii",
+                                                "ShortU",
+                                                "ShortS",
+                                                "IntU",
+                                                "IntS",
+                                                "Float"
+                                            ],
                                             "enumDescriptions": [
                                                 "unsigned bytes (8-bit integers)",
                                                 "signed bytes (8-bit integers)",
@@ -293,7 +321,11 @@
                                     "topSimdRegistersLevel": {
                                         "type": "string",
                                         "description": "Controls the largest class of SIMD/FP registers that will be shown as Variables.",
-                                        "enum": ["S32", "D64", "Q128"],
+                                        "enum": [
+                                            "S32",
+                                            "D64",
+                                            "Q128"
+                                        ],
                                         "enumDescriptions": [
                                             "S registers (32-bit vector/float registers S0 to S15)",
                                             "D registers (64-bit vector/double registers D0 to D31)",
@@ -309,7 +341,19 @@
                                                 "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for D-register Variables.",
                                                 "items": {
                                                     "type": "string",
-                                                    "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "LongU", "LongS", "Float", "Double"],
+                                                    "enum": [
+                                                        "ByteU",
+                                                        "ByteS",
+                                                        "CharAscii",
+                                                        "ShortU",
+                                                        "ShortS",
+                                                        "IntU",
+                                                        "IntS",
+                                                        "LongU",
+                                                        "LongS",
+                                                        "Float",
+                                                        "Double"
+                                                    ],
                                                     "enumDescriptions": [
                                                         "unsigned bytes (8-bit integers)",
                                                         "signed bytes (8-bit integers)",
@@ -330,7 +374,16 @@
                                                 "description": "Controls what child Variables that represent a register's value split into smaller data types will be created for S-register Variables.",
                                                 "items": {
                                                     "type": "string",
-                                                    "enum": ["ByteU", "ByteS", "CharAscii", "ShortU", "ShortS", "IntU", "IntS", "Float"],
+                                                    "enum": [
+                                                        "ByteU",
+                                                        "ByteS",
+                                                        "CharAscii",
+                                                        "ShortU",
+                                                        "ShortS",
+                                                        "IntU",
+                                                        "IntS",
+                                                        "Float"
+                                                    ],
                                                     "enumDescriptions": [
                                                         "unsigned bytes (8-bit integers)",
                                                         "signed bytes (8-bit integers)",
@@ -366,15 +419,179 @@
                                         }
                                     },
                                     "cStringMaxLength": {
-                                        "type": "number",
-                                        "description": "Maximum length of null-terminated C-strings (in bytes)."
+                                        "type": "integer",
+                                        "description": "Maximum length of null-terminated C-strings (in bytes).",
+                                        "minimum": 1
                                     },
                                     "cStringEncoding": {
                                         "type": "string",
                                         "description": "Encoding to interpret null-terminated C-strings in.",
-                                        "enum": [ "utf-8", "us-ascii", "utf-16", "unicodeFFFE", "utf-32", "utf-32BE", "iso-8859-1" ]
+                                        "enum": [
+                                            "utf-8",
+                                            "us-ascii",
+                                            "utf-16",
+                                            "unicodeFFFE",
+                                            "utf-32",
+                                            "utf-32BE",
+                                            "iso-8859-1"
+                                        ]
                                     }
                                 }
+                            },
+                            "executionOptions": {
+                                "type": "object",
+                                "description": "Execution-related options (overrides extension configuration)",
+                                "properties": {
+                                    "timeout": {
+                                        "type": "integer",
+                                        "description": "The maximum time (in milliseconds) the emulated program may run for. Use '-1' for unlimited time. This setting may be limited by the execution service.",
+                                        "minimum": -1,
+                                        "maximum": 3600000
+                                    },
+                                    "stackSize": {
+                                        "type": "integer",
+                                        "description": "The size of emulated memory allocated for the stack (in bytes). The actual size will be rounded up to a multiple of 4096. This setting may be limited by the execution service.",
+                                        "minimum": 4096,
+                                        "maximum": 1073741824
+                                    },
+                                    "forcedStackAddress": {
+                                        "type": "integer",
+                                        "description": "Sets a specific address the stack memory will be placed at. Only used when 'stackPlacementOptions' contains the 'FixedAddress' option.",
+                                        "minimum": 0
+                                    },
+                                    "stackPlacementOptions": {
+                                        "type": "array",
+                                        "description": "Determines the behaviour of the emulated stack memory placement and initialization.",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "FixedAddress",
+                                                "RandomizeAddress",
+                                                "AlwaysKeepFirstAddress",
+                                                "ClearData",
+                                                "RandomizeData",
+                                                "KeepData"
+                                            ],
+                                            "enumDescriptions": [
+                                                "The stack will always be placed on the address specified by 'forcedStackAddress'. Cannot be used together with 'RandomizeAddress' or 'AlwaysKeepFirstAddress'.",
+                                                "The stack will be placed on a random address, generated at each launch.",
+                                                "When launching for the first time, the stack address will be generated randomly. At successive launches, the address will be kept the same (but only when the segments from the executable don't overlap it).",
+                                                "The stack memory will be cleared (set to zeros) at each launch.",
+                                                "The stack memory will be randomized at each launch.",
+                                                "The stack data will always be kept, even if the stack is moved to another location before a successive launch."
+                                            ]
+                                        }
+                                    },
+                                    "stackPointerType": {
+                                        "type": "string",
+                                        "description": "The position in the allocated stack memory that the initial Stack Pointer will point to. This should never be set to any other value than 'FullDescending', as that's what the Armv8 specification requires. When other values are used, some debugger features may not work.",
+                                        "deprecated": true,
+                                        "enum": [
+                                            "FullDescending",
+                                            "FullAscending",
+                                            "EmptyDescending",
+                                            "EmptyAscending"
+                                        ],
+                                        "enumDescriptions": [
+                                            "The initial SP value is a word-aligned address right after the last word-aligned address in the stack space.",
+                                            "The initial SP value is a word-aligned address right before the first word-aligned address in the stack space.",
+                                            "The initial SP value is the last word-aligned address in the stack space.",
+                                            "The initial SP value is the first word-aligned address in the stack space."
+                                        ],
+                                        "default": "FullDescending"
+                                    },
+                                    "randomizeExtraAllocatedSpaceContents": {
+                                        "type": "boolean",
+                                        "description": "Controls whether space around memory segments defined by the executable should be filled with random data."
+                                    },
+                                    "useStrictMemoryAccess": {
+                                        "type": "boolean",
+                                        "description": "Controls whether space around memory segments defined by the executable should be inaccessible."
+                                    },
+                                    "enableAccurateExecutionTracking": {
+                                        "type": "boolean",
+                                        "description": "Controls whether the executable will be instrumented on each instruction. It is recommended not to disable this as it may lead to unexpected behaviour in the debugger.",
+                                        "deprecated": true,
+                                        "default": true
+                                    },
+                                    "registerInitOptions": {
+                                        "type": "string",
+                                        "description": "Controls the initial values of general-purpose registers (R0 to R13/LR).",
+                                        "enum": [
+                                            "Clear",
+                                            "Randomize",
+                                            "Keep",
+                                            "RandomizeFirst"
+                                        ],
+                                        "enumDescriptions": [
+                                            "Clear registers at each launch.",
+                                            "Randomize registers at each launch.",
+                                            "Clear registers at the first launch and then keep their values.",
+                                            "Randomize registers at the first launch and then keep their values."
+                                        ]
+                                    },
+                                    "simdRegisterInitOptions": {
+                                        "type": "string",
+                                        "description": "Controls the initial values of all the SIMD/FP registers. When filling with random values, the 64b Dx registers are used as the target, the random values being valid double precision floating point numbers between -1024.0 and 1024.0.",
+                                        "enum": [
+                                            "Clear",
+                                            "Randomize",
+                                            "Keep",
+                                            "RandomizeFirst"
+                                        ],
+                                        "enumDescriptions": [
+                                            "Clear registers at each launch.",
+                                            "Randomize registers at each launch.",
+                                            "Clear registers at the first launch and then keep their values.",
+                                            "Randomize registers at the first launch and then keep their values."
+                                        ]
+                                    },
+                                    "stepBackMode": {
+                                        "type": "string",
+                                        "description": "Controls the debugger's ability to capture processor contexts and step backwards when paused.",
+                                        "enum": [
+                                            "None",
+                                            "CaptureOnStep"
+                                        ],
+                                        "enumDescriptions": [
+                                            "Step Back is disabled.",
+                                            "The CPU state is saved every time a step is performed. The program may only be stepped back to the first instruction in the chain. When Continue is executed, the saved contexts are cleared."
+                                        ]
+                                    }
+                                }
+                            },
+                            "assemblerOptions": {
+                                "type": "array",
+                                "description": "Command-line arguments to pass to the as assembler.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "ldOptions": {
+                                "type": "array",
+                                "description": "Command-line arguments to pass to the ld linker before object files.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "ldTrailOptions": {
+                                "type": "array",
+                                "description": "Command-line arguments to pass to the ld linker after object files.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "trampolineStartAddress": {
+                                "type": "integer",
+                                "description": "Address of the start of the function simulator trampoline memory block.",
+                                "minimum": 0,
+                                "maximum": 4294963199
+                            },
+                            "trampolineEndAddress": {
+                                "type": "integer",
+                                "description": "Address of the end of the function simulator trampoline memory block.",
+                                "minimum": 0,
+                                "maximum": 4294963199
                             }
                         }
                     }

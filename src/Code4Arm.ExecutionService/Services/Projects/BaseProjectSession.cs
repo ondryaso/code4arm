@@ -2,20 +2,18 @@
 // Author: Ondřej Ondryáš
 
 using Code4Arm.ExecutionCore.Assembling;
-using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
 using Code4Arm.ExecutionCore.Files.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace Code4Arm.ExecutionService.Services.Projects;
 
 public abstract class BaseProjectSession : IProjectSession
 {
     private bool _disposed;
-    protected Assembler Assembler;
+    protected readonly Assembler Assembler;
     private MakeResult? _lastResult;
 
     public abstract string Name { get; }
@@ -33,11 +31,13 @@ public abstract class BaseProjectSession : IProjectSession
     public void UseAssemblerOptions(AssemblerOptions options)
     {
         Assembler.AssemblerOptions = options;
+        _lastResult = null;
     }
 
     public void UseLinkerOptions(LinkerOptions options)
     {
         Assembler.LinkerOptions = options;
+        _lastResult = null;
     }
 
     public async Task<MakeResult> Build(bool rebuild)
@@ -47,9 +47,6 @@ public abstract class BaseProjectSession : IProjectSession
 
         if (!rebuild && _lastResult != null && !Dirty)
             return _lastResult.Value;
-
-        if (Assembler == null)
-            throw new InvalidOperationException("The assembler is not initialized.");
 
         var result = await Assembler.MakeProject(this);
         _lastResult = result;
@@ -70,7 +67,7 @@ public abstract class BaseProjectSession : IProjectSession
 
         if (disposing)
         {
-            Assembler?.Dispose();
+            Assembler.Dispose();
 
             if (_lastResult.HasValue)
             {

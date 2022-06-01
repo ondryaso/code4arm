@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using AutoMapper;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
@@ -10,8 +11,9 @@ using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
-using Code4Arm.ExecutionService.ClientConfiguration;
 using Code4Arm.ExecutionService.Configuration;
+using Code4Arm.ExecutionService.Exceptions;
+using Code4Arm.ExecutionService.Extensions;
 using Code4Arm.ExecutionService.Hubs;
 using Code4Arm.ExecutionService.Services.Abstractions;
 using Code4Arm.ExecutionService.Services.Projects;
@@ -56,37 +58,29 @@ public class LocalSession : ISession
     private readonly ILogger<LocalSession> _logger;
     public event EventHandler<EngineCreatedEventArgs>? EngineCreated;
 
-    private DebuggerOptionsOverlay? _sessionDebuggerOptions;
 
-    public DebuggerOptionsOverlay? SessionDebuggerOptions
+    private IClientConfiguration? _sessionConfiguration;
+
+    public IClientConfiguration? SessionOptions
     {
-        get => _sessionDebuggerOptions;
+        get => _sessionConfiguration;
         set
         {
-            _sessionDebuggerOptions = value;
+            _sessionConfiguration = value;
+            this.UpdateExecutionOptions(null);
             this.UpdateDebuggerOptions(null);
         }
     }
 
-    private ExecutionOptionsOverlay? _sessionExecutionOptions;
-
-    public ExecutionOptionsOverlay? SessionExecutionOptions
-    {
-        get => _sessionExecutionOptions;
-        set
-        {
-            _sessionExecutionOptions = value;
-            this.UpdateExecutionOptions(null);
-        }
-    }
+    private ISessionLaunchArguments? _lastLaunchArgs;
 
     private ExecutionEngine? _engine;
     private IProjectSession? _project;
 
-    private DebuggerOptions _debuggerOptions = new();
-    private ExecutionOptions _executionOptions = new();
-    private LinkerOptions _linkerOptions = new();
-    private AssemblerOptions _assemblerOptions = new();
+    private DebuggerOptions _debuggerOptions;
+    private ExecutionOptions _executionOptions;
+    private LinkerOptions _linkerOptions;
+    private AssemblerOptions _assemblerOptions;
 
     private readonly IDisposable[] _monitorDisposables = new IDisposable[4];
 
@@ -96,7 +90,6 @@ public class LocalSession : ISession
     private readonly IOptionsMonitor<DebuggerOptions> _debuggerOptionsMonitor;
     private readonly IOptionsMonitor<ServiceOptions> _serviceOptMon;
 
-    private bool _forceRebuild;
     private OptionChangeBehavior _engineOptionsChangeBehavior;
 
     public LocalSession(ISessionManager manager, string sessionId, IMediator mediator, ILoggerFactory loggerFactory,
@@ -123,10 +116,10 @@ public class LocalSession : ISession
         _debuggerOptionsMonitor = dbgOptMon;
         _serviceOptMon = serviceOptMon;
 
-        this.UpdateAssemblerOptions(null);
-        this.UpdateLinkerOptions(null);
-        this.UpdateExecutionOptions(null);
-        this.UpdateDebuggerOptions(null);
+        _assemblerOptions = _assemblerOptionsMonitor.CurrentValue;
+        _linkerOptions = _linkerOptionsMonitor.CurrentValue;
+        _executionOptions = _executionOptionsMonitor.CurrentValue;
+        _debuggerOptions = _debuggerOptionsMonitor.CurrentValue;
     }
 
     private async Task Log(int code, string message, string description, ConnectionType? targetHint = null)
@@ -158,8 +151,7 @@ public class LocalSession : ISession
         }
         else
         {
-            throw new DebuggerException(ExceptionCodes.NoLaunchTargetId, ExceptionCodes.NoLaunchTarget,
-                DebuggerExceptionType.User, ExceptionMessages.NoLaunchTarget);
+            throw new NoLaunchTargetException();
         }
 
         var buildResult = await Build();
@@ -175,13 +167,14 @@ public class LocalSession : ISession
             _engineOptionsChangeBehavior = OptionChangeBehavior.None;
         }
 
+        _lastLaunchArgs = arguments;
+
         async Task<MakeResult> Build()
         {
             this.UpdateAssemblerOptions(arguments);
             this.UpdateLinkerOptions(arguments);
 
-            var build = await _project!.Build(_forceRebuild);
-            _forceRebuild = false;
+            var build = await _project!.Build(false);
 
             if (build.State == MakeResultState.InvalidObjects)
             {
@@ -189,7 +182,8 @@ public class LocalSession : ISession
                 {
                     _logger.LogError("InvalidObjects state but InvalidObjects is null.");
 
-                    throw new HubException("Unexpected execution service state (InvalidObjects null).");
+                    throw new DebuggerException(ExceptionCodes.UnexpectedErrorId, ExceptionCodes.UnexpectedError,
+                        DebuggerExceptionType.User, "Unexpected execution service error (InvalidObjects null).");
                 }
 
                 foreach (var invalidObject in build.InvalidObjects)
@@ -198,9 +192,7 @@ public class LocalSession : ISession
                         invalidObject.AssemblerErrors + "\n", ConnectionType.Debugger);
                 }
 
-                throw new DebuggerException(ExceptionCodes.AssembleId, ExceptionCodes.Assemble,
-                    DebuggerExceptionType.User,
-                    $"Cannot assemble {build.InvalidObjects?.Count} source(s). Check output for error details.");
+                throw new AssemblingException(string.Format(ExceptionMessages.Assembling, build.InvalidObjects?.Count));
             }
 
             if (build.State == MakeResultState.LinkingError)
@@ -209,8 +201,7 @@ public class LocalSession : ISession
                     await this.Log(ExceptionCodes.LinkId, ExceptionCodes.Link,
                         build.LinkerError + "\n", ConnectionType.Debugger);
 
-                throw new DebuggerException(ExceptionCodes.LinkId, ExceptionCodes.Link,
-                    DebuggerExceptionType.User, "Cannot link assembled objects. Check output for more details.");
+                throw new LinkingException();
             }
 
             if (build.Executable == null)
@@ -236,54 +227,90 @@ public class LocalSession : ISession
 
     private void UpdateAssemblerOptions(ISessionLaunchArguments? arguments)
     {
-        // TODO
-        _project?.UseAssemblerOptions(_assemblerOptionsMonitor.CurrentValue);
-        _assemblerOptions = _assemblerOptionsMonitor.CurrentValue;
-        _forceRebuild = true;
+        arguments ??= _lastLaunchArgs;
+
+        var newOptions = _assemblerOptionsMonitor.CurrentValue with
+        {
+            GasOptions = arguments?.AssemblerOptions ?? _sessionConfiguration?.AssemblerOptions
+            ?? _assemblerOptionsMonitor.CurrentValue.GasOptions
+        };
+
+        if (!newOptions.GasOptions.SequenceOrNullEqual(_assemblerOptions.GasOptions))
+        {
+            this.ValidateAssemblerOptions(newOptions);
+
+            _project?.UseAssemblerOptions(newOptions);
+            _assemblerOptions = newOptions;
+        }
     }
 
     private void UpdateLinkerOptions(ISessionLaunchArguments? arguments)
     {
-        // TODO
-        _project?.UseLinkerOptions(_linkerOptionsMonitor.CurrentValue);
-        _linkerOptions = _linkerOptionsMonitor.CurrentValue;
-        _forceRebuild = true;
+        arguments ??= _lastLaunchArgs;
+
+        var newOptions = _linkerOptionsMonitor.CurrentValue with { };
+
+        if (_sessionConfiguration != null)
+            _mapper.Map(_sessionConfiguration, newOptions);
+
+        if (arguments != null)
+            _mapper.Map<IClientConfiguration, LinkerOptions>(arguments, newOptions);
+
+        if (!newOptions.LdOptions.SequenceOrNullEqual(_linkerOptions.LdOptions)
+            || !newOptions.LdTrailOptions.SequenceOrNullEqual(_linkerOptions.LdTrailOptions)
+            || newOptions.TrampolineEndAddress != _linkerOptions.TrampolineEndAddress
+            || newOptions.TrampolineStartAddress != _linkerOptions.TrampolineStartAddress)
+        {
+            this.ValidateLinkerOptions(newOptions);
+
+            _project?.UseLinkerOptions(_linkerOptionsMonitor.CurrentValue);
+            _linkerOptions = newOptions;
+        }
     }
 
     private void UpdateExecutionOptions(ISessionLaunchArguments? arguments)
     {
+        arguments ??= _lastLaunchArgs;
         var configuredOptions = _mapper.Map<ExecutionOptions>(_executionOptionsMonitor.CurrentValue);
 
-        if (_sessionExecutionOptions != null)
-            _mapper.Map(_sessionExecutionOptions, configuredOptions);
+        if (_sessionConfiguration?.ExecutionOptions != null)
+            _mapper.Map(_sessionConfiguration.ExecutionOptions, configuredOptions);
 
         if (arguments?.ExecutionOptions != null)
             _mapper.Map(arguments.ExecutionOptions, configuredOptions);
 
-        var serviceOptions = _serviceOptMon.CurrentValue;
-        if (!serviceOptions.EnableCustomExecutionTimeout)
-            configuredOptions.Timeout = _executionOptionsMonitor.CurrentValue.Timeout;
-
-        if (!serviceOptions.EnableCustomStackSize)
-            configuredOptions.StackSize = _executionOptionsMonitor.CurrentValue.StackSize;
+        this.ValidateExecutionOptions(configuredOptions);
 
         var compResult = _executionOptions.Compare(configuredOptions);
         _executionOptions = configuredOptions;
         if (_engine != null)
             _engine.Options = configuredOptions;
-                
+
         _engineOptionsChangeBehavior = compResult;
     }
 
     private void UpdateDebuggerOptions(ISessionLaunchArguments? arguments)
     {
+        arguments ??= _lastLaunchArgs;
         var configuredOptions = _mapper.Map<DebuggerOptions>(_debuggerOptionsMonitor.CurrentValue);
 
-        if (_sessionDebuggerOptions != null)
-            _mapper.Map(_sessionDebuggerOptions, configuredOptions);
+        try
+        {
+            if (_sessionConfiguration?.DebuggerOptions != null)
+                _mapper.Map(_sessionConfiguration.DebuggerOptions, configuredOptions);
 
-        if (arguments?.DebuggerOptions != null)
-            _mapper.Map(arguments.DebuggerOptions, configuredOptions);
+            if (arguments?.DebuggerOptions != null)
+                _mapper.Map(arguments.DebuggerOptions, configuredOptions);
+        }
+        catch (AutoMapperMappingException e)
+        {
+            if (e.InnerException is ArgumentException)
+                throw new LaunchConfigException(ExceptionMessages.LaunchConfigInvalidEncoding);
+
+            _logger.LogWarning(e, "Unexpected mapping exception.");
+
+            throw new LaunchConfigException(ExceptionMessages.LaunchConfig);
+        }
 
         _debuggerOptions = configuredOptions;
 
@@ -291,35 +318,67 @@ public class LocalSession : ISession
             _engine.DebugProvider.Options = _debuggerOptions;
     }
 
-    private static bool MemberwiseCompare(object? a, object? b)
+    private void ValidateAssemblerOptions(AssemblerOptions newOptions)
     {
-        if (a == null || b == null)
-            return a == b;
-
-        var type = a.GetType();
-
-        if (b.GetType() != type)
-            return false;
-
-        if (type.IsPrimitive || type.IsEnum)
-            return a.Equals(b);
-
-        var equatable = typeof(IEquatable<>).MakeGenericType(type);
-        if (type.IsAssignableTo(equatable))
+        var serviceOptions = _serviceOptMon.CurrentValue;
+        if (newOptions.GasOptions is { Length: > 0 } && serviceOptions.AllowedAssemblerOptionsRegex != null)
         {
-            return (bool)(equatable.GetMethod("Equals", BindingFlags.Default, new[] { type })?
-                .Invoke(a, new[] { b }) ?? throw new Exception());
+            var optRegex = new Regex(serviceOptions.AllowedAssemblerOptionsRegex);
+            foreach (var option in newOptions.GasOptions)
+            {
+                if (!optRegex.IsMatch(option) &&
+                    !(_assemblerOptionsMonitor.CurrentValue.GasOptions?.Contains(option) ?? false))
+                    throw new LaunchConfigException(ExceptionMessages.LaunchConfigInvalidAssemblerOption, option);
+            }
         }
+    }
 
-        var properties = type.GetProperties();
-
-        foreach (var property in properties)
+    private void ValidateLinkerOptions(LinkerOptions newOptions)
+    {
+        var serviceOptions = _serviceOptMon.CurrentValue;
+        if (serviceOptions.AllowedLinkerOptionsRegex != null)
         {
-            if (!MemberwiseCompare(property.GetValue(a), property.GetValue(b)))
-                return false;
-        }
+            var optRegex = new Regex(serviceOptions.AllowedLinkerOptionsRegex);
 
-        return true;
+            if (newOptions.LdOptions is { Length: > 0 })
+            {
+                foreach (var option in newOptions.LdOptions)
+                {
+                    if (!optRegex.IsMatch(option) &&
+                        !(_linkerOptionsMonitor.CurrentValue.LdOptions?.Contains(option) ?? false))
+                        throw new LaunchConfigException(ExceptionMessages.LaunchConfigInvalidLinkerOption, option);
+                }
+            }
+
+            if (newOptions.LdTrailOptions is { Length: > 0 })
+            {
+                foreach (var option in newOptions.LdTrailOptions)
+                {
+                    if (!optRegex.IsMatch(option) &&
+                        !(_linkerOptionsMonitor.CurrentValue.LdTrailOptions?.Contains(option) ?? false))
+                        throw new LaunchConfigException(ExceptionMessages.LaunchConfigInvalidLinkerOption, option);
+                }
+            }
+        }
+    }
+
+    private void ValidateExecutionOptions(ExecutionOptions options)
+    {
+        var serviceOptions = _serviceOptMon.CurrentValue;
+
+        if (options.Timeout < 500)
+            throw new LaunchConfigException(ExceptionMessages.LaunchConfigTimeoutTooSmall, 500);
+
+        if (options.Timeout > serviceOptions.ExecutionTimeoutLimit)
+            throw new LaunchConfigException(ExceptionMessages.LaunchConfigTimeoutTooBig,
+                serviceOptions.ExecutionTimeoutLimit);
+
+        if (options.Timeout == -1 && !serviceOptions.AllowInfiniteExecutionTimeout)
+            throw new LaunchConfigException(ExceptionMessages.LaunchConfigInfiniteTimeout);
+
+        if (options.StackSize > serviceOptions.StackSizeLimit)
+            throw new LaunchConfigException(ExceptionMessages.LaunchConfigStackSizeTooBig,
+                serviceOptions.StackSizeLimit, serviceOptions.StackSizeLimit / 1024);
     }
 
     [MemberNotNull(nameof(_engine))]

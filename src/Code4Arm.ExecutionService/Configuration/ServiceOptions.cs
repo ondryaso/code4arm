@@ -13,6 +13,9 @@ public class ServiceOptions
     public ExecutionOptions DefaultExecutionOptions { get; set; } = new();
     public DebuggerOptions DefaultDebuggerOptions { get; set; } = new();
 
-    public bool EnableCustomExecutionTimeout { get; set; }
-    public bool EnableCustomStackSize { get; set; }
+    public bool AllowInfiniteExecutionTimeout { get; set; } = false;
+    public int ExecutionTimeoutLimit { get; set; } = 60000;
+    public uint StackSizeLimit { get; set; } = 2 * 1024 * 1024;
+    public string? AllowedLinkerOptionsRegex { get; set; }
+    public string? AllowedAssemblerOptionsRegex { get; set; }
 }

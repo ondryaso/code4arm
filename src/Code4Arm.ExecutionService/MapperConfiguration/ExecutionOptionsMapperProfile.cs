@@ -12,6 +12,9 @@ public class ExecutionOptionsMapperProfile : Profile
 {
     public ExecutionOptionsMapperProfile()
     {
+        this.CreateMap<StackPlacementOptions[], StackPlacementOptions>()
+            .ConstructUsing(arr => arr.Length == 0 ? 0 : arr.Aggregate((i, j) => i | j));
+
         this.CreateMap<ExecutionOptionsOverlay, ExecutionOptions>()
             .IgnoreNullSourceProperties();
 

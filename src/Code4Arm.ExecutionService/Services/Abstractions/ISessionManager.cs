@@ -1,10 +1,7 @@
 // ISessionManager.cs
 // Author: Ondřej Ondryáš
 
-using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
-using Code4Arm.ExecutionCore.Execution.Configuration;
-using Code4Arm.ExecutionService.ClientConfiguration;
 
 namespace Code4Arm.ExecutionService.Services.Abstractions;
 
@@ -27,9 +24,8 @@ public interface ISession : IDisposable
     Task BuildAndLoad(ISessionLaunchArguments launchArguments);
 
     event EventHandler<EngineCreatedEventArgs> EngineCreated;
-    
-    DebuggerOptionsOverlay? SessionDebuggerOptions { get; set; }
-    ExecutionOptionsOverlay? SessionExecutionOptions { get; set; }
+
+    IClientConfiguration? SessionOptions { get; set; }
 }
 
 public enum ConnectionType

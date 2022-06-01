@@ -11,5 +11,11 @@ public record CustomLaunchArguments(string? SourceDirectory, string[]? SourceFil
     ISessionLaunchArguments
 {
     public DebuggerOptionsOverlay? DebuggerOptions { get; init; }
-    public ExecutionOptionsOverlay ExecutionOptions { get; init; }
+    public ExecutionOptionsOverlay? ExecutionOptions { get; init; }
+
+    public string[]? AssemblerOptions { get; init; }
+    public string[]? LdOptions { get; init; }
+    public string[]? LdTrailOptions { get; init; }
+    public uint? TrampolineStartAddress { get; init; }
+    public uint? TrampolineEndAddress { get; init; }
 }

@@ -16,4 +16,7 @@ public static class ExceptionCodes
     
     public const int LinkId = 202;
     public const string Link = "link";
+
+    public const int LaunchConfigId = 203;
+    public const string LaunchConfig = "launchConfiguration";
 }

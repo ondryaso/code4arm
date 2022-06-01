@@ -149,7 +149,6 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
 
     public async Task<GotoResponse> Goto(GotoArguments arguments)
     {
-        // TODO
         var exe = await this.GetExecution();
         await exe.GotoTarget(arguments.TargetId);
 

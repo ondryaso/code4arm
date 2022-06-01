@@ -155,7 +155,7 @@ public class ExecutionOptions
     /// </summary>
     [OptionChangeBehavior(OptionChangeBehavior.ReloadExecutable)]
     public StackPlacementOptions StackPlacementOptions { get; set; } =
-        StackPlacementOptions.FixedAddress;
+        StackPlacementOptions.RandomizeAddress;
 
     /// <summary>
     /// Controls the initial position of the stack pointer after loading an executable.

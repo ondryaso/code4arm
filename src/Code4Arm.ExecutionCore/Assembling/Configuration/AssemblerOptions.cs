@@ -5,12 +5,12 @@ using Microsoft.Extensions.Options;
 
 namespace Code4Arm.ExecutionCore.Assembling.Configuration;
 
-public class AssemblerOptions
+public record AssemblerOptions
 {
-    public string GasPath { get; set; } = string.Empty;
-    public string[]? GasOptions { get; set; }
-    public string? SourceHeaderPath { get; set; } = Utils.GetSupportFile("source_header.s");
-    public int TimeoutMs { get; } = 5000;
+    public string GasPath { get; init; } = string.Empty;
+    public string[]? GasOptions { get; init; }
+    public string? SourceHeaderPath { get; init; } = Utils.GetSupportFile("source_header.s");
+    public int TimeoutMs { get; init; } = 5000;
 }
 
 public class AssemblerOptionsValidator : IValidateOptions<AssemblerOptions>
