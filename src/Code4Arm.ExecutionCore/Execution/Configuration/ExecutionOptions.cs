@@ -112,7 +112,7 @@ public enum StackPointerType
 }
 
 /// <summary>
-/// Determines the possible Step Back behaviours.
+/// Determines the possible modes of Step Back operation.
 /// </summary>
 public enum StepBackMode
 {

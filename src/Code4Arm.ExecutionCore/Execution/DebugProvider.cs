@@ -101,7 +101,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             SupportTerminateDebuggee = false,
             SupportsBreakpointLocationsRequest = true,
             SupportsConfigurationDoneRequest = true,
-            SupportsEvaluateForHovers = false, //TODO?
+            SupportsEvaluateForHovers = true,
             SupportsExceptionFilterOptions = false,
             SupportsExceptionInfoRequest = true,
             SupportsGotoTargetsRequest = true,
