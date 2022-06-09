@@ -945,7 +945,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     Line = _debugProvider.LineToClient(targetLine),
                     Source = file,
                     Verified = true, // TODO: Check if line contains instruction or data? Somehow?
-                    InstructionReference = targetAddress.ToString(),
+                    InstructionReference = FormattingUtils.FormatAddress(targetAddress),
                     Address = targetAddress
                 };
 
@@ -995,8 +995,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         foreach (var breakpoint in instructionBreakpoints)
         {
-            if (!uint.TryParse(breakpoint.InstructionReference, out var address))
-                throw new InvalidMemoryReferenceException();
+            if (!FormattingUtils.TryParseAddress(breakpoint.InstructionReference, out var address))
+            {
+                ret.Add(new Breakpoint()
+                {
+                    Verified = false,
+                    Message = ExceptionMessages.InvalidMemoryReference
+                });
+            }
 
             if (_currentBasicBreakpoints.ContainsKey(address) || _currentInstructionBreakpoints.ContainsKey(address))
             {
@@ -1021,7 +1027,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     Line = _debugProvider.LineToClient(line),
                     Source = source,
                     Verified = true,
-                    InstructionReference = address.ToString(),
+                    InstructionReference = FormattingUtils.FormatAddress(address),
                     Message = $"0x{address:x}",
                     Address = address
                 };

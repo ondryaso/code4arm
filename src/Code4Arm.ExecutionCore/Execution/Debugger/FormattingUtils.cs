@@ -69,6 +69,18 @@ internal static class FormattingUtils
         return variable.ToString()!;
     }
 
+    public static string FormatAddress(uint address)
+    {
+        return $"0x{address:x}";
+    }
+
+    public static bool TryParseAddress(string value, out uint address)
+    {
+        return value.StartsWith("0x")
+            ? uint.TryParse(value.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out address)
+            : uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out address);
+    }
+
     public static uint ParseNumber32U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;

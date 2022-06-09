@@ -16,7 +16,7 @@ public static class Extensions
 
         string? address = null;
         if (variable is IAddressBackedVariable addressBackedVariable)
-            address = addressBackedVariable.GetAddress().ToString();
+            address = FormattingUtils.FormatAddress(addressBackedVariable.GetAddress());
 
         return new Variable()
         {
@@ -37,7 +37,7 @@ public static class Extensions
 
         string? address = null;
         if (variable is IAddressBackedVariable addressBackedVariable)
-            address = addressBackedVariable.GetAddress().ToString();
+            address = FormattingUtils.FormatAddress(addressBackedVariable.GetAddress());
 
         return new EvaluateResponse()
         {

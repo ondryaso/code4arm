@@ -44,7 +44,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     private Executable Executable => (_engine.ExecutableInfo as Executable) ?? throw new ExecutableNotLoadedException();
     public InitializeRequestArguments? ClientInfo => _clientInfo;
-    
+
     public DebugProvider(ExecutionEngine engine, DebuggerOptions options)
     {
         _engine = engine;
@@ -148,7 +148,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         long? instructionOffset, long instructionCount,
         bool resolveSymbols)
     {
-        if (!uint.TryParse(memoryReference, out var address))
+        if (!FormattingUtils.TryParseAddress(memoryReference, out var address))
             throw new Exception(); // TODO
 
         if (byteOffset.HasValue)
@@ -166,7 +166,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         {
             return Enumerable.Range(0, (int)instructionCount).Select(i => new DisassembledInstruction()
             {
-                Address = (address + i * 4).ToString(),
+                Address = FormattingUtils.FormatAddress((uint)(address + i * 4)),
                 Instruction = "INVALID MEMORY ADDRESS",
                 InstructionBytes = "00 00 00 00"
             });
@@ -207,7 +207,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                 {
                     ret.Add(new DisassembledInstruction()
                     {
-                        Address = instrAddress.ToString(),
+                        Address = FormattingUtils.FormatAddress((uint)instrAddress),
                         Instruction = "INVALID MEMORY ADDRESS",
                         InstructionBytes = "00 00 00 00"
                     });
@@ -222,7 +222,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
                 ret.Add(new DisassembledInstruction()
                 {
-                    Address = instrAddress.ToString(),
+                    Address = FormattingUtils.FormatAddress((uint)instrAddress),
                     Instruction = $"{dis.Mnemonic} {dis.Operand}",
                     Line = line == -1 ? null : this.LineToClient(line),
                     Location = source,
@@ -293,7 +293,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             Id = address,
             Line = this.LineToClient(line),
             Label = "Here",
-            InstructionPointerReference = address.ToString()
+            InstructionPointerReference = FormattingUtils.FormatAddress(address)
         }, 1);
     }
 
@@ -367,7 +367,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             PresentationHint = StackFramePresentationHint.Normal,
             Source = source,
             Name = "Current execution state",
-            InstructionPointerReference = _engine.CurrentPc.ToString()
+            InstructionPointerReference = FormattingUtils.FormatAddress(_engine.CurrentPc)
         };
 
         var ret = new StackTraceResponse() { StackFrames = new Container<StackFrame>(frames), TotalFrames = 1 };
@@ -1391,7 +1391,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     public ReadMemoryResponse ReadMemory(string memoryReference, long count, long? offset)
     {
-        if (!uint.TryParse(memoryReference, out var address))
+        if (!FormattingUtils.TryParseAddress(memoryReference, out var address))
             throw new InvalidMemoryReferenceException();
 
         if (offset.HasValue)
@@ -1460,7 +1460,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         return new ReadMemoryResponse()
         {
-            Address = address.ToString(),
+            Address = FormattingUtils.FormatAddress(address),
             Data = encoded,
             //UnreadableBytes = requestedCount - actualCount
         };
@@ -1468,7 +1468,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     public WriteMemoryResponse WriteMemory(string memoryReference, bool allowPartial, long? offset, string dataEncoded)
     {
-        if (!uint.TryParse(memoryReference, out var address))
+        if (!FormattingUtils.TryParseAddress(memoryReference, out var address))
             throw new InvalidMemoryReferenceException();
 
         if (offset.HasValue)

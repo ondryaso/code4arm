@@ -34,7 +34,7 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
     public override long Reference { get; }
     public override bool IsViewOfParent => false;
 
-    public override string Get(VariableContext context) => $"{_address:x}";
+    public override string Get(VariableContext context) => FormattingUtils.FormatAddress(_address);
     public uint GetAddress() => _address;
 
     public override bool NeedsExplicitEvaluationAfterStep => false;
