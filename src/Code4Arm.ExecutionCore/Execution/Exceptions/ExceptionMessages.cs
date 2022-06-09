@@ -13,6 +13,7 @@ public static class ExceptionMessages
     public const string InvalidExpressionTypeSpecifierUnavailable = "The value type specifier cannot be used for this register.";
     public const string InvalidExpressionIndexer = "Invalid subtype index.";
     public const string InvalidExpressionNotSettable = "Value cannot be set for this expression.";
+    public const string InvalidExpressionRegister = "Invalid register name.";
     
     public const string InvalidVariable = "Invalid variable reference.";
     public const string ExecutableNotLoaded = "No executable loaded.";
@@ -21,6 +22,7 @@ public static class ExceptionMessages
     public const string InvalidSource = "Invalid source reference.";
     public const string NotInitialized = "The debugger is not initialized. Issue an Initialize request first.";
     public const string InvalidVariableFormat = "Invalid input format.";
+    public const string VariableNotSettable = "This variable cannot be set.";
     
     public const string InvalidVariableFormat32 = "Invalid format. Expected a 32bit integer or float. For hexa input, use '0x' prefix or 'x' suffix. For binary input, use '0b' prefix or 'b' suffix.";
     public const string InvalidVariableFormat32Float = "Invalid format. Expected a 32bit single-precision floating-point number.";

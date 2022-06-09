@@ -46,4 +46,7 @@ public static class ExceptionCodes
 
     public const int InvalidExecutionStateId = 112;
     public const string InvalidExecutionState = "invalidState";
+    
+    public const string VariableNotSettable = "variableNotSettable";
+    public const int VariableNotSettableId = 113;
 }

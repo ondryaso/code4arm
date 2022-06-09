@@ -23,6 +23,8 @@ public enum ContainerType : uint
     StackSubtypes,
     StackSubtypesValues,
     
+    SymbolAddress,
+
     ExpressionExtras
 }
 

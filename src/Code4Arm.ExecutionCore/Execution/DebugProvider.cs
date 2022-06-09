@@ -584,7 +584,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         targetVariable.Evaluate(ctx);
 
-        if (targetVariable.IsViewOfParent)
+        // Changing the SP has to invalidate the Symbols scope
+        if (targetVariable.IsViewOfParent || targetVariable is RegisterVariable { Name: "R13" })
         {
             await _engine.SendEvent(new InvalidatedEvent()
             {
@@ -740,7 +741,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             case ContainerType.Symbols:
                 return this.MakeSymbolsVariables(format);
             case ContainerType.Stack:
-                return this.MakeStackVariables(format);
+                return this.MakeStackVariables(format, start, count);
             case ContainerType.SimdRegisterSubtypes:
             case ContainerType.SimdRegisterSubtypesValues:
             case ContainerType.StackSubtypes:
@@ -924,7 +925,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     /// Creates Variables for stack items. Always presumes that all values on the stack are 4 bytes long.
     /// Doesn't check if the debugger is initialized.
     /// </summary>
-    private IEnumerable<Variable> MakeStackVariables(ValueFormat? format)
+    private IEnumerable<Variable> MakeStackVariables(ValueFormat? format, int? start, int? count)
     {
         // IMPROVEMENT: Support other stack types
 
@@ -933,17 +934,22 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         if (stack == 0)
             return Enumerable.Empty<Variable>();
 
+        var startI = (uint)((start ?? 0) * 4);
+        var endI = count.HasValue
+            ? Math.Min(startI + (uint)(count.Value * 4), stack)
+            : stack;
+
         var retArray = new Variable[stack];
         var ctx = new VariableContext(_engine, _clientCulture, Options, format);
 
-        for (var i = 0; i < stack; i += 4)
+        for (var i = startI; i < endI; i += 4)
         {
             var fieldIndex = i;
 
             var address = (uint)(_engine.StackTopAddress - 4 - i);
             var reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
             var v = this.GetOrAddVariable(reference,
-                () => new StackVariable(address, fieldIndex, Options.StackVariablesSubtypes,
+                () => new StackVariable(address, (int)fieldIndex, Options.StackVariablesSubtypes,
                     Options.ShowFloatIeeeSubvariables), true);
 
             retArray[i / 4] = v.GetAsProtocol(ctx, true);
@@ -1011,7 +1017,9 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         foreach (var typedSymbol in _symbolsForVariables.Where(s => s.Type != TypedSymbolType.String))
         {
-            var v = this.GetOrAddTopLevelVariable(typedSymbol.Name, () => new MemoryVariable(typedSymbol.Name,
+            var reference = ReferenceUtils.MakeReference(ContainerType.SymbolAddress, typedSymbol.Address);
+            var v = this.GetOrAddVariable(reference, () => new SymbolVariable(typedSymbol.Name,
+                typedSymbol.Address,
                 typedSymbol.Type switch
                 {
                     TypedSymbolType.Byte => DebuggerVariableType.ByteU,
@@ -1020,7 +1028,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                     TypedSymbolType.Float => DebuggerVariableType.Float,
                     TypedSymbolType.Double => DebuggerVariableType.Double,
                     _ => throw new Exception("Invalid debugger state: unexpected typed symbol type.")
-                }, typedSymbol.Address));
+                }), true);
 
             retArray[i++] = v.GetAsProtocol(ctx, true);
         }
@@ -1221,10 +1229,20 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
             return _topLevel.ContainsKey(varName);
         }
+        
+        if (containerType is ContainerType.SymbolAddress)
+        {
+            this.MakeSymbolsVariables(null);
+
+            return _topLevel.ContainsKey(varName[1..^1]);
+        }
 
         if (containerType is ContainerType.Stack or ContainerType.StackSubtypes or ContainerType.StackSubtypesValues)
         {
-            this.MakeStackVariables(null);
+            if (!int.TryParse(varName.AsSpan()[1..^1], out var stackByte))
+                return false;
+
+            this.MakeStackVariables(null, stackByte / 4, 1);
 
             if (_variables.TryGetValue(variablesReference, out var container))
                 return container.Children?.ContainsKey(varName) ?? false;
@@ -1279,10 +1297,12 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         var top = _engine.StackTopAddress;
         var currentSp = _engine.Engine.RegRead<uint>(Arm.Register.SP);
 
-        if (currentSp > top)
+        if (currentSp >= top)
             return 0;
 
-        return top - currentSp;
+        var size = top - currentSp;
+
+        return Math.Min(size, _engine.StackSize);
     }
 
     /// <summary>
