@@ -11,6 +11,7 @@ using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Dwarf;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
+using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
@@ -176,6 +177,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly Dictionary<uint, AddressBreakpoint> _currentBreakpoints = new();
     private readonly Dictionary<uint, AddressBreakpoint> _currentInstructionBreakpoints = new();
     private readonly Dictionary<uint, AddressBreakpoint> _currentBasicBreakpoints = new();
+    private readonly Dictionary<uint, UnicornHookRegistration> _currentLogPoints = new();
 
     private readonly List<UnicornHookRegistration> _strictAccessHooks = new();
     private readonly Stack<IUnicornContext>? _stepBackContexts;
@@ -193,6 +195,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly ManualResetEventSlim _configurationDoneEvent = new(false);
     private readonly ManualResetEventSlim _resetEvent = new(false);
     private readonly SemaphoreSlim _runSemaphore = new(1);
+    private readonly SemaphoreSlim _logPointSemaphore = new(1);
 
     public ExecutionState State { get; private set; }
     public IExecutableInfo? ExecutableInfo => _exe;
@@ -904,6 +907,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw new InvalidSourceException($"Cannot set breakpoints in file {file.Name ?? file.Path}.");
 
         _currentBasicBreakpoints.Clear();
+
+        foreach (var (_, hook) in _currentLogPoints)
+        {
+            hook.RemoveHook();
+        }
+
+        _currentLogPoints.Clear();
+
         var ret = new List<Breakpoint>();
 
         foreach (var breakpoint in breakpoints)
@@ -923,6 +934,40 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     Source = file,
                     Verified = false
                 });
+            }
+            else if (breakpoint.LogMessage != null)
+            {
+                var hook = Engine.AddCodeHook((_, _, _) =>
+                    {
+                        _logPointSemaphore.Wait(500);
+                        Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await this.LogDebugConsole(breakpoint.LogMessage);
+                            }
+                            catch (Exception e)
+                            {
+                                _logger.LogError(e, "Cannot send logpoint message.");
+                            }
+                            finally
+                            {
+                                _logPointSemaphore.Release();
+                            }
+                        });
+                    },
+                    targetAddress, targetAddress + 3);
+
+                _currentLogPoints.Add(targetAddress, hook);
+                var addedBreakpoint = new Breakpoint()
+                {
+                    Line = _debugProvider.LineToClient(targetLine),
+                    Source = file,
+                    Verified = true,
+                    InstructionReference = FormattingUtils.FormatAddress(targetAddress)
+                };
+
+                ret.Add(addedBreakpoint);
             }
             else if (_currentBasicBreakpoints.ContainsKey(targetAddress))
             {
@@ -2073,6 +2118,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _runSemaphore.Dispose();
         _configurationDoneEvent.Dispose();
         _resetEvent.Dispose();
+        _logPointSemaphore.Dispose();
 
         foreach (var nativeCodeHook in _nativeCodeHooks)
         {
