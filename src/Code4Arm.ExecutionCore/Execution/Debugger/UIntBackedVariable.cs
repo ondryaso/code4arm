@@ -165,7 +165,7 @@ public class UIntBackedSubtypeVariable<TParent> : UIntBackedDependentTraceable, 
         return _subtype switch
         {
             DebuggerVariableType.IntU => FormattingUtils.FormatVariable(value, context),
-            DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)value), context),
+            DebuggerVariableType.IntS => FormattingUtils.FormatSignedVariable(unchecked((int)value), context),
             DebuggerVariableType.Float => Unsafe.As<uint, float>(ref value).ToString(context.CultureInfo),
             _ => string.Empty
         };
@@ -259,10 +259,10 @@ public class UIntBackedSubtypeAtomicVariable<TParent> : UIntBackedDependentTrace
     {
         return _subtype switch
         {
-            DebuggerVariableType.ByteU or DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(value, context),
-            DebuggerVariableType.ByteS => FormattingUtils.FormatVariable((int)unchecked((sbyte)value), context),
+            DebuggerVariableType.ByteU or DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(value, context, _subtype.GetSize() * 8),
+            DebuggerVariableType.ByteS => FormattingUtils.FormatSignedVariable(unchecked((sbyte)value), context, 8),
             DebuggerVariableType.CharAscii => $"'{(char)value}'",
-            DebuggerVariableType.ShortS => FormattingUtils.FormatVariable((int)unchecked((short)value), context),
+            DebuggerVariableType.ShortS => FormattingUtils.FormatSignedVariable(unchecked((short)value), context, 16),
             _ => throw new Exception("Invalid state.")
         };
     }

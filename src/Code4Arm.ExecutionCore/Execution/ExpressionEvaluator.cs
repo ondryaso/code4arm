@@ -690,8 +690,7 @@ internal partial class DebugProvider
 
         return new EvaluateResponse()
         {
-            Result = FormattingUtils.FormatVariable(address,
-                new VariableContext(null!, _clientCulture, Options, format)),
+            Result = FormattingUtils.FormatAddress(address),
             Type = "address",
             MemoryReference = FormattingUtils.FormatAddress(address)
         };

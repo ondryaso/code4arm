@@ -18,6 +18,7 @@ public class DebuggerOptionsOverlay
     public bool? EnableSimdVariables { get; set; }
     public bool? EnableControlVariables { get; set; }
     public bool? EnableExtendedControlVariables { get; set; }
+    public bool? PadUnsignedBinaryNumbers { get; set; }
     public VariableNumberFormat? VariableNumberFormat { get; set; }
     public DebuggerVariableType[]? RegistersSubtypes { get; set; }
     public DebuggerVariableType[]? StackVariablesSubtypes { get; set; }

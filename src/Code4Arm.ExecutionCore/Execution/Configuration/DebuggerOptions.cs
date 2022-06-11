@@ -46,6 +46,11 @@ public class DebuggerOptions
     public VariableNumberFormat VariableNumberFormat { get; set; } = VariableNumberFormat.Hex;
 
     /// <summary>
+    /// If true, all unsigned binary numbers will be padded to the full width of their underlying data type. 
+    /// </summary>
+    public bool PadUnsignedBinaryNumbers { get; set; } = true;
+
+    /// <summary>
     /// Different subtypes to break general-purpose register values into. 
     /// </summary>
     /// <remarks>

@@ -10,13 +10,19 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 internal static class FormattingUtils
 {
-    public static string FormatVariable(uint variable, VariableContext context)
+    public static string FormatVariable(uint variable, VariableContext context, int actualBinarySize = 32)
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
             return FormatHex(variable, context.CultureInfo);
 
         if (context.NumberFormat == VariableNumberFormat.Binary)
-            return Convert.ToString(variable, 2);
+        {
+            var ret = Convert.ToString(variable, 2);
+            if (context.Options.PadUnsignedBinaryNumbers)
+                ret = ret.PadLeft(actualBinarySize, '0');
+
+            return ret;
+        }
 
         if (context.NumberFormat == VariableNumberFormat.Float)
             return Unsafe.As<uint, float>(ref variable).ToString(context.CultureInfo);
@@ -24,13 +30,24 @@ internal static class FormattingUtils
         return variable.ToString(context.CultureInfo);
     }
 
-    public static string FormatVariable(int variable, VariableContext context)
+    public static string FormatSignedVariable(int variable, VariableContext context, int actualBinarySize = 32)
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
             return FormatHex(variable, context.CultureInfo);
 
         if (context.NumberFormat == VariableNumberFormat.Binary)
-            return Convert.ToString(variable, 2);
+        {
+            if (variable < 0)
+            {
+                var varU = unchecked((uint)variable);
+                varU = ~varU;
+                varU += 1;
+
+                return "-" + Convert.ToString(varU, 2).PadLeft(actualBinarySize, '0');
+            }
+
+            return Convert.ToString(variable, 2).PadLeft(actualBinarySize, '0');
+        }
 
         if (context.NumberFormat == VariableNumberFormat.Float)
             return Unsafe.As<int, float>(ref variable).ToString(context.CultureInfo);
@@ -38,7 +55,9 @@ internal static class FormattingUtils
         return variable.ToString(context.CultureInfo);
     }
 
-    public static string FormatVariable<T>(T variable, VariableContext context) where T : struct
+    public static string FormatAnyVariable<T>(T variable, VariableContext context, int singedBinaryPad = -1,
+        bool isNegative = false)
+        where T : struct
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
             return FormatHex(variable, context.CultureInfo);
@@ -50,6 +69,23 @@ internal static class FormattingUtils
 
             tmp[0] = 0;
             tmpTarget[0] = variable;
+
+            if (singedBinaryPad > -1 && (isNegative || context.Options.PadUnsignedBinaryNumbers))
+            {
+                if (isNegative)
+                {
+                    var varU = unchecked((ulong)tmp[0]);
+                    varU = ~varU;
+                    varU += 1;
+                    var varS = unchecked((long)varU);
+
+                    return "-" + Convert.ToString(varS, 2).PadLeft(singedBinaryPad, '0');
+                }
+                else
+                {
+                    return Convert.ToString(tmp[0], 2).PadLeft(singedBinaryPad, '0');
+                }
+            }
 
             return Convert.ToString(tmp[0], 2);
         }

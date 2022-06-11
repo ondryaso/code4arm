@@ -198,7 +198,7 @@ public class ArmQSimdRegisterVariable : IVariable, ITraceable<ulong[]>
 }
 
 public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableBackedVariable<double>,
-    ISettableBackedVariable<ulong>
+                                        ISettableBackedVariable<ulong>
 {
     private readonly bool _showIeee;
     private readonly bool _showAsFloat;
@@ -299,7 +299,7 @@ public class ArmDSimdRegisterVariable : IVariable, ITraceable<ulong>, ISettableB
         }
         else
         {
-            return FormattingUtils.FormatVariable(value, context);
+            return FormattingUtils.FormatAnyVariable(value, context, 64, (unchecked((long)value)) < 0);
         }
     }
 

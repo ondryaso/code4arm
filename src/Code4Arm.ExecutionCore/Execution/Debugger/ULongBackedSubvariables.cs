@@ -106,8 +106,9 @@ public class ULongBackedSubtypeVariable<TParent> : ULongBackedDependentTraceable
 
         return _subtype switch
         {
-            DebuggerVariableType.LongU => FormattingUtils.FormatVariable(value, context),
-            DebuggerVariableType.LongS => FormattingUtils.FormatVariable(unchecked((long)value), context),
+            DebuggerVariableType.LongU => FormattingUtils.FormatAnyVariable(value, context, 64, false),
+            DebuggerVariableType.LongS => FormattingUtils.FormatAnyVariable(unchecked((long)value), context,
+                64, unchecked((long)value) < 0),
             DebuggerVariableType.Double => Unsafe.As<ulong, double>(ref value).ToString(context.CultureInfo),
             _ => string.Empty
         };
@@ -115,7 +116,7 @@ public class ULongBackedSubtypeVariable<TParent> : ULongBackedDependentTraceable
 }
 
 public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTraceable, IVariable,
-    ISettableBackedVariable<float>
+                                                         ISettableBackedVariable<float>
     where TParent : ISettableBackedVariable<ulong>, ITraceable
 {
     private readonly TParent _parent;
@@ -235,11 +236,12 @@ public class ULongBackedSubtypeAtomicVariable<TParent> : ULongBackedDependentTra
         return _subtype switch
         {
             DebuggerVariableType.ByteU or DebuggerVariableType.ShortU or DebuggerVariableType.IntU
-                => FormattingUtils.FormatVariable(value, context),
-            DebuggerVariableType.ByteS => FormattingUtils.FormatVariable((int)unchecked((sbyte)value), context),
+                => FormattingUtils.FormatVariable((uint)value, context, _subtype.GetSize() * 8),
+            DebuggerVariableType.ByteS => FormattingUtils.FormatSignedVariable(unchecked((sbyte)value), context, 8),
             DebuggerVariableType.CharAscii => $"'{(char)value}'",
-            DebuggerVariableType.ShortS => FormattingUtils.FormatVariable((int)unchecked((short)value), context),
-            DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)value), context),
+            DebuggerVariableType.ShortS => FormattingUtils.FormatSignedVariable(unchecked((short)value), context,
+                16),
+            DebuggerVariableType.IntS => FormattingUtils.FormatSignedVariable(unchecked((int)value), context, 32),
             DebuggerVariableType.Float => Unsafe.As<ulong, float>(ref value).ToString(context.CultureInfo),
             _ => throw new Exception("Invalid state.")
         };

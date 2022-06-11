@@ -14,7 +14,7 @@ using Code4Arm.Unicorn.Abstractions.Extensions;
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<float>, ISettableBackedVariable<double>,
-    IAddressBackedVariable
+                              IAddressBackedVariable
 {
     private readonly DebuggerVariableType _type;
     private readonly uint _address;
@@ -95,8 +95,8 @@ public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<flo
                 var v = context.Engine.Engine.MemReadSafe<byte>(_address);
                 _value = _type switch
                 {
-                    DebuggerVariableType.ByteS => FormattingUtils.FormatVariable(unchecked((sbyte)v), context),
-                    DebuggerVariableType.ByteU => FormattingUtils.FormatVariable(v, context),
+                    DebuggerVariableType.ByteS => FormattingUtils.FormatSignedVariable(unchecked((sbyte)v), context, 8),
+                    DebuggerVariableType.ByteU => FormattingUtils.FormatVariable(v, context, 8),
                     DebuggerVariableType.CharAscii => ((char)v).ToString()
                 };
             }
@@ -105,7 +105,8 @@ public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<flo
                 var v = context.Engine.Engine.MemReadSafe<ushort>(_address);
                 _value = _type switch
                 {
-                    DebuggerVariableType.ShortS => FormattingUtils.FormatVariable(unchecked((short)v), context),
+                    DebuggerVariableType.ShortS => FormattingUtils.FormatSignedVariable(unchecked((short)v), context,
+                        16),
                     DebuggerVariableType.ShortU => FormattingUtils.FormatVariable(v, context)
                 };
             }
@@ -118,7 +119,7 @@ public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<flo
 
                 _value = _type switch
                 {
-                    DebuggerVariableType.IntS => FormattingUtils.FormatVariable(unchecked((int)v), context),
+                    DebuggerVariableType.IntS => FormattingUtils.FormatSignedVariable(unchecked((int)v), context),
                     DebuggerVariableType.IntU => FormattingUtils.FormatVariable(v, context),
                     DebuggerVariableType.Float => _floatValue.ToString(context.CultureInfo)
                 };
@@ -132,8 +133,9 @@ public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<flo
 
                 _value = _type switch
                 {
-                    DebuggerVariableType.LongS => FormattingUtils.FormatVariable(unchecked((long)v), context),
-                    DebuggerVariableType.LongU => FormattingUtils.FormatVariable(v, context),
+                    DebuggerVariableType.LongS => FormattingUtils.FormatAnyVariable(unchecked((long)v), context,
+                        64, unchecked((long)v) < 0),
+                    DebuggerVariableType.LongU => FormattingUtils.FormatAnyVariable(v, context, 64, false),
                     DebuggerVariableType.Double => _doubleValue.ToString(context.CultureInfo)
                 };
             }
