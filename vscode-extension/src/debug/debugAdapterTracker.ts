@@ -49,6 +49,8 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
 
     private checkVariables(variables: DebugProtocol.Variable[]) {
         for (const variable of variables) {
+            if (variable == null) continue;
+
             if (variable.name === 'APSR') {
                 const value = parseInt(variable.value, 16);
                 this._onDidChangeApsrEmitter.fire(value);
@@ -60,7 +62,9 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
     // Checks if the 'CPU state' variables scope is available. If it is, explicitly requests its variables.
     private checkScopeAndRequest(scopes: DebugProtocol.Scope[]) {
         for (const scope of scopes) {
-            if (scope.name == 'CPU state') {
+            if (scope == null) continue;
+
+            if (scope.name === 'CPU state') {
                 var req: DebugProtocol.VariablesArguments = {
                     variablesReference: scope.variablesReference
                 };
