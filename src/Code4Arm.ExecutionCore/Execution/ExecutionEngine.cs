@@ -1119,7 +1119,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             pc -= 4; // The PC is moved after an interrupt
 
         var lineInfo = LineResolver!.GetSourceLine(pc, out var displacement);
-        if (displacement != 0)
+        if (displacement != 0 && lineInfo.File == null)
         {
             CurrentStopLine = -1;
             CurrentStopSourceIndex = this.DetermineSourceIndexForAddress(pc);
