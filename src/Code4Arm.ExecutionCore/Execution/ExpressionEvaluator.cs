@@ -253,13 +253,15 @@ internal partial class DebugProvider
     {
         if (expression[0] is 'S' or 'D' or 'Q')
         {
+            var ctxFloat = new VariableContext(_engine, _clientCulture, Options, VariableNumberFormat.Float);
+            // TODO: resolve corresponding Variable, don't use the expression evaluator here
+            
             try
             {
                 var level = expression[0] switch { 'S' => 0, 'D' => 1, 'Q' => 2, _ => 0 };
-                var ctx = new VariableContext(_engine, _clientCulture, Options, VariableNumberFormat.Float);
-                var regVariable = this.GetSimdRegisterVariable(expression, level, null, null, false);
+                var regVariable = this.GetSimdRegisterVariable(expression, level, null, null, Options.ShowFloatIeeeSubvariables);
 
-                return new ExpressionTarget(regVariable, ctx);
+                return new ExpressionTarget(regVariable, ctxFloat);
             }
             catch
             {
@@ -267,9 +269,13 @@ internal partial class DebugProvider
             }
         }
         
+        var ctx = new VariableContext(_engine, _clientCulture, Options, Options.VariableNumberFormat);
+
         try
         {
-            var ctx = new VariableContext(_engine, _clientCulture, Options, Options.VariableNumberFormat);
+            if (this.TryResolveTopVariable(ReferenceUtils.MakeReference(ContainerType.Registers), expression))
+                return new ExpressionTarget(_topLevel[expression], ctx);
+            
             var regVariable = this.GetRegisterVariable(expression, null, null, false);
 
             return new ExpressionTarget(regVariable, ctx);
@@ -281,6 +287,9 @@ internal partial class DebugProvider
         
         try
         {
+            if (this.TryResolveTopVariable(ReferenceUtils.MakeReference(ContainerType.Symbols), expression))
+                return new ExpressionTarget(_topLevel[expression], ctx);
+            
             var symbol = this.EvaluateSymbolAddressExpression(expression, ExpressionValueType.Default,
                 ExpressionValueFormat.Default);
 
@@ -780,7 +789,7 @@ internal partial class DebugProvider
     format      = ":", format_type ;
     format_type = "x" | "b" | "ieee" | "d" ;
 
-    direct_reference_expr = "!!!", { digit }+, ".", string ;
+    direct_reference_expr = "!!!", { digit }-, ".", string ;
     expr = addressing_expr | register_expr | variable_path | symbol_addr ;
 
     addressing_expr = "[", address_expr, [ ",", expr_offset ], "]" ;
@@ -790,7 +799,7 @@ internal partial class DebugProvider
     sign            = "+" | "-" | "" ;
     reg_name        = "R0" | "R1" | ... | "R15" | "PC" | "LR" | "SP" ;
     shift           = "LSL" | "LSR" | "ASR" | "ROR" | "ROL" ;
-    imm             = [ "0x" ], { digit }+ ; 
+    imm             = [ "0x" ], { digit }- ; 
     symbol          = string ;
 
     variable_path = string, { ".", string }, [ "." ] ;
@@ -803,5 +812,5 @@ internal partial class DebugProvider
     d_reg_name    = "D0" | "D1" | ... | "D31" ;
     q_reg_name    = "Q0" | "Q1" | ... | "Q15" ;
 
-    indexer    = "[", { digit }+, "]" ;
+    indexer    = "[", { digit }-, "]" ;
 */
