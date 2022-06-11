@@ -80,12 +80,12 @@ public class SinglePrecisionIeeeSegmentVariable : IVariable
             case IeeeSegment.Exponent:
                 return valueRaw switch
                 {
-                    0 => "00000000 => zero/subnormal",
-                    255 => "11111111 => inf/NaN",
-                    _ => $"{Convert.ToString(valueRaw, 2).PadLeft(8, '0')} => {(int)valueRaw - 127}"
+                    0 => "zero/subnormal (00000000)",
+                    255 => "inf/NaN (11111111)",
+                    _ => $"{(int)valueRaw - 127} ({Convert.ToString(valueRaw, 2).PadLeft(8, '0')})"
                 };
             case IeeeSegment.Mantissa:
-                return $"{Convert.ToString(valueRaw, 2).PadLeft(23, '0')} => {valueRaw}";
+                return $"{valueRaw} ({Convert.ToString(valueRaw, 2).PadLeft(23, '0')})";
             default:
                 throw new ArgumentOutOfRangeException();
         }
@@ -199,12 +199,12 @@ public class DoublePrecisionIeeeSegmentVariable : IVariable
             case IeeeSegment.Exponent:
                 return valueRaw switch
                 {
-                    0 => "00000000 => zero/subnormal",
-                    255 => "11111111 => inf/NaN",
-                    _ => $"{Convert.ToString(valueRawLong, 2).PadLeft(11, '0')} => {(int)valueRaw - 1023}"
+                    0 => "zero/subnormal (00000000)",
+                    255 => "inf/NaN (11111111)",
+                    _ => $"{(int)valueRaw - 1023} ({Convert.ToString(valueRawLong, 2).PadLeft(11, '0')})"
                 };
             case IeeeSegment.Mantissa:
-                return $"{Convert.ToString(valueRawLong, 2).PadLeft(52, '0')} => {valueRaw}";
+                return $"{valueRaw} ({Convert.ToString(valueRawLong, 2).PadLeft(52, '0')})";
             default:
                 throw new ArgumentOutOfRangeException();
         }
