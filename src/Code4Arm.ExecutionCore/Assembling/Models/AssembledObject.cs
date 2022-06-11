@@ -71,7 +71,7 @@ public class AssembledObject : IDisposable
         new(@"^\s*(\d+)\s+([0-9a-f]{4,8})\s+[0-9A-F]{2,8}\s*[\w\.:]+", RegexOptions.Compiled);
 
     private static readonly Regex DataDirectiveRegex = new(
-        @"\.(float|single|double|word|long|int|short|hword|byte|ascii|asciz)\s.*",
+        @"\.(float|single|double|word|long|int|short|hword|byte|asciz)\s.*",
         RegexOptions.Compiled);
 
     private bool[] DetermineProgramLines()
