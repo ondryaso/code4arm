@@ -625,9 +625,9 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         if (Options.EnableControlVariables)
         {
-            // Basic: PC, APSR
-            // Extended: + CPSR, FPEXC, FPSCR; MVFRx are not returned by unicorn
-            var count = Options.EnableExtendedControlVariables ? 3 : 2;
+            // Basic: PC, APSR, FPSCR
+            // Extended: + CPSR, FPEXC; MVFRx are not returned by unicorn
+            var count = Options.EnableExtendedControlVariables ? 5 : 3;
 
             ret.Add(new Scope()
             {
@@ -762,8 +762,12 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     private IEnumerable<Variable> MakeControlRegistersVariables(ValueFormat? format)
     {
         var ctx = new VariableContext(_engine, _clientCulture, Options, format);
-        var retArray = new Variable[Options.EnableExtendedControlVariables ? 5 : 2];
+        var retArray = new Variable[Options.EnableExtendedControlVariables ? 5 : 3];
         var i = 0;
+
+        retArray[i++] = this.GetOrAddTopLevelVariable("PC",
+                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
+                            .GetAsProtocol(ctx, true);
 
         retArray[i++] = this.GetOrAddVariable(
             ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.APSR),
@@ -776,9 +780,46 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                 new ControlRegisterFlag(16, 4, "GE", "Greater than or Equal")
             ), true).GetAsProtocol(ctx, true);
 
-        retArray[i++] = this.GetOrAddTopLevelVariable("PC",
-                                () => new UnstructuredRegisterVariable(Arm.Register.PC, "PC", "Program Counter (R15)"))
-                            .GetAsProtocol(ctx, true);
+        var fpscrFlags = new List<ControlRegisterFlag>();
+
+        fpscrFlags.Add(new ControlRegisterFlag(31, "N", "Negative"));
+        fpscrFlags.Add(new ControlRegisterFlag(30, "Z", "Zero"));
+        fpscrFlags.Add(new ControlRegisterFlag(29, "C", "Carry"));
+        fpscrFlags.Add(new ControlRegisterFlag(28, "V", "Overflow"));
+        fpscrFlags.Add(new ControlRegisterFlag(27, "QC", "Cumulative saturation"));
+
+        if (Options.EnableExtendedControlVariables)
+        {
+            fpscrFlags.Add(new ControlRegisterFlag(26, "AHP", "Alternative half-precision",
+                "IEEE (0)", "Alternative (1)"));
+            fpscrFlags.Add(new ControlRegisterFlag(25, "DN", "Default NaN"));
+            fpscrFlags.Add(new ControlRegisterFlag(24, "FZ", "Flush-to-zero"));
+        }
+
+        fpscrFlags.Add(new ControlRegisterFlag(22, 2, "RMode", "Rounding Mode", "To Nearest (00)", "Towards +Inf (01)",
+            "Towards -Inf (10)", "Towards Zero (11)"));
+
+        if (Options.EnableExtendedControlVariables)
+        {
+            fpscrFlags.Add(new ControlRegisterFlag(19, "FZ16", "Flush-to-zero mode on half-precision data-processing"));
+            fpscrFlags.Add(new ControlRegisterFlag(15, "IDE", "Input Denormal trap enable"));
+            fpscrFlags.Add(new ControlRegisterFlag(12, "IXE", "Inexact trap enable"));
+            fpscrFlags.Add(new ControlRegisterFlag(11, "UFE", "Underflow trap enable"));
+            fpscrFlags.Add(new ControlRegisterFlag(10, "OFE", "Overflow trap enable"));
+            fpscrFlags.Add(new ControlRegisterFlag(9, "DZE", "Divide by Zero trap enable"));
+            fpscrFlags.Add(new ControlRegisterFlag(8, "IOE", "Invalid Operation trap enable"));
+            fpscrFlags.Add(new ControlRegisterFlag(7, "IDC", "Input Denormal exception"));
+            fpscrFlags.Add(new ControlRegisterFlag(4, "IXC", "Inexact Cumulative exception"));
+            fpscrFlags.Add(new ControlRegisterFlag(3, "UFC", "Underflow Cumulative exception"));
+            fpscrFlags.Add(new ControlRegisterFlag(2, "OFC", "Overflow Cumulative exception"));
+            fpscrFlags.Add(new ControlRegisterFlag(1, "DZC", "Divide by Zero Cumulative exception"));
+            fpscrFlags.Add(new ControlRegisterFlag(0, "IOC", "Invalid Operation Cumulative exception"));
+        }
+
+        retArray[i++] = this.GetOrAddVariable(
+            ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR),
+            () => new ControlRegisterVariable(Arm.Register.FPSCR, "FPSCR",
+                "FP Status and Control Register", fpscrFlags.ToArray()), true).GetAsProtocol(ctx, true);
 
         if (Options.EnableExtendedControlVariables)
         {
@@ -802,7 +843,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                         "User", "FIQ", "IRQ", "Supervisor", "Monitor", "Abort", "Hypervisor", "Undefined", "System")
                 ), true).GetAsProtocol(ctx, true);
 
-            retArray[i++] = this.GetOrAddVariable(
+            retArray[i] = this.GetOrAddVariable(
                 ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPEXC),
                 () => new ControlRegisterVariable(Arm.Register.FPEXC, "FPEXC",
                     "FP Exception Control register",
@@ -816,35 +857,6 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                     new ControlRegisterFlag(2, "OFF", "Overflow trapped"),
                     new ControlRegisterFlag(1, "DZF", "Divide by Zero trapped"),
                     new ControlRegisterFlag(0, "IOF", "Invalid Operation trapped")
-                ), true).GetAsProtocol(ctx, true);
-
-            retArray[i] = this.GetOrAddVariable(
-                ReferenceUtils.MakeReference(ContainerType.ControlFlags, Arm.Register.FPSCR),
-                () => new ControlRegisterVariable(Arm.Register.FPSCR, "FPSCR",
-                    "FP Status and Control Register",
-                    new ControlRegisterFlag(31, "N", "Negative"),
-                    new ControlRegisterFlag(30, "Z", "Zero"),
-                    new ControlRegisterFlag(29, "C", "Carry"),
-                    new ControlRegisterFlag(28, "V", "Overflow"),
-                    new ControlRegisterFlag(27, "QC", "Cumulative saturation"),
-                    new ControlRegisterFlag(26, "AHP", "Alternative half-precision", "IEEE (0)", "Alternative (1)"),
-                    new ControlRegisterFlag(25, "DN", "Default NaN"),
-                    new ControlRegisterFlag(24, "FZ", "Flush-to-zero"),
-                    new ControlRegisterFlag(22, 2, "RMode", "Rounding Mode", "To Nearest (00)", "Towards +Inf (01)",
-                        "Towards -Inf (10)", "Towards Zero (11)"),
-                    new ControlRegisterFlag(19, "FZ16", "Flush-to-zero mode on half-precision data-processing"),
-                    new ControlRegisterFlag(15, "IDE", "Input Denormal trap enable"),
-                    new ControlRegisterFlag(12, "IXE", "Inexact trap enable"),
-                    new ControlRegisterFlag(11, "UFE", "Underflow trap enable"),
-                    new ControlRegisterFlag(10, "OFE", "Overflow trap enable"),
-                    new ControlRegisterFlag(9, "DZE", "Divide by Zero trap enable"),
-                    new ControlRegisterFlag(8, "IOE", "Invalid Operation trap enable"),
-                    new ControlRegisterFlag(7, "IDC", "Input Denormal exception"),
-                    new ControlRegisterFlag(4, "IXC", "Inexact Cumulative exception"),
-                    new ControlRegisterFlag(3, "UFC", "Underflow Cumulative exception"),
-                    new ControlRegisterFlag(2, "OFC", "Overflow Cumulative exception"),
-                    new ControlRegisterFlag(1, "DZC", "Divide by Zero Cumulative exception"),
-                    new ControlRegisterFlag(0, "IOC", "Invalid Operation Cumulative exception")
                 ), true).GetAsProtocol(ctx, true);
         }
 
@@ -1229,7 +1241,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
             return _topLevel.ContainsKey(varName);
         }
-        
+
         if (containerType is ContainerType.SymbolAddress)
         {
             this.MakeSymbolsVariables(null);
