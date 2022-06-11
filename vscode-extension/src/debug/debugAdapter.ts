@@ -166,7 +166,6 @@ export class Code4ArmDebugSession extends ProtocolServer {
             }
 
             let response: DebugProtocol.Response = new Response(request);
-            console.info("   | RESP " + (response.success ? "Success" : ("Error " + response.message)) + " (" + remoteMethodName + ")");
 
             response.success = remoteResponse.success;
             response.body = remoteResponse.body;
@@ -174,6 +173,8 @@ export class Code4ArmDebugSession extends ProtocolServer {
             if (!remoteResponse.success) {
                 response.message = remoteResponse.message;
             }
+
+            console.info("   | RESP " + (response.success ? "Success" : ("Error " + response.message)) + " (" + remoteMethodName + ")");
 
             this.sendResponse(response);
         } catch (err) {

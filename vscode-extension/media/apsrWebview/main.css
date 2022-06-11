@@ -1,0 +1,62 @@
+/* Custom styles */
+.on {
+    background: var(--vscode-code4arm-apsrOnBackground);
+    color: var(--vscode-code4arm-apsrOnForeground);
+}
+
+.off {
+    background: var(--vscode-code4arm-apsrOffBackground);
+    color: var(--vscode-code4arm-apsrOffForeground);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40%, 1fr));
+    grid-gap: 0.25rem;
+}
+
+.grid>div {
+    padding: 1rem;
+    word-wrap: break-word;
+    text-align: center;
+}
+
+body {
+    background: transparent;
+}
+
+.on>.bit {
+    display: block;
+}
+
+.on>.bit::after {
+    content: "1";
+    font-weight: bold;
+}
+
+.off>.bit::after {
+    content: "0";
+    font-weight: bold;
+}
+
+.label-abbr {
+    display: none;
+}
+
+.label-full {
+    display: block;
+}
+
+@media only screen and (max-width: 13rem)  {
+    .label-abbr {
+        display: block;
+    }
+
+    .label-full {
+        display: none;
+    }
+}
+
+.hidden {
+    display: none !important;
+}
