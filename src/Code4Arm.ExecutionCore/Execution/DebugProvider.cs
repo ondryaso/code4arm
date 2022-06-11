@@ -651,7 +651,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         if (Options.EnableStackVariables)
         {
-            var currentSize = this.GetStackSize();
+            var (currentSize, _) = this.GetStackSize();
             if (currentSize != 0)
             {
                 ret.Add(new Scope()
@@ -941,7 +941,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     {
         // IMPROVEMENT: Support other stack types
 
-        var stack = this.GetStackSize();
+        var (stack, sp) = this.GetStackSize();
 
         if (stack == 0)
             return Enumerable.Empty<Variable>();
@@ -956,15 +956,24 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         for (var i = startI; i < endI; i += 4)
         {
-            var fieldIndex = i;
+            var address = _engine.StackTopAddress - 4 - i;
+            var fieldIndex = (int)(address - sp);
 
-            var address = (uint)(_engine.StackTopAddress - 4 - i);
             var reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
-            var v = this.GetOrAddVariable(reference,
-                () => new StackVariable(address, (int)fieldIndex, Options.StackVariablesSubtypes,
+            var v = (StackVariable)this.GetOrAddVariable(reference,
+                () => new StackVariable(address, fieldIndex, Options.StackVariablesSubtypes,
                     Options.ShowFloatIeeeSubvariables), true);
 
-            retArray[i / 4] = v.GetAsProtocol(ctx, true);
+            // This is a bit of a dirty hack; the variables system didn't account for top level variables
+            // changing their names. However, stack should be the only thing doing that...
+            var oldName = v.Name;
+            if (v.SetIndex(fieldIndex))
+            {
+                _topLevel.Remove(oldName);
+                _topLevel.Add(v.Name, v);
+            }
+            
+            retArray[(i - startI) / 4] = v.GetAsProtocol(ctx, true);
         }
 
         return retArray;
@@ -1303,20 +1312,20 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     /// Returns the difference between SP and stack top in bytes.
     /// Returns 0 if the value of SP indicates it is not used as the stack pointer.
     /// </summary>
-    private uint GetStackSize()
+    private (uint Size, uint Sp) GetStackSize()
     {
         if (_engine.Options.StackPointerType != StackPointerType.FullDescending)
-            return 0; // TODO: support other stack types?
+            return (0, 0); // TODO: support other stack types?
 
         var top = _engine.StackTopAddress;
         var currentSp = _engine.Engine.RegRead<uint>(Arm.Register.SP);
 
         if (currentSp >= top)
-            return 0;
+            return (0, 0);
 
         var size = top - currentSp;
 
-        return Math.Min(size, _engine.StackSize);
+        return (Math.Min(size, _engine.StackSize), currentSp);
     }
 
     /// <summary>

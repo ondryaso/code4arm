@@ -1,6 +1,7 @@
 // StackVariable.cs
 // Author: Ondřej Ondryáš
 
+using System.Diagnostics.CodeAnalysis;
 using Code4Arm.Unicorn;
 using Code4Arm.Unicorn.Abstractions;
 using Code4Arm.Unicorn.Abstractions.Enums;
@@ -12,15 +13,17 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
 {
     private readonly uint _address;
     private readonly bool _showFloatIeeeSubvariables;
+    private int _index;
+    private string _name;
 
     public StackVariable(uint address, int index, DebuggerVariableType[] allowedSubtypes,
         bool showFloatIeeeSubvariables)
     {
         _address = address;
         _showFloatIeeeSubvariables = showFloatIeeeSubvariables;
-        Name = $"[{index}]";
+        this.SetIndex(index);
         Type = null;
-        
+
         Reference = ReferenceUtils.MakeReference(ContainerType.StackSubtypes, address);
 
         if (allowedSubtypes is { Length: not 0 })
@@ -29,12 +32,26 @@ public class StackVariable : UIntBackedVariable, IAddressBackedVariable
         }
     }
 
-    public override string Name { get; }
+    [MemberNotNull(nameof(_name))]
+    public bool SetIndex(int index)
+    {
+        var newIndex = index / 4;
+
+        if (newIndex == _index && _name != null)
+            return false;
+        
+        _index = newIndex;
+        _name = $"SP+0x{index:x}";
+
+        return true;
+    }
+
+    public override string Name => _name;
     public override string? Type { get; }
     public override long Reference { get; }
     public override bool IsViewOfParent => false;
 
-    public override string Get(VariableContext context) => FormattingUtils.FormatAddress(_address);
+    public override string Get(VariableContext context) => $"[{_index}]@{FormattingUtils.FormatAddress(_address)}";
     public uint GetAddress() => _address;
 
     public override bool NeedsExplicitEvaluationAfterStep => false;
