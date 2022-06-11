@@ -9,8 +9,18 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 public class SymbolVariable : IVariable
 {
     private readonly uint _address;
+    private readonly string _typeName;
 
     public SymbolVariable(string name, uint address, DebuggerVariableType type)
+        : this(name, address, false)
+    {
+        Children = ImmutableDictionary<string, IVariable>.Empty.Add($"[{name}]",
+            new MemoryVariable($"[{name}]", type, address));
+        
+        _typeName = type.GetName();
+    }
+
+    public SymbolVariable(string name, uint address, bool isStringSymbol)
     {
         _address = address;
         Name = name;
@@ -18,9 +28,14 @@ public class SymbolVariable : IVariable
         Reference = ReferenceUtils.MakeReference(ContainerType.SymbolAddress, address);
         CanSet = false;
         IsViewOfParent = false;
-        Children = ImmutableDictionary<string, IVariable>.Empty.Add($"[{name}]",
-            new MemoryVariable($"[{name}]", type, address));
         Parent = null;
+
+        Children = isStringSymbol
+            ? ImmutableDictionary<string, IVariable>.Empty.Add($"[{name}]",
+                new StringVariable($"[{name}]", address))
+            : null;
+
+        _typeName = isStringSymbol ? "string" : string.Empty;
     }
 
     public string Name { get; }
@@ -35,7 +50,7 @@ public class SymbolVariable : IVariable
     {
     }
 
-    public string Get(VariableContext context) => FormattingUtils.FormatAddress(_address);
+    public string Get(VariableContext context) => $"{_typeName} at {FormattingUtils.FormatAddress(_address)}";
 
     public void Set(string value, VariableContext context)
     {

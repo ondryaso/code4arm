@@ -951,7 +951,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             ? Math.Min(startI + (uint)(count.Value * 4), stack)
             : stack;
 
-        var retArray = new Variable[stack];
+        var retArray = new Variable[(uint?)count ?? ((endI - startI) / 4)];
         var ctx = new VariableContext(_engine, _clientCulture, Options, format);
 
         for (var i = startI; i < endI; i += 4)
@@ -1027,20 +1027,22 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         var retArray = new Variable[_symbolsForVariables.Count];
         var i = 0;
 
-        foreach (var typedSymbol in _symbolsForVariables.Where(s => s.Type != TypedSymbolType.String))
+        foreach (var typedSymbol in _symbolsForVariables)
         {
             var reference = ReferenceUtils.MakeReference(ContainerType.SymbolAddress, typedSymbol.Address);
-            var v = this.GetOrAddVariable(reference, () => new SymbolVariable(typedSymbol.Name,
-                typedSymbol.Address,
-                typedSymbol.Type switch
-                {
-                    TypedSymbolType.Byte => DebuggerVariableType.ByteU,
-                    TypedSymbolType.Short => DebuggerVariableType.ShortU,
-                    TypedSymbolType.Int => DebuggerVariableType.IntU,
-                    TypedSymbolType.Float => DebuggerVariableType.Float,
-                    TypedSymbolType.Double => DebuggerVariableType.Double,
-                    _ => throw new Exception("Invalid debugger state: unexpected typed symbol type.")
-                }), true);
+            var v = this.GetOrAddVariable(reference, () => typedSymbol.Type == TypedSymbolType.String
+                ? new SymbolVariable(typedSymbol.Name, typedSymbol.Address, true)
+                : new SymbolVariable(typedSymbol.Name,
+                    typedSymbol.Address,
+                    typedSymbol.Type switch
+                    {
+                        TypedSymbolType.Byte => DebuggerVariableType.ByteU,
+                        TypedSymbolType.Short => DebuggerVariableType.ShortU,
+                        TypedSymbolType.Int => DebuggerVariableType.IntU,
+                        TypedSymbolType.Float => DebuggerVariableType.Float,
+                        TypedSymbolType.Double => DebuggerVariableType.Double,
+                        _ => throw new Exception("Invalid debugger state: unexpected typed symbol type.")
+                    }), true);
 
             retArray[i++] = v.GetAsProtocol(ctx, true);
         }
