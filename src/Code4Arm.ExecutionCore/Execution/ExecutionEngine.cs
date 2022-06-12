@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Dwarf;
@@ -194,6 +195,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private readonly ManualResetEventSlim _configurationDoneEvent = new(false);
     private readonly ManualResetEventSlim _resetEvent = new(false);
+    private readonly ManualResetEventSlim _waitForInputEvent = new(false);
+    private readonly ManualResetEventSlim _waitForOutputEvent = new(false);
     private readonly SemaphoreSlim _runSemaphore = new(1);
     private readonly SemaphoreSlim _logPointSemaphore = new(1);
 
@@ -275,6 +278,115 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             uint.MaxValue);
 
         return unicorn;
+    }
+
+    private readonly StringBuilder _emulatedInputBuffer = new();
+    private readonly object _emulatedInputLocker = new();
+
+    private string? ReadCharsFromBuffer(int? numberOfChars)
+    {
+        if (numberOfChars.HasValue && _emulatedInputBuffer.Length >= numberOfChars.Value)
+        {
+            var retA = _emulatedInputBuffer.ToString(0, numberOfChars.Value);
+            _emulatedInputBuffer.Remove(0, numberOfChars.Value);
+
+            return retA;
+        }
+
+        if (_emulatedInputBuffer.Length > 0)
+        {
+            var retA = _emulatedInputBuffer.ToString();
+            _emulatedInputBuffer.Clear();
+
+            return retA;
+        }
+
+        return null;
+    }
+
+    private int _inputHelpSent = 0;
+
+    public string WaitForEmulatedInput(int? numberOfChars)
+    {
+        if (numberOfChars is < 1)
+            throw new ArgumentException("Argument must be either null or greater than zero.", nameof(numberOfChars));
+
+        lock (_emulatedInputLocker)
+        {
+            var existing = this.ReadCharsFromBuffer(numberOfChars);
+
+            if (existing != null)
+                return existing;
+        }
+
+        var cts = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(5000, cts.Token);
+            }
+            catch
+            {
+                return;
+            }
+
+            var helpSent = Interlocked.Exchange(ref _inputHelpSent, 1);
+
+            await this.LogDebugConsole(helpSent == 0
+                ? "The program is waiting for input. You can pass input to it by sending a value starting with > to the Debug Console."
+                : "Waiting for input.");
+        });
+
+        _currentCts?.Dispose();
+        _waitForInputEvent.Wait();
+        
+        cts.Cancel();
+        cts.Dispose();
+
+        if (LastStopCause == StopCause.ExternalTermination)
+            throw new TerminatedException();
+
+        string? ret = null;
+        lock (_emulatedInputLocker)
+        {
+            var requiredChars = numberOfChars ?? 0;
+
+            if (_emulatedInputBuffer.Length >= requiredChars)
+                ret = this.ReadCharsFromBuffer(numberOfChars);
+        }
+
+        _waitForInputEvent.Reset();
+
+        if (ret == null)
+            return this.WaitForEmulatedInput(numberOfChars);
+
+        this.InitTimeout();
+
+        return ret;
+    }
+
+    public string WaitForEmulatedInputLine()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void UngetEmulatedInputChar(char c)
+    {
+        lock (_emulatedInputLocker)
+        {
+            _emulatedInputBuffer.Insert(0, c);
+        }
+    }
+
+    public void AcceptEmulatedInput(string input)
+    {
+        lock (_emulatedInputLocker)
+        {
+            _emulatedInputBuffer.Append(input);
+        }
+
+        _waitForInputEvent.Set();
     }
 
     #region Initialization
@@ -780,6 +892,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         CurrentPc = (uint)address;
         try
         {
+            // Send the output buffer first; try to wait until it happens but not too long.
+            _waitForOutputEvent.Reset();
+            _ = Task.Run(async () => await this.HandleEmulatedOutputBuffer());
+            _waitForOutputEvent.Wait(1000);
+            
             simulator.FunctionSimulator.Run(this);
         }
         catch (UnicornException e)
@@ -789,6 +906,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 LastStopCause = StopCause.InvalidMemoryAccess;
                 // The actual memory access handler may or may not be called here
             }
+        }
+        catch (TerminatedException)
+        {
+            // intentionally left blank
         }
         catch (Exception e)
         {
@@ -1551,15 +1672,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             this.MakeExits();
 
             LastStopCause = StopCause.Normal;
-
-            _currentCts?.Dispose();
-            _currentCts = new CancellationTokenSource();
-            _currentCts.CancelAfter(_options.Timeout);
-            _currentCts.Token.Register(() =>
-            {
-                LastStopCause = StopCause.TimeoutOrExternalCancellation;
-                Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
-            });
+            this.InitTimeout();
         }
         catch
         {
@@ -1639,6 +1752,19 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             await this.ExitOnTimeout();
         }
+    }
+
+    [MemberNotNull(nameof(_currentCts))]
+    private void InitTimeout()
+    {
+        _currentCts?.Dispose();
+        _currentCts = new CancellationTokenSource();
+        _currentCts.CancelAfter(_options.Timeout);
+        _currentCts.Token.Register(() =>
+        {
+            LastStopCause = StopCause.TimeoutOrExternalCancellation;
+            Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
+        });
     }
 
     public Task Launch()
@@ -1764,15 +1890,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             // This goes on more or less same as in InitLaunch()
             LastStopCause = StopCause.Normal;
-
-            _currentCts?.Dispose();
-            _currentCts = new CancellationTokenSource();
-            _currentCts.CancelAfter(_options.Timeout);
-            _currentCts.Token.Register(() =>
-            {
-                LastStopCause = StopCause.TimeoutOrExternalCancellation;
-                Engine.EmuStop(); // If running, propagates to StartEmulation() which releases the semaphore
-            });
+            this.InitTimeout();
         }
         catch
         {
@@ -1981,6 +2099,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (State is ExecutionState.Running)
         {
             LastStopCause = StopCause.ExternalTermination;
+            _waitForInputEvent.Set();
             Engine.EmuStop();
         }
         else
@@ -2106,6 +2225,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 Output = emuOut
             });
         }
+        
+        _waitForOutputEvent.Set();
     }
 
     private bool IsPaused =>

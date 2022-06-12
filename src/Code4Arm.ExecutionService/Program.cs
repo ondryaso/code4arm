@@ -43,6 +43,7 @@ builder.Services.AddSingleton<ISessionManager>(provider =>
     provider.GetRequiredService<ISessionManager<LocalSession>>());
 
 builder.Services.AddSingleton<DebuggerSessionHubResponseFilter>();
+builder.Services.AddFunctionSimulators();
 
 builder.Services.AddSignalR(o =>
        {

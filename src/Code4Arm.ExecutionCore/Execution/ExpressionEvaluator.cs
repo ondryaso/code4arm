@@ -127,6 +127,17 @@ internal partial class DebugProvider
             return simpleTarget.GetResponse();
         }
 
+        // Emulated input
+        if (context == EvaluateArgumentsContext.Repl && expression.Length > 0 && expression[0] == '>')
+        {
+            _engine.AcceptEmulatedInput(expression[1..]);
+            
+            return new EvaluateResponse()
+            {
+                Result = string.Empty
+            };
+        }
+
         var target = this.GetExpressionTarget(expression, context, format);
 
         if (target.SetValue != null)

@@ -1,6 +1,7 @@
 // ServiceCollectionExtensions.cs
 // Author: Ondřej Ondryáš
 
+using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionService.RequestHandlers;
@@ -34,6 +35,18 @@ public static class ServiceCollectionExtensions
             var iRequestHandlerType = requestHandlerBase.MakeGenericType(engineEvent, unit);
             var eeRequestHandlerType = handlerBase.MakeGenericType(eventType, hubType);
             services.AddTransient(iRequestHandlerType, eeRequestHandlerType);
+        }
+    }
+
+    public static void AddFunctionSimulators(this IServiceCollection services)
+    {
+        var coreAssembly = typeof(ExecutionEngine).Assembly;
+        var simBase = typeof(IFunctionSimulator);
+        var simulators = coreAssembly.GetTypes().Where(t => t.IsAssignableTo(simBase) && t.IsClass);
+
+        foreach (var simulator in simulators)
+        {
+            services.AddTransient(simBase, simulator);
         }
     }
 }

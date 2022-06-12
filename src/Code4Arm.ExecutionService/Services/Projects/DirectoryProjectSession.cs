@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using Code4Arm.ExecutionCore.Assembling;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
+using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionService.Files;
 using MediatR;
@@ -34,8 +35,9 @@ public class DirectoryProjectSession : BaseProjectSession
     public string DirectoryPath => _rootDirectoryPath;
 
     public DirectoryProjectSession(string rootDirectoryPath,
-        AssemblerOptions assemblerOptions, LinkerOptions linkerOptions, ILoggerFactory loggerFactory)
-        : base(assemblerOptions, linkerOptions, loggerFactory)
+        AssemblerOptions assemblerOptions, LinkerOptions linkerOptions, IFunctionSimulator[] simulators,
+        ILoggerFactory loggerFactory)
+        : base(assemblerOptions, linkerOptions, simulators, loggerFactory)
     {
         _rootDirectoryPath = rootDirectoryPath;
 

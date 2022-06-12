@@ -3,6 +3,7 @@
 
 using AutoMapper;
 using Code4Arm.ExecutionCore.Assembling.Configuration;
+using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionService.Configuration;
 using Code4Arm.ExecutionService.Exceptions;
@@ -42,12 +43,16 @@ public class LocalSessionManager<TToolHub, TDebuggerHub, TToolHubClient, TDebugg
 
 public class LocalSession : GenericSession
 {
+    private readonly IFunctionSimulator[] _simulators;
+
     public LocalSession(ISessionManager manager, string sessionId, IMediator mediator, ILoggerFactory loggerFactory,
         IMapper mapper, IOptionsMonitor<AssemblerOptions> asmOptMon, IOptionsMonitor<LinkerOptions> ldOptMon,
         IOptionsMonitor<ExecutionOptions> exeOptMon, IOptionsMonitor<DebuggerOptions> dbgOptMon,
-        IOptionsMonitor<ServiceOptions> serviceOptMon) : base(manager, sessionId, mediator, loggerFactory, mapper,
+        IOptionsMonitor<ServiceOptions> serviceOptMon, IEnumerable<IFunctionSimulator> simulators) 
+        : base(manager, sessionId, mediator, loggerFactory, mapper,
         asmOptMon, ldOptMon, exeOptMon, dbgOptMon, serviceOptMon)
     {
+        _simulators = simulators.ToArray();
     }
 
     private void InitFromDirectory(string path)
@@ -59,13 +64,13 @@ public class LocalSession : GenericSession
         }
 
         Project?.Dispose();
-        Project = new DirectoryProjectSession(path, AssemblerOptions, LinkerOptions, LoggerFactory);
+        Project = new DirectoryProjectSession(path, AssemblerOptions, LinkerOptions, _simulators, LoggerFactory);
     }
 
     private void InitFromFiles(IEnumerable<string> files)
     {
         Project?.Dispose();
-        Project = new FilesProjectSession(files, null, AssemblerOptions, LinkerOptions, LoggerFactory);
+        Project = new FilesProjectSession(files, null, AssemblerOptions, LinkerOptions, _simulators, LoggerFactory);
     }
 
     protected override Task Init(ISessionLaunchArguments arguments)

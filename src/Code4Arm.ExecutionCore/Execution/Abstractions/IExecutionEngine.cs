@@ -17,13 +17,16 @@ public interface IExecutionEngine : IDisposable
     IRuntimeInfo? RuntimeInfo { get; }
     IDebugProvider DebugProvider { get; }
     IDebugProtocolSourceLocator SourceLocator { get; }
-    
+
     Task? CurrentExecutionTask { get; }
 
     IUnicorn Engine { get; }
 
     TextWriter EmulatedOutput { get; }
-
+    string WaitForEmulatedInput(int? numberOfChars);
+    string WaitForEmulatedInputLine();
+    void UngetEmulatedInputChar(char c);
+    
     Task LoadExecutable(Executable executable);
 
     IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);

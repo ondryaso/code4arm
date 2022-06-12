@@ -2,6 +2,7 @@
 // Author: Ondřej Ondryáš
 
 using Code4Arm.ExecutionCore.Assembling.Configuration;
+using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionService.Files;
 using Microsoft.Extensions.Options;
@@ -15,8 +16,8 @@ public class FilesProjectSession : BaseProjectSession
 
     public FilesProjectSession(IEnumerable<string> files, string? name,
         AssemblerOptions assemblerOptions, LinkerOptions linkerOptions,
-        ILoggerFactory loggerFactory)
-        : base(assemblerOptions, linkerOptions, loggerFactory)
+        IFunctionSimulator[] simulators, ILoggerFactory loggerFactory)
+        : base(assemblerOptions, linkerOptions, simulators, loggerFactory)
     {
         Name = name ?? Guid.NewGuid().ToString();
         this.LoadFiles(files);

@@ -6,6 +6,7 @@ using Code4Arm.ExecutionCore.Assembling.Configuration;
 using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
+using Code4Arm.ExecutionCore.Execution.FunctionSimulators.Stdio;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 
 namespace Code4Arm.ExecutionService.Services.Projects;
@@ -22,10 +23,10 @@ public abstract class BaseProjectSession : IProjectSession
     public abstract bool Dirty { get; }
 
     public BaseProjectSession(AssemblerOptions assemblerOptions, LinkerOptions linkerOptions,
-        ILoggerFactory loggerFactory)
+        IFunctionSimulator[] simulators, ILoggerFactory loggerFactory)
     {
         Assembler = new Assembler(assemblerOptions, linkerOptions, loggerFactory);
-        Assembler.UseFunctionSimulators(new IFunctionSimulator[] {new Printf()}); // TODO: get from DI?
+        Assembler.UseFunctionSimulators(simulators);
     }
 
     public void UseAssemblerOptions(AssemblerOptions options)
