@@ -179,6 +179,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly Dictionary<uint, AddressBreakpoint> _currentInstructionBreakpoints = new();
     private readonly Dictionary<uint, AddressBreakpoint> _currentBasicBreakpoints = new();
     private readonly Dictionary<uint, UnicornHookRegistration> _currentLogPoints = new();
+    private readonly IDictionary<Type, IExecutionStateFeature> _features
+        = ImmutableDictionary.Create<Type, IExecutionStateFeature>();
 
     private readonly List<UnicornHookRegistration> _strictAccessHooks = new();
     private readonly Stack<IUnicornContext>? _stepBackContexts;
@@ -579,6 +581,17 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         State = ExecutionState.Ready;
     }
+
+    public TFeature? GetStateFeature<TFeature>() where TFeature : class, IExecutionStateFeature
+    {
+        var type = typeof(TFeature);
+
+        if (_features.TryGetValue(type, out var feature))
+            return (TFeature)feature;
+
+        return null;
+    }
+
 #pragma warning restore CS8774
 
     private void MapMemoryFromExecutable()

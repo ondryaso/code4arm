@@ -29,6 +29,8 @@ public interface IExecutionEngine : IDisposable
     
     Task LoadExecutable(Executable executable);
 
+    TFeature? GetStateFeature<TFeature>() where TFeature : class, IExecutionStateFeature;
+
     IEnumerable<Breakpoint> SetDataBreakpoints(IEnumerable<DataBreakpoint> dataBreakpoints);
     IEnumerable<Breakpoint> SetBreakpoints(Source file, IEnumerable<SourceBreakpoint> breakpoints);
     IEnumerable<Breakpoint> SetExceptionBreakpoints(IEnumerable<string> filterIds);
