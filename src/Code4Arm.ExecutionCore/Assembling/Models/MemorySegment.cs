@@ -34,6 +34,7 @@ public class MemorySegment : IDisposable
 
     public bool IsTrampoline { get; init; }
     public bool IsStack { get; init; }
+    public bool IsHeap { get; init; }
 
     // ReSharper disable once InconsistentNaming
     public bool IsMMIO { get; init; }

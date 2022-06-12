@@ -14,6 +14,7 @@ using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
+using Code4Arm.ExecutionCore.Execution.ExecutionStateFeatures;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.Unicorn;
@@ -179,11 +180,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly Dictionary<uint, AddressBreakpoint> _currentInstructionBreakpoints = new();
     private readonly Dictionary<uint, AddressBreakpoint> _currentBasicBreakpoints = new();
     private readonly Dictionary<uint, UnicornHookRegistration> _currentLogPoints = new();
-    private readonly IDictionary<Type, IExecutionStateFeature> _features
-        = ImmutableDictionary.Create<Type, IExecutionStateFeature>();
 
     private readonly List<UnicornHookRegistration> _strictAccessHooks = new();
     private readonly Stack<IUnicornContext>? _stepBackContexts;
+
+    private readonly StringBuilder _emulatedInputBuffer = new();
+    private readonly object _emulatedInputLocker = new();
+
+    private readonly HeapFeature _heapFeature;
 
     private Executable? _exe;
     private List<MemorySegment>? _segments;
@@ -192,7 +196,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private CancellationTokenSource? _currentCts;
     private UnicornHookRegistration _trampolineHookRegistration;
     private bool _firstRun = true;
-    private bool _breakpointExitsDisabled = false;
+    private bool _breakpointExitsDisabled;
     private bool _restarting;
 
     private readonly ManualResetEventSlim _configurationDoneEvent = new(false);
@@ -231,7 +235,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public IUnicorn Engine { get; }
 
-    private readonly StringWriter _emulatedOut;
+    private readonly StringWriter _emulatedOut = new();
     public TextWriter EmulatedOutput => _emulatedOut;
 
     public Task? CurrentExecutionTask { get; private set; }
@@ -249,7 +253,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _logger = systemLogger;
         _executionId = Guid.NewGuid();
-        _emulatedOut = new StringWriter();
+        _heapFeature = new HeapFeature(this);
 
         _debugProvider = new DebugProvider(this, debuggerOptions);
 
@@ -282,8 +286,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return unicorn;
     }
 
-    private readonly StringBuilder _emulatedInputBuffer = new();
-    private readonly object _emulatedInputLocker = new();
+    #region Emulated input
 
     private string? ReadCharsFromBuffer(int? numberOfChars)
     {
@@ -326,6 +329,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             try
             {
+                // ReSharper disable once AccessToDisposedClosure
                 await Task.Delay(5000, cts.Token);
             }
             catch
@@ -342,7 +346,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _currentCts?.Dispose();
         _waitForInputEvent.Wait();
-        
+
         cts.Cancel();
         cts.Dispose();
 
@@ -391,6 +395,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _waitForInputEvent.Set();
     }
 
+    #endregion
+
     #region Initialization
 
     /// <summary>
@@ -425,13 +431,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         else if (_stackSegment == null || stOpt.HasFlag(StackPlacementOptions.RandomizeAddress))
         {
             // Randomization enabled or no stack has been created yet
-            stackSegmentBegin = this.CheckAndRandomizeStackAddress();
+            stackSegmentBegin = this.CheckAndRandomizeAddress(StackSize);
         }
         else if (!stOpt.HasFlag(StackPlacementOptions.AlwaysKeepFirstAddress))
         {
             // Randomization disabled and stack has previously been created ~ use it
             // This is the default behaviour ~ stack address is decided upon once 
-            stackSegmentBegin = this.CheckAndRandomizeStackAddress(_stackSegment.StartAddress);
+            stackSegmentBegin = this.CheckAndRandomizeAddress(StackSize, _stackSegment.StartAddress);
         }
         else
         {
@@ -510,7 +516,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _stackSegment = newStackSegment;
     }
 
-    private uint CheckAndRandomizeStackAddress(long initial = -1)
+    private uint CheckAndRandomizeAddress(uint size, long initial = -1)
     {
         uint stackSegmentBegin;
         bool collision;
@@ -522,7 +528,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             // If there was a starting address, use it first and set it to value other than -1
             // so that it's not used the next time
             stackSegmentBegin = initial == -1
-                ? (uint)_rnd.NextInt64(0, uint.MaxValue - StackSize - 4096)
+                ? (uint)_rnd.NextInt64(0, uint.MaxValue - size - 4096)
                 : (uint)initial;
             initial = 0;
 
@@ -533,7 +539,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             foreach (var memorySegment in _segments)
             {
-                if (memorySegment.ContainsBlock(stackSegmentBegin, StackSize))
+                if (memorySegment.ContainsBlock(stackSegmentBegin, size))
                 {
                     collision = true;
 
@@ -561,7 +567,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                                    .GetField("_filePath", BindingFlags.Instance | BindingFlags.NonPublic)
                                    !.GetValue(executable) as string ?? "");
 
-        _segments ??= new List<MemorySegment>(executable.Segments.Count + 1);
+        _segments ??= new List<MemorySegment>(executable.Segments.Count + 2);
+
+        _heapFeature.InitMemory(_segments);
 
         // This replaces the segment descriptor in _segments and MAPS MEMORY accordingly
         this.MakeStackSegment();
@@ -586,8 +594,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         var type = typeof(TFeature);
 
+        if (type == typeof(HeapFeature))
+            return _heapFeature as TFeature;
+        
+        /*
         if (_features.TryGetValue(type, out var feature))
-            return (TFeature)feature;
+            return (TFeature)feature;*/
 
         return null;
     }
@@ -849,7 +861,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
     }
 
-    private void ClearMemory(uint start, uint size)
+    internal void ClearMemory(uint start, uint size)
     {
         // Same as in RandomizeMemory()
 
@@ -909,7 +921,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _waitForOutputEvent.Reset();
             _ = Task.Run(async () => await this.HandleEmulatedOutputBuffer());
             _waitForOutputEvent.Wait(1000);
-            
+
             simulator.FunctionSimulator.Run(this);
         }
         catch (UnicornException e)
@@ -1682,6 +1694,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             this.InitMemoryFromExecutable();
             this.InitRegisters();
+            _heapFeature.ClearAllocatedMemory();
             this.MakeExits();
 
             LastStopCause = StopCause.Normal;
@@ -2238,7 +2251,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 Output = emuOut
             });
         }
-        
+
         _waitForOutputEvent.Set();
     }
 
