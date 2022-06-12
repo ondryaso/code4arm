@@ -167,8 +167,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             return Enumerable.Range(0, (int)instructionCount).Select(i => new DisassembledInstruction()
             {
                 Address = FormattingUtils.FormatAddress((uint)(address + i * 4)),
-                Instruction = "INVALID MEMORY ADDRESS",
-                InstructionBytes = "00 00 00 00"
+                Instruction = "-- memory not mapped --",
+                InstructionBytes = "-- -- -- --"
             });
         }
 
@@ -208,8 +208,8 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                     ret.Add(new DisassembledInstruction()
                     {
                         Address = FormattingUtils.FormatAddress((uint)instrAddress),
-                        Instruction = "INVALID MEMORY ADDRESS",
-                        InstructionBytes = "00 00 00 00"
+                        Instruction = "-- memory not mapped --",
+                        InstructionBytes = "-- -- -- --"
                     });
 
                     continue;
