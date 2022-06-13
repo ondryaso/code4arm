@@ -25,6 +25,10 @@
             {
                 "command": "code4arm.labelAndReferences",
                 "title": "Go to label and find references"
+            },
+            {
+                "command": "code4arm.configureRuntime",
+                "title": "Configure runtime/debugger connection"
             }
         ],
         "languages": [
@@ -137,6 +141,7 @@
             }
         ],
         "configuration": [
+        
             {
                 "title": "Editor",
                 "properties": {
@@ -1055,12 +1060,65 @@
                     }
                 ]
             }
-        ]
+        ],
+        "colors": [
+            {
+                "id": "code4arm.apsrOnBackground",
+                "description": "Background color for boxes in the CPU status flags panel in the 'on' state.",
+                "defaults": {
+                    "dark": "statusBar.background",
+                    "light": "statusBar.background",
+                    "highContrast": "statusBar.background",
+                    "highContrastLight": "statusBar.background"
+                }
+            },
+            {
+                "id": "code4arm.apsrOnForeground",
+                "description": "Text color for boxes in the CPU status flags panel in the 'on' state.",
+                "defaults": {
+                    "dark": "statusBar.foreground",
+                    "light": "statusBar.foreground",
+                    "highContrast": "statusBar.foreground",
+                    "highContrastLight": "statusBar.foreground"
+                }
+            },
+            {
+                "id": "code4arm.apsrOffBackground",
+                "description": "Background color for boxes in the CPU status flags panel in the 'off' state.",
+                "defaults": {
+                    "dark": "statusBarItem.errorBackground",
+                    "light": "statusBarItem.errorBackground",
+                    "highContrast": "statusBarItem.errorBackground",
+                    "highContrastLight": "statusBarItem.errorBackground"
+                }
+            },
+            {
+                "id": "code4arm.apsrOffForeground",
+                "description": "Text color for boxes in the CPU status flags panel in the 'off' state.",
+                "defaults": {
+                    "dark": "statusBarItem.errorForeground",
+                    "light": "statusBarItem.errorForeground",
+                    "highContrast": "statusBarItem.errorForeground",
+                    "highContrastLight": "statusBarItem.errorForeground"
+                }
+            }
+        ],
+        "views": {
+            "debug": [
+                {
+                    "type": "webview",
+                    "id": "code4arm.apsr",
+                    "name": "CPU status flags",
+                    "when": "debugConfigurationType == code4arm-runtime && inDebugMode"
+                }
+            ]
+        }
     },
     "activationEvents": [
         "onLanguage:arm-ual",
         "onDebugResolve:code4arm-runtime",
-        "onDebugInitialConfigurations"
+        "onDebugInitialConfigurations",
+        "onView:code4arm.apsr"
     ],
     "scripts": {
         "vscode:prepublish": "npm run compile",
