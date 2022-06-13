@@ -8,7 +8,7 @@
 
     window.addEventListener('message', event => {
         const message = event.data;
-        let state = vscode.getState();
+        let state = vscode.getState() || oldState;
 
         if (typeof message.enabled !== 'undefined') {
             state.enabled = message.enabled;
