@@ -141,7 +141,6 @@
             }
         ],
         "configuration": [
-        
             {
                 "title": "Editor",
                 "properties": {
@@ -206,7 +205,10 @@
                     },
                     "code4arm.runtime.forcedStackAddress": {
                         "order": 31,
-                        "type": ["integer", "null"],
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
                         "markdownDescription": "Sets a specific address the stack memory will be placed at. Only used when `#code4arm.runtime.stackPlacementOptions` contains the `FixedAddress` option.",
                         "minimum": 0,
                         "default": null
@@ -234,7 +236,10 @@
                                 "The stack data will always be kept, even if the stack is moved to another location before a successive launch."
                             ]
                         },
-                        "default": ["RandomizeAddress", "ClearData"]
+                        "default": [
+                            "RandomizeAddress",
+                            "ClearData"
+                        ]
                     },
                     "code4arm.runtime.stackPointerType": {
                         "order": 100,
@@ -377,6 +382,11 @@
                         "default": "Decimal",
                         "description": "The format to show Variable values in."
                     },
+                    "code4arm.debugger.padUnsignedBinaryNumbers": {
+                        "order": 21,
+                        "type": "boolean",
+                        "markdownDescription": "Pad unsigned binary numbers to their data type width."
+                    },
                     "code4arm.debugger.registersSubtypes": {
                         "order": 30,
                         "type": "array",
@@ -404,7 +414,14 @@
                                 "float (32-bit IEEE 754 floating point number)"
                             ]
                         },
-                        "default": ["ByteU", "ShortU", "ShortS", "IntU", "IntS", "Float"]
+                        "default": [
+                            "ByteU",
+                            "ShortU",
+                            "ShortS",
+                            "IntU",
+                            "IntS",
+                            "Float"
+                        ]
                     },
                     "code4arm.debugger.stackVariablesSubtypes": {
                         "order": 31,
@@ -433,7 +450,11 @@
                                 "float (32-bit IEEE 754 floating point number)"
                             ]
                         },
-                        "default": ["ByteU", "IntS", "Float"]
+                        "default": [
+                            "ByteU",
+                            "IntS",
+                            "Float"
+                        ]
                     },
                     "code4arm.debugger.showFloatDecomposition": {
                         "order": 21,
@@ -490,7 +511,14 @@
                                 "double (64-bit IEEE 754 floating point number)"
                             ]
                         },
-                        "default": ["ByteU", "ShortU", "IntU", "LongU", "Float", "Double"]
+                        "default": [
+                            "ByteU",
+                            "ShortU",
+                            "IntU",
+                            "LongU",
+                            "Float",
+                            "Double"
+                        ]
                     },
                     "code4arm.debugger.simdRegistersOptions.sSubtypes": {
                         "order": 43,
@@ -519,7 +547,12 @@
                                 "float (32-bit IEEE 754 floating point number)"
                             ]
                         },
-                        "default": ["ByteU", "ShortU", "IntU", "Float"]
+                        "default": [
+                            "ByteU",
+                            "ShortU",
+                            "IntU",
+                            "Float"
+                        ]
                     },
                     "code4arm.debugger.simdRegistersOptions.showD": {
                         "order": 42,
@@ -579,15 +612,23 @@
                 "title": "Assembling and linking",
                 "properties": {
                     "code4arm.build.assemblerOptions": {
-                        "type": ["array", "null"],
+                        "type": [
+                            "array",
+                            "null"
+                        ],
                         "description": "Command-line arguments to pass to the as assembler. Use null to use the default value specified by the service.",
                         "items": {
                             "type": "string"
                         },
-                        "default": ["-march=armv8.6-a+fp16+simd"]
+                        "default": [
+                            "-march=armv8.6-a+fp16+simd"
+                        ]
                     },
                     "code4arm.build.ldOptions": {
-                        "type": ["array", "null"],
+                        "type": [
+                            "array",
+                            "null"
+                        ],
                         "description": "Command-line arguments to pass to the ld linker before object files. Use null to use the default value specified by the service.",
                         "items": {
                             "type": "string"
@@ -595,7 +636,10 @@
                         "default": null
                     },
                     "code4arm.build.ldTrailOptions": {
-                        "type": ["array", "null"],
+                        "type": [
+                            "array",
+                            "null"
+                        ],
                         "description": "Command-line arguments to pass to the ld linker after object files. Use null to use the default value specified by the service.",
                         "items": {
                             "type": "string"
@@ -603,14 +647,20 @@
                         "default": null
                     },
                     "code4arm.build.trampolineStartAddress": {
-                        "type": ["integer", "null"],
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
                         "description": "Address of the start of the function simulator trampoline memory block.",
                         "minimum": 0,
                         "maximum": 4294963199,
                         "default": 4278190080
                     },
                     "code4arm.build.trampolineEndAddress": {
-                        "type": ["integer", "null"],
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
                         "description": "Address of the end of the function simulator trampoline memory block.",
                         "minimum": 0,
                         "maximum": 4294963199,
@@ -702,6 +752,10 @@
                                         ],
                                         "default": "Decimal",
                                         "description": "The format to show Variable values in."
+                                    },
+                                    "padUnsignedBinaryNumbers": {
+                                        "type": "boolean",
+                                        "markdownDescription": "Pad unsigned binary numbers to their data type width."
                                     },
                                     "registersSubtypes": {
                                         "type": "array",
