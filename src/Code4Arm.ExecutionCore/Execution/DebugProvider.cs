@@ -243,7 +243,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         }
     }
 
-    public (int Line, int SourceIndex) GetAddressInfo(uint address)
+    internal (int Line, int SourceIndex) GetAddressInfo(uint address)
     {
         var lineInfo = _engine.LineResolver!.GetSourceLine(address, out var displacement);
 
@@ -430,7 +430,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
 
-    public void RefreshSteppedTraces()
+    internal void RefreshSteppedTraces()
     {
         if (_steppedTraceables.Count == 0)
             return;
@@ -441,7 +441,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         }
     }
 
-    public void ClearDataBreakpoints()
+    internal void ClearDataBreakpoints()
     {
         foreach (var (_, traceable) in _steppedTraceables)
         {
@@ -484,7 +484,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         return new VariableContext(_engine, _clientCulture, Options, Options.VariableNumberFormat);
     }
 
-    public async Task LogTraceInfo()
+    internal async Task LogTraceInfo()
     {
         var traceId = _engine.LastStopData.DataBreakpointId;
 
@@ -511,7 +511,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             await _engine.LogDebugConsole(string.Empty, false, OutputEventGroup.End);
     }
 
-    public Breakpoint SetDataBreakpoint(DataBreakpoint breakpoint)
+    internal Breakpoint SetDataBreakpoint(DataBreakpoint breakpoint)
     {
         var dataIdSepI = breakpoint.DataId.IndexOf('.');
 
