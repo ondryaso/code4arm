@@ -36,7 +36,14 @@ public class FoldingRangesHandler : FoldingRangeHandlerBase
                     ? (originalLines = originalSource.Lines - 1)
                     : originalLines) // Lazy loading of the Lines property
                 : source.GetOriginalLine(f.EndLine)
-        }));
+        }).Concat(source.Regions.Select(r => new FoldingRange()
+        {
+            Kind = FoldingRangeKind.Region,
+            StartLine = r.Start.Line,
+            StartCharacter = r.Start.Character,
+            EndLine = r.End.Line,
+            EndCharacter = r.End.Character
+        })));
     }
 
     protected override FoldingRangeRegistrationOptions CreateRegistrationOptions(FoldingRangeCapability capability,

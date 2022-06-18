@@ -11,6 +11,8 @@ public interface IPreprocessedSource : ISource
     ISource BaseSource { get; }
     Range GetOriginalRange(Range preprocessedRange);
     Range GetPreprocessedRange(Range originalRange);
+    
+    IEnumerable<Range> Regions { get; }
 
     int GetOriginalLine(int preprocessedLine)
     {

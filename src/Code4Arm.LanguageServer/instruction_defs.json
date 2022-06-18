@@ -3,25 +3,46 @@
     "name": "Add with Carry",
     "variants": [
       {
-        "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<RRX>"],
+        "asm": [
+          "ADC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
         "doc": "adc_r",
         "desc": 2,
         "prio": 1
       },
       {
-        "asm": ["ADC<SCQ>", "<Ic>"],
+        "asm": [
+          "ADC<SCQ>",
+          "<Ic>"
+        ],
         "doc": "adc_i",
         "desc": 1,
         "prio": 3
       },
       {
-        "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<?SHI>"],
+        "asm": [
+          "ADC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
         "doc": "adc_r",
         "desc": 3,
         "prio": 4
       },
       {
-        "asm": ["ADC<SCQ>", "<?Rd>", "<Rn>", "<Rm>", "<SHR>"],
+        "asm": [
+          "ADC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
         "doc": "adc_rr",
         "desc": 4,
         "prio": 2
@@ -32,7 +53,11 @@
     "name": "Load Register",
     "variants": [
       {
-        "asm": ["LDR<O:B|SB|H|SH|x><CQ>", "<Rt>", "<L>"],
+        "asm": [
+          "LDR<O:B|SB|H|SH|x><CQ>",
+          "<Rt>",
+          "<L>"
+        ],
         "doc": "ldr_l",
         "docVariants": {
           "B": "ldrb_l",
@@ -51,7 +76,11 @@
         }
       },
       {
-        "asm": ["LDR<O:B|SB|H|SH|x><CQ>", "<Rt>", "<AI>"],
+        "asm": [
+          "LDR<O:B|SB|H|SH|x><CQ>",
+          "<Rt>",
+          "<AI>"
+        ],
         "doc": "ldr_i",
         "docVariants": {
           "B": "ldrb_i",
@@ -69,7 +98,11 @@
         }
       },
       {
-        "asm": ["LDR<O:B|SB|H|SH|x><CQ>", "<Rt>", "<AR>"],
+        "asm": [
+          "LDR<O:B|SB|H|SH|x><CQ>",
+          "<Rt>",
+          "<AR>"
+        ],
         "doc": "ldr_r",
         "docVariants": {
           "B": "ldrb_r",
@@ -85,6 +118,32 @@
           "<O:SH>": 5,
           "<O:x>": 6
         }
+      }
+    ]
+  },
+  "BX": {
+    "name": "Branch and exchange",
+    "variants": [
+      {
+        "asm": [
+          "BX",
+          "<Rm>"
+        ],
+        "doc": "bx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "B": {
+    "name": "Branch",
+    "variants": [
+      {
+        "asm": [
+          "B",
+          "<L>"
+        ],
+        "doc": "b"
       }
     ]
   }

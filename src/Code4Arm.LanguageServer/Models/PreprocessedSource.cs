@@ -73,6 +73,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
     }
 
     private readonly List<Replacement> _replacements = new();
+    private readonly List<Range> _regions = new();
 
     private Range GetRangeForMatch(Match match, string? text = null)
     {
@@ -80,7 +81,31 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 
         var startPosition = text.GetPositionForIndex(match.Index);
         var endPosition = text.GetPositionForIndex(match.Index + match.Length - 1);
+
         return new Range(startPosition, endPosition);
+    }
+
+    private void MakeRegions(ICollection<(Position Position, bool IsStart)> bounds)
+    {
+        _regions.Clear();
+        var started = new List<Position>(4);
+
+        foreach (var (pos, isStart) in bounds)
+        {
+            if (isStart)
+            {
+                started.Add(pos);
+            }
+            else
+            {
+                foreach (var s in started)
+                {
+                    _regions.Add(new Range(s, pos));
+                }
+
+                started.Clear();
+            }
+        }
     }
 
     internal Task Preprocess(Range? modifiedRange)
@@ -91,14 +116,28 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
         // The order here is important
         _text = this.BaseSource.Text;
 
+        var regionBounds = new List<(Position, bool)>();
+
         // Replace single-line comments with a single space.
         // There may only be one comment per line and the operation doesn't consume lines so determining all the ranges
         // on the original text is ok (unlike in the next steps).
         _text = _singleLineCommentsRegex.Replace(_text, match =>
         {
-            _replacements.Add(new Replacement(this.GetRangeForMatch(match)));
+            var range = this.GetRangeForMatch(match);
+            var val = match.ValueSpan[2..].TrimStart();
+
+            if (val.StartsWith("#region", StringComparison.Ordinal))
+                regionBounds.Add((range.Start, true));
+
+            if (val.StartsWith("#endregion", StringComparison.Ordinal))
+                regionBounds.Add((range.End, false));
+
+            _replacements.Add(new Replacement(range));
+
             return " ";
         });
+
+        this.MakeRegions(regionBounds);
 
         // Replace multi-line comments with a single space, take note of lines that have been shifted as a result.
         // The replacements are evaluated one-by-one so it's necessary to calculate them on the versions of text
@@ -109,6 +148,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
             var newText = _multiLineCommentsRegex.Replace(_text, match =>
             {
                 lastMatch = match;
+
                 return " ";
             }, 1, (lastMatch?.Index + 1) ?? 0);
 
@@ -138,6 +178,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
         _text = _multipleSpacesRegex.Replace(_text, match =>
         {
             _replacements.Add(new Replacement(this.GetRangeForMatch(match)));
+
             return " ";
         });
 
@@ -148,6 +189,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
             var newText = _emptyLinesRegex.Replace(_text, match =>
             {
                 lastMatch = match;
+
                 return "\n";
             }, 1, (lastMatch?.Index + 1) ?? 0);
 
@@ -200,8 +242,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                     startPos.Character > replacement.FirstLineReplacedRange.Start.Character)
                 {
                     var offset = replacement.FirstLineReplacedRange.End.Character -
-                                 replacement.FirstLineReplacedRange.Start.Character;
-
+                        replacement.FirstLineReplacedRange.Start.Character;
 
                     startPos.Character += offset;
                 }
@@ -210,12 +251,12 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                     endPos.Character > replacement.FirstLineReplacedRange.Start.Character)
                 {
                     var offset = replacement.FirstLineReplacedRange.End.Character -
-                                 replacement.FirstLineReplacedRange.Start.Character;
+                        replacement.FirstLineReplacedRange.Start.Character;
 
                     endPos.Character += offset;
                 }
             }
-            
+
             if (replacement.Type == ReplacementType.EmptyLines)
             {
                 if (startPos.Line > replacement.FirstLineIndex)
@@ -228,7 +269,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                     endPos.Line += replacement.LinesCut;
                 }
             }
-            
+
             if (replacement.Type == ReplacementType.BlockComment)
             {
                 if (replacement.FirstLineReplacedRange == null || replacement.LastLineReplacedRange == null)
@@ -241,7 +282,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                     startPos.CopyFrom(replacement.LastLineReplacedRange.End);
                     startPos.Character += offset;
                 }
-                
+
                 if (replacement.FirstLineIndex == endPos.Line &&
                     endPos.Character >= replacement.FirstLineReplacedRange.Start.Character)
                 {
@@ -280,7 +321,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                          endPos.Character > replacement.FirstLineReplacedRange.End.Character)
                 {
                     endPos.Character -= replacement.FirstLineReplacedRange.End.Character -
-                                        replacement.FirstLineReplacedRange.Start.Character;
+                        replacement.FirstLineReplacedRange.Start.Character;
                 }
             }
 
@@ -301,7 +342,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
                 else if (replacement.LastLineReplacedRange.End.Line == endPos.Line)
                 {
                     endPos.Character = replacement.FirstLineReplacedRange.Start.Character
-                                       + (endPos.Character - replacement.LastLineReplacedRange.End.Character);
+                        + (endPos.Character - replacement.LastLineReplacedRange.End.Character);
                 }
             }
 
@@ -324,4 +365,6 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
 
         return new Range(startPos, endPos);
     }
+
+    public IEnumerable<Range> Regions => _regions;
 }
