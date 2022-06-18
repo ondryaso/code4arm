@@ -146,5 +146,18 @@
         "doc": "b"
       }
     ]
+  },
+  "SWI": {
+    "name": "Interrupt",
+    "variants": [
+      {
+        "asm": ["SWI", "<Ic>"],
+        "doc": "swi"
+      },
+      {
+        "asm": ["SVC", "<Ic>"],
+        "doc": "swi"
+      }
+    ]
   }
 }

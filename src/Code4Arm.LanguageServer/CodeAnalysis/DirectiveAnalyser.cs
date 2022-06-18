@@ -90,7 +90,7 @@ public class DirectiveAnalyser : IDirectiveAnalyser
 
         directiveText = directiveText[1..];
 
-        var directiveLastCharIndex = directiveText.IndexOfAny(new[] {' ', '\n', '.'}) - 1;
+        var directiveLastCharIndex = directiveText.IndexOfAny(new[] {' ', '\n', '.', '\t'}) - 1;
         if (directiveLastCharIndex < 0)
             directiveLastCharIndex = directiveText.Length - 1;
 
