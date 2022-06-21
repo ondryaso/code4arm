@@ -1679,9 +1679,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var entered = (State is ExecutionState.Ready or ExecutionState.Finished) &&
             await _runSemaphore.WaitAsync(enterTimeout);
 
-        if (!entered)
+        if (!entered || State is not (ExecutionState.Ready or ExecutionState.Finished))
         {
             _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", _executionId);
+            
+            if (entered)
+                _runSemaphore.Release();
 
             throw new InvalidExecutionStateException(ExceptionMessages.InvalidExecutionLaunchState);
         }
@@ -1841,6 +1844,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             _logger.LogTrace("Execution {Id}: Attempt to goto while running.", _executionId);
 
+            if (entered)
+                _runSemaphore.Release();
+            
             throw new InvalidExecutionStateException(State);
         }
 
@@ -1872,6 +1878,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             _logger.LogTrace("Execution {Id}: Attempt to continue in state {State}.", _executionId, State);
 
+            if (entered)
+                _runSemaphore.Release();
+            
             throw new InvalidExecutionStateException(State);
         }
 
@@ -1985,6 +1994,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _logger.LogTrace("Execution {Id}: Attempt to reverse continue in state {State} or timeout.",
                 _executionId, State);
 
+            if (entered)
+                _runSemaphore.Release();
+
             throw new InvalidExecutionStateException(State);
         }
 
@@ -2028,6 +2040,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             _logger.LogTrace("Execution {Id}: Attempt to step in state {State}.", _executionId, State);
 
+            if (entered)
+                _runSemaphore.Release();
+            
             throw new InvalidExecutionStateException(State);
         }
 
@@ -2073,6 +2088,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             _logger.LogTrace("Execution {Id}: Attempt to step while running.", _executionId);
 
+            if (entered)
+                _runSemaphore.Release();
+            
             throw new InvalidExecutionStateException(State);
         }
 
