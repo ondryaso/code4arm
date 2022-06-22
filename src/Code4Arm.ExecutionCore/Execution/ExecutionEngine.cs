@@ -4,7 +4,6 @@
 using System.Buffers;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Code4Arm.ExecutionCore.Assembling.Abstractions;
@@ -2180,7 +2179,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             return;
         }
 
-        var exitsCount = _breakpointExitsDisabled ? 2 : (_currentBreakpoints.Count + 2);
+        var dataSeqStartsCount = _exe.DataSequencesStarts.Length;
+        // Text section end + data sequences starts + breakpoints (if not disabled)
+        var exitsCount = 1 + dataSeqStartsCount + (_breakpointExitsDisabled ? 0 : _currentBreakpoints.Count);
         Span<ulong> exits = stackalloc ulong[exitsCount];
         var i = 0;
 
@@ -2193,8 +2194,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
         }
 
-        exits[i++] = _exe.LastInstructionAddress + 4;
-        exits[i] = _exe.TextSectionEndAddress; // Is this desirable?
+        foreach (var dataSequenceStart in _exe.DataSequencesStarts)
+        {
+            exits[i++] = dataSequenceStart;
+        }
+        
+        exits[i] = _exe.TextSectionEndAddress;
 
         Engine.SetExits(exits);
     }

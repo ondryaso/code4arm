@@ -8,7 +8,7 @@ namespace Code4Arm.ExecutionCore.Assembling.Abstractions;
 public interface IExecutableInfo
 {
     public uint EntryPoint { get; }
-    public uint LastInstructionAddress { get; }
+    public uint[] DataSequencesStarts { get; }
     public bool StartSymbolDefined { get; }
 
     public uint TextSectionStartAddress { get; }

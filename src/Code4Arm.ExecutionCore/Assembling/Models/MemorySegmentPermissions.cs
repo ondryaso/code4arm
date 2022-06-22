@@ -35,4 +35,9 @@ public static class MemorySegmentPermissionsExtensions
         (MemoryPermissions)permissions;
 
     public static MemorySegmentPermissions ToLocal(this SegmentFlags elfSegmentFlags) => Lut[(int)elfSegmentFlags];
+
+    public static string ToFlagString(this MemorySegmentPermissions permissions)
+        => (permissions.HasFlag(MemorySegmentPermissions.Read) ? "R" : "-")
+            + (permissions.HasFlag(MemorySegmentPermissions.Write) ? "W" : "-")
+            + (permissions.HasFlag(MemorySegmentPermissions.Execute) ? "E" : "-");
 }

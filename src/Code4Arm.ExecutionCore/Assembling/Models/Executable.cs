@@ -75,7 +75,7 @@ public class Executable : IExecutableInfo, IDisposable
     /// </summary>
     public uint EntryPoint { get; private set; }
 
-    public uint LastInstructionAddress { get; private set; }
+    public uint[] DataSequencesStarts { get; private set; }
     public bool StartSymbolDefined { get; private set; }
 
     public uint TextSectionStartAddress { get; private set; }
@@ -127,7 +127,7 @@ public class Executable : IExecutableInfo, IDisposable
             var trampolineStart = FunctionSimulators.First().Key;
             var trampolineEnd = FunctionSimulators.Last().Key + 4;
             var memorySegment = new MemorySegment(trampolineStart, trampolineEnd - trampolineStart)
-                {IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute};
+                { IsTrampoline = true, Permissions = MemorySegmentPermissions.Execute };
 
             _segments.Add(memorySegment);
         }
@@ -169,39 +169,12 @@ public class Executable : IExecutableInfo, IDisposable
         }
 
         var textSectionEnd = textSection.LoadAddress + textSection.Size - 4;
-        var symbolsOrdered = symbolTable.Entries.OrderBy(s => s.Value);
-        var firstASymbol = 0u;
+        var dataSymbolsOrdered = symbolTable.Entries.OrderBy(s => s.Value)
+                                            .Where(s => s.Value >= textSection.LoadAddress &&
+                                                s.Value <= textSectionEnd && s.Name.StartsWith("$d"))
+                                            .Select(s => s.Value);
 
-        foreach (var symbol in symbolsOrdered)
-        {
-            if (symbol.Value < textSection.LoadAddress)
-                continue;
-
-            if (symbol.Value > textSectionEnd)
-                break;
-
-            if (symbol.Name.StartsWith("$a"))
-            {
-                if (firstASymbol == 0u)
-                {
-                    firstASymbol = symbol.Value;
-
-                    if (!StartSymbolDefined)
-                        EntryPoint = firstASymbol;
-                }
-            }
-            else if (symbol.Name.StartsWith("$d"))
-            {
-                if (firstASymbol != 0u)
-                {
-                    textSectionEnd = symbol.Value - 4;
-
-                    break;
-                }
-            }
-        }
-
-        LastInstructionAddress = textSectionEnd;
+        DataSequencesStarts = dataSymbolsOrdered.ToArray();
     }
 
     private static readonly Regex DataSectionRegex = new(@"\.data\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)\s+(\S*)$",
@@ -223,7 +196,7 @@ public class Executable : IExecutableInfo, IDisposable
         foreach (var source in _sourceObjects)
         {
             if (starts.TryGetValue(source.ObjectFilePath, out var start))
-                _dataSectionStarts[i++] = unchecked((uint) (start & 0xFFFFFFFF));
+                _dataSectionStarts[i++] = unchecked((uint)(start & 0xFFFFFFFF));
             else
                 _dataSectionStarts[i++] = -1;
         }
@@ -241,7 +214,7 @@ public class Executable : IExecutableInfo, IDisposable
         foreach (var source in _sourceObjects)
         {
             if (starts.TryGetValue(source.ObjectFilePath, out var start))
-                _textSectionStarts[i++] = unchecked((uint) (start & 0xFFFFFFFF));
+                _textSectionStarts[i++] = unchecked((uint)(start & 0xFFFFFFFF));
             else
                 _textSectionStarts[i++] = -1;
         }
