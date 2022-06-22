@@ -43,7 +43,12 @@ public class HeapFeature : IExecutionStateFeature
 
         segments.RemoveAll(s => s.IsHeap);
 
-        _heapSegment = new MemorySegment(0xfc000000, 4 * 1024 * 1024);
+        _heapSegment = new MemorySegment(0xfc000000, 4 * 1024 * 1024)
+        {
+            Permissions = MemorySegmentPermissions.Read | MemorySegmentPermissions.Write,
+            IsHeap = true
+        };
+        
         segments.Add(_heapSegment);
         _mapped = false;
 
@@ -62,8 +67,10 @@ public class HeapFeature : IExecutionStateFeature
 
         if (!_mapped)
         {
-            _engine.Engine.MemMap(_heapSegment.StartAddress, _heapSegment.Size,
-                MemoryPermissions.Read | MemoryPermissions.Write);
+            Task.Run(async () => await _engine.LogSegmentMapped(_heapSegment));
+
+            _engine.Engine.MemMap(_heapSegment.StartAddress, _heapSegment.Size, _heapSegment.Permissions.ToUnicorn());
+            
             _mapped = true;
         }
 
@@ -72,7 +79,7 @@ public class HeapFeature : IExecutionStateFeature
         {
             if (size > _heapSegment.Size)
                 return null;
-            
+
             _chunks.Add(new AllocatedChunk(0u, size));
         }
         else
@@ -157,7 +164,7 @@ public class HeapFeature : IExecutionStateFeature
 
             return _heapSegment.StartAddress + chunk.Start;
         }
-        
+
         if (_chunks.Count > nextIndex)
         {
             var nextChunk = _chunks[index + 1];

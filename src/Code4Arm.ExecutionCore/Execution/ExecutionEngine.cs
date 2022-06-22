@@ -407,14 +407,16 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// </remarks>
     /// <exception cref="InvalidOperationException"></exception>
     /// <exception cref="ArgumentOutOfRangeException"></exception>
-    private void MakeStackSegment()
+    private async Task MakeStackSegment()
     {
         if (_segments == null)
             throw new InvalidOperationException("_segments must be initialized.");
 
+        // StackPlacementOptions has options for both placement and behaviour on restart.
+        // Extract the addres options only first.
         var stOpt = _options.StackPlacementOptions;
-        var addressOpts = (int)stOpt & ((int)StackPlacementOptions.FixedAddress +
-            (int)StackPlacementOptions.RandomizeAddress + (int)StackPlacementOptions.AlwaysKeepFirstAddress);
+        var addressOpts = (int)(stOpt & (StackPlacementOptions.FixedAddress |
+            StackPlacementOptions.RandomizeAddress | StackPlacementOptions.AlwaysKeepFirstAddress));
 
         if ((addressOpts & (addressOpts - 1)) != 0) // Has more than one set bit (~ is power of 2)
             throw new InvalidOperationException(
@@ -424,7 +426,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (stOpt.HasFlag(StackPlacementOptions.FixedAddress))
         {
-            // Forced address (though it will be aligned in ctor anyway)
+            // Forced address (though it will be aligned in MemorySegment's ctor anyway)
             stackSegmentBegin = _options.ForcedStackAddress;
         }
         else if (_stackSegment == null || stOpt.HasFlag(StackPlacementOptions.RandomizeAddress))
@@ -455,15 +457,21 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _ => throw new ArgumentOutOfRangeException()
         };
 
-        var newStackSegment = new MemorySegment(stackSegmentBegin, StackSize) { IsStack = true };
+        var newStackSegment = new MemorySegment(stackSegmentBegin, StackSize)
+        {
+            IsStack = true,
+            Permissions = MemorySegmentPermissions.Read | MemorySegmentPermissions.Write
+        };
+
         _segments.Add(newStackSegment);
 
         if (_stackSegment == null)
         {
             _stackSegment = newStackSegment;
 
-            Engine.MemMap(_stackSegment.StartAddress, _stackSegment.Size,
-                MemoryPermissions.Read | MemoryPermissions.Write);
+            Engine.MemMap(_stackSegment.StartAddress, _stackSegment.Size, _stackSegment.Permissions.ToUnicorn());
+
+            await this.LogSegmentMapped(newStackSegment);
 
             if (stOpt.HasFlag(StackPlacementOptions.RandomizeData))
                 this.RandomizeMemory(stackSegmentBegin, StackSize);
@@ -491,8 +499,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
 
             Engine.MemUnmap(_stackSegment.StartAddress, _stackSegment.Size);
-            Engine.MemMap(newStackSegment.StartAddress, newStackSegment.Size,
-                MemoryPermissions.Read | MemoryPermissions.Write);
+            Engine.MemMap(newStackSegment.StartAddress, newStackSegment.Size, newStackSegment.Permissions.ToUnicorn());
+
+            await this.LogSegmentMapped(newStackSegment);
 
             if (keptStackData != null)
             {
@@ -559,19 +568,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (executable == null)
             throw new ArgumentNullException(nameof(executable));
 
-        await this.LogDebugConsole("Loading executable.");
+        await this.LogDebugConsole($"Loading executable.");
 
-        // TODO: remove this
-        await this.LogDebugConsole(typeof(Executable)
-                                   .GetField("_filePath", BindingFlags.Instance | BindingFlags.NonPublic)
-                                   !.GetValue(executable) as string ?? "");
+        _segments ??= new List<MemorySegment>(executable.Segments.Count + 2); // stack + heap
 
-        _segments ??= new List<MemorySegment>(executable.Segments.Count + 2);
+        _exe = executable;
 
-        _heapFeature.InitMemory(_segments);
-
-        // This replaces the segment descriptor in _segments and MAPS MEMORY accordingly
-        this.MakeStackSegment();
+        LineResolver = new DwarfLineAddressResolver(_exe.Elf);
 
         if (_exe != null)
         {
@@ -579,11 +582,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             _firstRun = false;
         }
 
-        _exe = executable;
-
-        LineResolver = new DwarfLineAddressResolver(_exe.Elf);
-
-        this.MapMemoryFromExecutable();
+        _heapFeature.InitMemory(_segments);
+        await this.MapMemoryFromExecutable();
         this.InitTrampolineHook();
 
         State = ExecutionState.Ready;
@@ -595,7 +595,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (type == typeof(HeapFeature))
             return _heapFeature as TFeature;
-        
+
         /*
         if (_features.TryGetValue(type, out var feature))
             return (TFeature)feature;*/
@@ -605,7 +605,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
 #pragma warning restore CS8774
 
-    private void MapMemoryFromExecutable()
+    private async Task MapMemoryFromExecutable()
     {
         if (_exe == null || _segments == null)
             throw new ExecutableNotLoadedException();
@@ -621,6 +621,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     segment.EndAddress);
                 _nativeCodeHooks.Add(handle, callback);
             }
+
+            await this.LogSegmentMapped(segment);
 
             if (segment.IsDirect && segment.DirectHandle != null)
             {
@@ -644,11 +646,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             if (segment.IsTrampoline)
             {
                 var jumpBackInstruction = new byte[] { 0x1e, 0xff, 0x2f, 0xe1 };
-                var span = jumpBackInstruction.AsSpan();
 
                 for (var address = segment.ContentsStartAddress; address < segment.ContentsEndAddress; address += 4)
                 {
-                    Engine.MemWrite(address, span);
+                    Engine.MemWrite(address, jumpBackInstruction);
                 }
             }
         }
@@ -683,15 +684,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         var trampoline = _segments?.FirstOrDefault(s => s.IsTrampoline);
 
-        if (trampoline == null)
+        if (_trampolineHookRegistration != default)
         {
-            if (_trampolineHookRegistration == default)
-                return;
             Engine.RemoveHook(_trampolineHookRegistration);
             _trampolineHookRegistration = default;
-
-            return;
         }
+
+        if (trampoline == null)
+            return;
 
         _trampolineHookRegistration = Engine.AddCodeHook(this.TrampolineHandler, trampoline.StartAddress,
             trampoline.EndAddress);
@@ -704,7 +704,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// This is used just before emulation is started. It overwrites the current contents of virtual memory with data
     /// from the executable and zeroes out BSS sections.
     /// </remarks>
-    private void InitMemoryFromExecutable()
+    private async Task InitMemoryFromExecutable()
     {
         this.CheckLoaded();
 
@@ -731,6 +731,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 Engine.MemWrite(segment.ContentsStartAddress, data);
             }
         }
+
+        // Move stack on restart
+        await this.MakeStackSegment();
     }
 
     private void InitRegisters()
@@ -823,6 +826,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             strictAccessHook.RemoveHook();
         }
 
+        _strictAccessHooks.Clear();
+
         foreach (var nativeCodeHookRef in _nativeCodeHooks.Keys)
         {
             Engine.RemoveNativeHook(nativeCodeHookRef);
@@ -835,13 +840,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             if (segment.IsStack)
                 continue;
 
+            Engine.MemUnmap(segment.StartAddress, segment.Size);
+
             if (segment.IsDirect && segment.DirectHandle != null)
                 segment.DirectHandle.DangerousRelease();
-
-            Engine.MemUnmap(segment.StartAddress, segment.Size);
         }
 
-        _segments?.Clear();
+        _segments.Clear();
     }
 
     private void RandomizeMemory(uint start, uint size)
@@ -1200,7 +1205,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 ret.Add(new Breakpoint()
                 {
                     Message =
-                        $"Address {address:x} already contains a breakpoint.",
+                        $"Address {FormattingUtils.FormatAddress(address)} already contains a breakpoint.",
                     Verified = false
                 });
             }
@@ -1218,7 +1223,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     Source = source,
                     Verified = true,
                     InstructionReference = FormattingUtils.FormatAddress(address),
-                    Message = $"0x{address:x}",
+                    Message = FormattingUtils.FormatAddress(address),
                     Address = address
                 };
 
@@ -1402,7 +1407,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private async Task EmulationEnded()
     {
         _logger.LogTrace("Execution {Id}: Ended.", _executionId);
-        await this.LogDebugConsole("Execution finished normally.");
+
+        await this.LogDebugConsole($"Execution finished after reaching {FormattingUtils.FormatAddress(CurrentPc)}.", true);
+        
+        if (_exe!.DataSequencesStarts.Contains(CurrentPc))
+        {
+            await this.LogDebugConsole("The execution ended after reaching a block of data in the text section.\nThis is probably not a correct behaviour.");
+        }
 
         State = ExecutionState.Finished;
 
@@ -1494,10 +1505,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private async Task HandleInvalidMemoryAccess()
     {
         await this.LogDebugConsole("Invalid memory access.", true, OutputEventGroup.Start);
-        await this.LogDebugConsole($"Memory address: {LastStopData.InvalidAddress:x8}");
+        await this.LogDebugConsole($"Memory address: {FormattingUtils.FormatAddress(LastStopData.InvalidAddress)}");
         await this.LogDebugConsole($"Access type: {LastStopData.AccessType}");
         if (Options.EnableAccurateExecutionTracking)
-            await this.LogDebugConsole($"Current PC: {CurrentPc:x8}");
+            await this.LogDebugConsole($"Current PC: {FormattingUtils.FormatAddress(CurrentPc)}");
         else
             await this.LogDebugConsole(
                 "Current PC address cannot be determined accurately because of the current configuration.");
@@ -1592,7 +1603,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             _resetEvent.Reset();
             _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
-            await this.LogDebugConsole($"Running at {startAddress:x8}.", true);
+            await this.LogDebugConsole($"Running at {FormattingUtils.FormatAddress(startAddress)}.", true);
 
             LastStopCause = StopCause.Normal;
             State = ExecutionState.Running;
@@ -1681,7 +1692,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (!entered || State is not (ExecutionState.Ready or ExecutionState.Finished))
         {
             _logger.LogTrace("Execution {Id}: Attempt to launch when not ready.", _executionId);
-            
+
             if (entered)
                 _runSemaphore.Release();
 
@@ -1694,7 +1705,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // Launch semaphore acquired
         try
         {
-            this.InitMemoryFromExecutable();
+            await this.InitMemoryFromExecutable();
             this.InitRegisters();
             _heapFeature.ClearAllocatedMemory();
             this.MakeExits();
@@ -1845,7 +1856,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (entered)
                 _runSemaphore.Release();
-            
+
             throw new InvalidExecutionStateException(State);
         }
 
@@ -1879,7 +1890,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (entered)
                 _runSemaphore.Release();
-            
+
             throw new InvalidExecutionStateException(State);
         }
 
@@ -1892,10 +1903,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 // This must be done so that the instruction we've stopped on is executed
                 _breakpointExitsDisabled = true;
                 this.MakeExits();
-
+                
+                Engine.EmuStart(CurrentPc, 0, 0, 1);
                 // Passing an instruction count enables Unicorn's internal PC tracking code hook
                 // so this is fine even if _options.EnableAccurateExecutionTracking is false.
-                Engine.EmuStart(CurrentPc, 0, 0, 1);
                 CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
 
                 if (DebuggingEnabled)
@@ -2041,7 +2052,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (entered)
                 _runSemaphore.Release();
-            
+
             throw new InvalidExecutionStateException(State);
         }
 
@@ -2089,7 +2100,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
             if (entered)
                 _runSemaphore.Release();
-            
+
             throw new InvalidExecutionStateException(State);
         }
 
@@ -2237,6 +2248,38 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 : null,
             Group = group
         });
+    }
+
+    internal async Task LogSegmentMapped(MemorySegment segment)
+    {
+        var type = segment switch
+        {
+            { IsHeap: true } => "heap",
+            { IsStack: true } => "stack",
+            { IsTrampoline: true } => "function simulators trampoline",
+            { IsMMIO: true } => "memory-mapped I/O",
+            { IsFromElf: true } => "program data",
+            { IsDirect: true } => "host-mapped memory",
+            _ => "unknown segment type"
+        };
+
+        var msg = $"Mapped memory segment: {type}, permissions {segment.Permissions.ToFlagString()}";
+        var addressMsg = $"Segment start:  0x{segment.StartAddress:x}\nSegment end:    0x{segment.EndAddress:x}";
+        var contentsMsg =
+            $"Contents start: 0x{segment.ContentsStartAddress:x}\nContents end:   0x{segment.ContentsEndAddress:x}";
+
+        await this.LogDebugConsole(msg, false, OutputEventGroup.StartCollapsed);
+        await this.LogDebugConsole(addressMsg);
+        await this.LogDebugConsole(contentsMsg);
+
+        if (_options.UseStrictMemoryAccess && (segment.StartAddress != segment.ContentsStartAddress ||
+                segment.EndAddress != segment.ContentsEndAddress))
+        {
+            await this.LogDebugConsole(
+                "Strict mode enabled: accessing addresses outside the 'contents' range will trigger an exception.");
+        }
+
+        await this.LogDebugConsole(string.Empty, false, OutputEventGroup.End);
     }
 
     /// <summary>

@@ -105,6 +105,7 @@ internal static class FormattingUtils
         return variable.ToString()!;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string FormatAddress(uint address)
     {
         return $"0x{address:x}";
