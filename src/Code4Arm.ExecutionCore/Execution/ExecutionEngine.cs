@@ -202,8 +202,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly ManualResetEventSlim _resetEvent = new(false);
     private readonly ManualResetEventSlim _waitForInputEvent = new(false);
     private readonly ManualResetEventSlim _waitForOutputEvent = new(false);
-    private readonly SemaphoreSlim _runSemaphore = new(1);
-    private readonly SemaphoreSlim _logPointSemaphore = new(1);
+    private readonly SemaphoreSlim _runSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _logPointSemaphore = new(1, 1);
 
     public ExecutionState State { get; private set; }
     public IExecutableInfo? ExecutableInfo => _exe;
