@@ -7,7 +7,7 @@ using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Execution.Configuration;
-using Code4Arm.ExecutionCore.Execution.FunctionSimulators;
+using Code4Arm.ExecutionCore.Execution.FunctionSimulators.Stdio;
 using Code4Arm.ExecutionCore.Files.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
@@ -71,7 +71,7 @@ public class Program
         assembler.UseFunctionSimulators(new[] { new Printf() });
 
         var proj = new DummyAsmMakeTarget("makeTarget",
-            new DummyAsmFile("test._s_") /*new DummyAsmFile("prog.s"), new DummyAsmFile("prog_a.s")*/);
+            new DummyAsmFile("test.s") /*new DummyAsmFile("prog.s"), new DummyAsmFile("prog_a.s")*/);
         var res = await assembler.MakeProject(proj);
 
         if (res.State != MakeResultState.Successful)
@@ -97,27 +97,6 @@ public class Program
         // TestUnicornFromExecutable(exe);
 
         exe.Dispose();
-    }
-
-    private static void TestBasicProgram()
-    {
-        var data = new[]
-        {
-            0xe3a0000a, // MOV R0, 0xA
-            0xe3a0100c, // MOV R1, 0xC
-            0xe28008ff, // ADD R0, 0xFF0000
-            0xe5801000, // STR R1, [R0]
-            0xe320f000, // NOP
-            0xe320f000  // NOP
-        };
-
-        var unicorn = new Unicorn(Architecture.Arm, EngineMode.Arm | EngineMode.LittleEndian);
-
-        unicorn.MemMap(0x1000, 0x1000, MemoryPermissions.Exec | MemoryPermissions.Read);
-        unicorn.MemMap(0xFF0000, 0x1000, MemoryPermissions.Write | MemoryPermissions.Read);
-
-        unicorn.MemWrite(0x1000, MemoryMarshal.Cast<uint, byte>(data));
-        unicorn.EmuStart(0x1000, 0, 0, 6);
     }
 
     private static void TestUnicornFromExecutable(Executable exe)
