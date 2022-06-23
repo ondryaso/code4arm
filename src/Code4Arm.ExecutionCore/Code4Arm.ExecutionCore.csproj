@@ -24,10 +24,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Execution\SyscallSimulators"/>
-    </ItemGroup>
-
-    <ItemGroup>
         <None Update="SupportFiles\linker_script.x">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
