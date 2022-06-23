@@ -32,6 +32,9 @@ public class Unicorn : IUnicorn
     {
         var ptr = new UIntPtr();
         var result = Native.uc_open((int)architecture, (int)mode, &ptr);
+        if (result != UniConst.Err.Ok)
+            _disposed = true;
+        
         this.CheckResult(result);
         _engine = ptr;
     }
