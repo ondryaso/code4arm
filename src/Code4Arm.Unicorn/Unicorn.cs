@@ -20,7 +20,8 @@ public class Unicorn : IUnicorn
     // Collections that keep hook references (both native and managed – the delegates mustn't be deleted by GC)
     private readonly Dictionary<int, UnicornHookRegistration> _managedHooks = new();
     private readonly Dictionary<Delegate, IntPtr> _nativeHookFunctionPointers = new(8);
-    private readonly Dictionary<nuint, Delegate?> _customNativeHooks = new();
+    private readonly Dictionary<nuint, GCHandle?> _customNativeHooks = new();
+    private readonly List<GCHandle> _handles = new(8);
 
     private int _nextAddedManagedHookId;
     private readonly object HookAddingLocker = new();
@@ -666,6 +667,20 @@ public class Unicorn : IUnicorn
 
     #region Hook adding
 
+    private IntPtr GetOrAddNativeCallbackPointer(Delegate nativeCallback)
+    {
+        if (!_nativeHookFunctionPointers.TryGetValue(nativeCallback, out var nativeCallbackPtr))
+        {
+            var handle = GCHandle.Alloc(nativeCallback);
+            _handles.Add(handle);
+
+            nativeCallbackPtr = Marshal.GetFunctionPointerForDelegate(nativeCallback);
+            _nativeHookFunctionPointers.Add(nativeCallback, nativeCallbackPtr);
+        }
+
+        return nativeCallbackPtr;
+    }
+
     private unsafe UnicornHookRegistration AddHook(int type, Delegate nativeCallback, Delegate managedCallback,
         ulong startAddress, ulong endAddress)
     {
@@ -675,12 +690,7 @@ public class Unicorn : IUnicorn
 
         lock (HookAddingLocker)
         {
-            if (!_nativeHookFunctionPointers.TryGetValue(nativeCallback, out nativeCallbackPtr))
-            {
-                nativeCallbackPtr = Marshal.GetFunctionPointerForDelegate(nativeCallback);
-                _nativeHookFunctionPointers.Add(nativeCallback, nativeCallbackPtr);
-            }
-
+            nativeCallbackPtr = this.GetOrAddNativeCallbackPointer(nativeCallback);
             nextId = _nextAddedManagedHookId++;
         }
 
@@ -736,7 +746,8 @@ public class Unicorn : IUnicorn
 
         this.CheckResult(result);
 
-        _customNativeHooks.Add(hookId, callback);
+        var handle = GCHandle.Alloc(callback);
+        _customNativeHooks.Add(hookId, handle);
 
         return hookId;
     }
@@ -811,8 +822,10 @@ public class Unicorn : IUnicorn
 
     public void RemoveNativeHook(nuint hookId)
     {
-        if (!_customNativeHooks.Remove(hookId))
+        if (!_customNativeHooks.Remove(hookId, out var handle))
             return;
+
+        handle?.Free();
 
         this.EnsureEngine();
         var result = Native.uc_hook_del(_engine, hookId);
@@ -849,21 +862,13 @@ public class Unicorn : IUnicorn
             if (readCallback != null)
             {
                 _mmioReadNativeDelegate ??= this.MMIOReadHandler;
-                if (!_nativeHookFunctionPointers.TryGetValue(_mmioReadNativeDelegate, out readPtr))
-                {
-                    readPtr = Marshal.GetFunctionPointerForDelegate(_mmioReadNativeDelegate);
-                    _nativeHookFunctionPointers.Add(_mmioReadNativeDelegate, readPtr);
-                }
+                readPtr = this.GetOrAddNativeCallbackPointer(_mmioReadNativeDelegate);
             }
 
             if (writeCallback != null)
             {
                 _mmioWriteNativeDelegate ??= this.MMIOWriteHandler;
-                if (!_nativeHookFunctionPointers.TryGetValue(_mmioWriteNativeDelegate, out writePtr))
-                {
-                    writePtr = Marshal.GetFunctionPointerForDelegate(_mmioWriteNativeDelegate);
-                    _nativeHookFunctionPointers.Add(_mmioWriteNativeDelegate, writePtr);
-                }
+                writePtr = this.GetOrAddNativeCallbackPointer(_mmioWriteNativeDelegate);
             }
 
             readId = _nextAddedManagedHookId++;
@@ -993,7 +998,20 @@ public class Unicorn : IUnicorn
 
             _contexts.Clear();
             _nativeHookFunctionPointers.Clear();
+
+            foreach (var handle in _handles)
+            {
+                handle.Free();
+            }
+
+            _handles.Clear();
             _managedHooks.Clear();
+
+            foreach (var (_, handle) in _customNativeHooks)
+            {
+                handle?.Free();
+            }
+
             _customNativeHooks.Clear();
         }
 
