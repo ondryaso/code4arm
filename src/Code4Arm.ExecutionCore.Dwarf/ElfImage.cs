@@ -1,7 +1,7 @@
 ﻿// ElfImage.cs
 // Original source: https://github.com/southpolenator/SharpDebug
 // Original author: Vuk Jovanovic
-// Edited by: Ondřej Ondryáš
+// Modified by: Ondřej Ondryáš
 // Licensed under the MIT License. Copyright (c) 2019 Vuk Jovanovic, 2022 Ondřej Ondryáš.
 
 using ELFSharp.ELF;

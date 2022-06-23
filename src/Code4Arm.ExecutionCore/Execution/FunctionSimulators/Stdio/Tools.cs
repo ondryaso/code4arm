@@ -1,7 +1,7 @@
 // Tools.cs
 // Original source: https://www.codeproject.com/Articles/19274/A-printf-implementation-in-C
 // Author: Richard Prinz
-// Edited by: Ondřej Ondryáš
+// Modified by: Ondřej Ondryáš
 // Licensed under the MIT License. Copyright (c) 2019 Richard Prinz, 2022 Ondřej Ondryáš.
 
 #nullable disable
