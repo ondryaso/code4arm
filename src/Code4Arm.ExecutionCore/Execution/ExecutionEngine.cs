@@ -127,7 +127,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// The maximum size of array that may be allocated on stack using <see langword="stackalloc"/>.
     /// </summary>
     /// <seealso cref="RandomizeMemory"/>
-    /// <see cref="ClearMemory"/>
+    /// <seealso cref="ClearMemory"/>
     internal const int MaxStackAllocatedSize = 512;
 
     /// <summary>
@@ -800,6 +800,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             Opcode2 = 2
         };
 
+        // cp10 and cp11 fields in CPACR control access to SIMD/FP
         // MRC P15, 0, Rx, C1, C0, 2
         // ORR Rx, Rx, 0xF00000
         // MCR P15, 0, Rx, C1, C0, 2
@@ -852,7 +853,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private void RandomizeMemory(uint start, uint size)
     {
         // The other option is to allocate _size_ bytes worth of memory and do a single write
-        // but I prefer this version which takes (much?) more CPU cycles but allocates MaxStackAllocatedSize B max 
+        // but I prefer this version which takes (many?) more CPU cycles but allocates MaxStackAllocatedSize B max 
 
         var bufferSize = Math.Min(size, MaxStackAllocatedSize);
         Span<byte> buffer = stackalloc byte[(int)bufferSize];
@@ -1408,11 +1409,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         _logger.LogTrace("Execution {Id}: Ended.", _executionId);
 
-        await this.LogDebugConsole($"Execution finished after reaching {FormattingUtils.FormatAddress(CurrentPc)}.", true);
-        
+        await this.LogDebugConsole($"Execution finished after reaching {FormattingUtils.FormatAddress(CurrentPc)}.",
+            true);
+
         if (_exe!.DataSequencesStarts.Contains(CurrentPc))
         {
-            await this.LogDebugConsole("The execution ended after reaching a block of data in the text section.\nThis is probably not a correct behaviour.");
+            await this.LogDebugConsole(
+                "The execution ended after reaching a block of data in the text section.\nThis is probably not a correct behaviour.");
         }
 
         State = ExecutionState.Finished;
@@ -1728,13 +1731,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             {
                 try
                 {
-                    if (_currentCts.IsCancellationRequested)
-                    {
-                        await this.ExitOnTimeout();
-
-                        return;
-                    }
-
                     if (waitForLaunch)
                     {
                         try
@@ -1748,13 +1744,20 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
                             return;
                         }
-
-                        if (_currentCts.IsCancellationRequested)
+                        catch (Exception e)
                         {
+                            _logger.LogWarning(e, "Suspicious exception when waiting for Launch.");
                             await this.ExitOnTimeout();
 
                             return;
                         }
+                    }
+
+                    if (_currentCts.IsCancellationRequested)
+                    {
+                        await this.ExitOnTimeout();
+
+                        return;
                     }
 
                     await this.SendEvent(new ProcessEvent()
@@ -1903,7 +1906,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 // This must be done so that the instruction we've stopped on is executed
                 _breakpointExitsDisabled = true;
                 this.MakeExits();
-                
+
                 Engine.EmuStart(CurrentPc, 0, 0, 1);
                 // Passing an instruction count enables Unicorn's internal PC tracking code hook
                 // so this is fine even if _options.EnableAccurateExecutionTracking is false.
@@ -2209,7 +2212,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             exits[i++] = dataSequenceStart;
         }
-        
+
         exits[i] = _exe.TextSectionEndAddress;
 
         Engine.SetExits(exits);
