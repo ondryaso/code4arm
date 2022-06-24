@@ -204,19 +204,16 @@ public class MemoryVariable : IVariable, ITraceable, ISettableBackedVariable<flo
         if (_traceRegistration == default)
         {
             _traceRegistration = engine.Engine.AddMemoryHook(
-                (unicorn, _, _, _, _) => { this.UpdateTrace(unicorn); }, MemoryHookType.Write, _address,
+                (unicorn, _, _, _, val) => { this.UpdateTrace(unicorn, unchecked((ulong)val)); }, MemoryHookType.Write, _address,
                 (ulong)(_address + _size - 1));
 
-            this.UpdateTrace(engine.Engine, false);
+            this.UpdateTrace(engine.Engine, 0, false);
         }
     }
 
-    private void UpdateTrace(IUnicorn unicorn, bool notify = true)
+    private void UpdateTrace(IUnicorn unicorn, ulong val, bool notify = true)
     {
-        ulong newValue = 0;
-        var newValueSpan = MemoryMarshal.CreateSpan(ref newValue, 1);
-        var newValueBytes = MemoryMarshal.Cast<ulong, byte>(newValueSpan);
-        unicorn.MemRead(_address, newValueBytes, (nuint)_size);
+        ulong newValue = val & ~ ((~0ul) << (_size << 3));
 
         if (_traceValue == newValue)
             return;
