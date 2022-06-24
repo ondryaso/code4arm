@@ -9,6 +9,7 @@ using Code4Arm.ExecutionCore.Assembling.Models;
 using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Debugger;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
+using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
 using Code4Arm.Unicorn.Constants;
@@ -91,6 +92,8 @@ internal partial class DebugProvider
     {
         var toDelete = _variables.Where(varPair =>
         {
+            // the initial value of _nextEvaluateVariableId is 1, so only ExpressionExtras containers are deleted
+            // because the other references will always have a zero in the EvaluateId field
             var evaluateId = ReferenceUtils.GetEvaluateId(varPair.Key);
 
             return (evaluateId >= _lastEvaluateVariableClearPoint && evaluateId < _nextEvaluateVariableId);
@@ -128,14 +131,26 @@ internal partial class DebugProvider
         }
 
         // Emulated input
-        if (context == EvaluateArgumentsContext.Repl && expression.Length > 0 && expression[0] == '>')
+        if (context == EvaluateArgumentsContext.Repl && expression.Length > 0)
         {
-            _engine.AcceptEmulatedInput(expression[1..]);
-            
-            return new EvaluateResponse()
+            if (expression[0] == '>')
             {
-                Result = string.Empty
-            };
+                _engine.AcceptEmulatedInput(expression[1..]);
+
+                return new EvaluateResponse()
+                {
+                    Result = string.Empty
+                };
+            }
+
+            // This is experimental and undocumented
+            if (expression[0] == '*')
+            {
+                var b = this.SetDataBreakpoint(new DataBreakpoint() { DataId = "!" + expression[1..] });
+                _ = Task.Run(async () => await _engine.SendEvent(new BreakpointEvent() { Breakpoint = b }));
+
+                return new EvaluateResponse() { Result = "data breakpoint set" };
+            }
         }
 
         var target = this.GetExpressionTarget(expression, context, format);
@@ -535,7 +550,7 @@ internal partial class DebugProvider
             if (valueType == ExpressionValueType.Float)
                 variableFormat = VariableNumberFormat.Float;
 
-            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat);
+            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat, valueType == ExpressionValueType.IntS);
 
             return (variable, ctx);
         }
@@ -580,7 +595,10 @@ internal partial class DebugProvider
             if (valueType is ExpressionValueType.Float or ExpressionValueType.Double)
                 variableFormat = VariableNumberFormat.Float;
 
-            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat);
+            var forceSigned = valueTypeSize == levelSize &&
+                valueType is ExpressionValueType.IntS or ExpressionValueType.LongS;
+            
+            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat, forceSigned);
 
             return (variable, ctx);
         }

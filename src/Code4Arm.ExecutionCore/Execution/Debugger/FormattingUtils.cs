@@ -12,6 +12,9 @@ internal static class FormattingUtils
 {
     public static string FormatVariable(uint variable, VariableContext context, int actualBinarySize = 32)
     {
+        if (context.ForceSigned)
+            return FormatSignedVariable(unchecked((int)variable), context, actualBinarySize);
+        
         if (context.NumberFormat == VariableNumberFormat.Hex)
             return FormatHex(variable, context.CultureInfo);
 

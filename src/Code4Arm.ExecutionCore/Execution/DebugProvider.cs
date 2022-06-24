@@ -428,7 +428,22 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         };
     }
 
-    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression) => throw new NotImplementedException();
+    public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression)
+    {
+        this.CheckInitialized();
+        
+        var expr = this.GetExpressionTarget(expression, null, null);
+
+        if (expr.Variable is ITraceable traceable)
+            return new DataBreakpointInfoResponse()
+            {
+                DataId = "!" + expression,
+                Description = this.GetVariableName(expr.Variable),
+                CanPersist = traceable.CanPersist
+            };
+
+        return new DataBreakpointInfoResponse() { Description = "This expression cannot be traced." };
+    }
 
     internal void RefreshSteppedTraces()
     {
@@ -513,23 +528,40 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     internal Breakpoint SetDataBreakpoint(DataBreakpoint breakpoint)
     {
-        var dataIdSepI = breakpoint.DataId.IndexOf('.');
+        ITraceable traceable;
+        
+        if (breakpoint.DataId.StartsWith("!"))
+        {
+            // This is an expression data breakpoint
+            var expr = this.GetExpressionTarget(breakpoint.DataId[1..], null, null);
 
-        if (dataIdSepI is -1 or 0 || dataIdSepI == (breakpoint.DataId.Length - 1))
-            return new Breakpoint() { Verified = false };
+            if (expr.Variable is not ITraceable t)
+                return new Breakpoint() { Verified = false };
 
-        if (!long.TryParse(breakpoint.DataId[..dataIdSepI], out var varRef))
-            return new Breakpoint() { Verified = false };
+            traceable = t;
+        }
+        else
+        {
+            var dataIdSepI = breakpoint.DataId.IndexOf('.');
 
-        var varName = breakpoint.DataId[(dataIdSepI + 1)..];
+            if (dataIdSepI is -1 or 0 || dataIdSepI == (breakpoint.DataId.Length - 1))
+                return new Breakpoint() { Verified = false };
 
-        var variable = this.GetVariable(varRef, varName);
+            if (!long.TryParse(breakpoint.DataId[..dataIdSepI], out var varRef))
+                return new Breakpoint() { Verified = false };
 
-        if (variable is null && this.TryResolveTopVariable(varRef, varName))
-            variable = this.GetVariable(varRef, varName);
+            var varName = breakpoint.DataId[(dataIdSepI + 1)..];
 
-        if (variable is not ITraceable traceable)
-            return new Breakpoint() { Verified = false };
+            var variable = this.GetVariable(varRef, varName);
+
+            if (variable is null && this.TryResolveTopVariable(varRef, varName))
+                variable = this.GetVariable(varRef, varName);
+
+            if (variable is not ITraceable t)
+                return new Breakpoint() { Verified = false };
+
+            traceable = t;
+        }
 
         if (traceable.NeedsExplicitEvaluationAfterStep)
             _steppedTraceables.Add(_nextTraceableId, traceable);
@@ -972,7 +1004,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                 _topLevel.Remove(oldName);
                 _topLevel.Add(v.Name, v);
             }
-            
+
             retArray[(i - startI) / 4] = v.GetAsProtocol(ctx, true);
         }
 

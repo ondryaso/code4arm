@@ -13,6 +13,7 @@ public readonly struct VariableContext
     public readonly CultureInfo CultureInfo;
     public readonly DebuggerOptions Options;
     public readonly VariableNumberFormat NumberFormat;
+    public readonly bool ForceSigned;
 
     public VariableContext(ExecutionEngine engine, CultureInfo cultureInfo, DebuggerOptions options,
         ExpressionValueFormat expressionValueFormat)
@@ -23,6 +24,7 @@ public readonly struct VariableContext
         NumberFormat = expressionValueFormat == ExpressionValueFormat.Default
             ? options.VariableNumberFormat
             : (VariableNumberFormat)expressionValueFormat;
+        ForceSigned = false;
 
         if (expressionValueFormat == ExpressionValueFormat.Ieee)
             throw new ArgumentException("Cannot use the IEEE expression value format in VariableContext.",
@@ -30,12 +32,13 @@ public readonly struct VariableContext
     }
 
     public VariableContext(ExecutionEngine engine, CultureInfo cultureInfo, DebuggerOptions options,
-        VariableNumberFormat numberFormat)
+        VariableNumberFormat numberFormat, bool forceSigned = false)
     {
         CultureInfo = cultureInfo;
         Engine = engine;
         Options = options;
         NumberFormat = numberFormat;
+        ForceSigned = forceSigned;
     }
 
     public VariableContext(ExecutionEngine engine, CultureInfo cultureInfo, DebuggerOptions options,
@@ -44,6 +47,7 @@ public readonly struct VariableContext
         CultureInfo = cultureInfo;
         Engine = engine;
         Options = options;
-        NumberFormat = (valueFormat is { Hex: true } ? VariableNumberFormat.Hex : options.VariableNumberFormat);
+        NumberFormat = (valueFormat is { Hex: true } ? VariableNumberFormat.Hex : options.VariableNumberFormat);        
+        ForceSigned = false;
     }
 }
