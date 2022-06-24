@@ -1,5 +1,6 @@
 import { debug, DebugSession, Disposable, EventEmitter, Event, TextDocument, Uri, window, workspace } from "vscode";
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
+import { DebugConfigurationService } from "./configuration/debugConfigurationService";
 
 export class SessionService implements Disposable {
 
@@ -8,8 +9,9 @@ export class SessionService implements Disposable {
 
     private _sessionAttachedEmitter: EventEmitter<string> = new EventEmitter<string>();
     public readonly onDidAttachToSession: Event<string> = this._sessionAttachedEmitter.event;
+    private _toolConfigChangeHandlerDisposable?: Disposable;
 
-    constructor() {
+    constructor(private _configService: DebugConfigurationService) {
         const builder = new HubConnectionBuilder()
             .withUrl('http://localhost:5058/toolSession')
             .configureLogging(LogLevel.Information);
@@ -18,8 +20,7 @@ export class SessionService implements Disposable {
     }
 
     public async getSessionId(): Promise<string | null> {
-        // TODO: when lost connection, attach to existing session
-        if (!this.isRemote()) {
+        if (!this._configService.isRemote()) {
             return null;
         }
 
@@ -44,48 +45,8 @@ export class SessionService implements Disposable {
         return this._sessionId;
     }
 
-    private async makeNewSession() {
-        this._sessionId = await this._connection?.invoke('CreateSession') ?? null;
-    }
-
-    private async ensureConnected(): Promise<boolean> {
-        if (!this.isRemote())
-            return true;
-
-        if (this._connection!.state == HubConnectionState.Disconnected) {
-            const _this = this;
-
-            this._connection!.onclose((error?: Error) => { _this.handleConnectionClose(error) });
-
-            try {
-                await this._connection!.start();
-                this.log('Tool connection started.');
-                return true;
-            } catch (err) {
-                this.logError(err);
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private handleConnectionClose(error?: Error | undefined) {
-        // TODO
-        if (error) {
-            this.logError(error);
-        } else {
-            this.log('Connection closed.');
-        }
-    }
-
-    public isRemote(): boolean {
-        // TODO
-        return false;
-    }
-
-    public async initDebugging(debugSession: DebugSession) {
-        if (!this.isRemote()) {
+    public async syncRemoteFiles(debugSession: DebugSession) {
+        if (!this._configService.isRemote()) {
             await workspace.saveAll();
             return;
         }
@@ -136,6 +97,56 @@ export class SessionService implements Disposable {
         if (this._connection) {
             await this.closeSession();
             this._connection.stop();
+        }
+
+        this._sessionAttachedEmitter.dispose();
+        this._toolConfigChangeHandlerDisposable?.dispose();
+    }
+
+    private async makeNewSession() {
+        this.log('Asking for a new session.');
+        this._sessionId = await this._connection?.invoke('CreateSession') ?? null;
+
+        if (this._sessionId !== null) {
+            this.log('Pushing editor configuration (from SeSrv).');
+            await this._connection!.invoke('UseClientConfiguration', this._configService.getConfigurationForService());
+
+            this._toolConfigChangeHandlerDisposable?.dispose();
+            this._toolConfigChangeHandlerDisposable = this._configService.onDidChangeClientConfiguration(
+                async (c) => await this._connection!.invoke('UseClientConfiguration', c), this)
+        } else {
+            await window.showErrorMessage('Cannot use the remote Code4Arm service (error when establishing session).');
+        }
+    }
+
+    private async ensureConnected(): Promise<boolean> {
+        if (!this._configService.isRemote())
+            return true;
+
+        if (this._connection!.state == HubConnectionState.Disconnected) {
+            const _this = this;
+
+            this._connection!.onclose((error?: Error) => { _this.handleConnectionClose(error) });
+
+            try {
+                await this._connection!.start();
+                this.log('Tool connection started.');
+                return true;
+            } catch (err) {
+                this.logError(err);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private handleConnectionClose(error?: Error | undefined) {
+        // TODO
+        if (error) {
+            this.logError(error);
+        } else {
+            this.log('Connection closed.');
         }
     }
 

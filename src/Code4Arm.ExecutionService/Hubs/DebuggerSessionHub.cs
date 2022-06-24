@@ -6,6 +6,7 @@ using Code4Arm.ExecutionCore.Execution.Abstractions;
 using Code4Arm.ExecutionCore.Protocol.Events;
 using Code4Arm.ExecutionCore.Protocol.Models;
 using Code4Arm.ExecutionCore.Protocol.Requests;
+using Code4Arm.ExecutionService.ClientConfiguration;
 using Code4Arm.ExecutionService.HubRequests;
 using Code4Arm.ExecutionService.Services.Abstractions;
 using Microsoft.AspNetCore.SignalR;
@@ -96,6 +97,12 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
     public async Task AttachToSession(string sessionId)
     {
         await _sessionManager.AssignConnection(Context.ConnectionId, sessionId, ConnectionType.Debugger);
+    }
+
+    public async Task UseClientConfiguration(ClientToolConfiguration configuration)
+    {
+        var session = await this.GetSession();
+        session.SessionOptions = configuration;
     }
     
     public async Task<ConfigurationDoneResponse> ConfigurationDone(ConfigurationDoneArguments arguments)

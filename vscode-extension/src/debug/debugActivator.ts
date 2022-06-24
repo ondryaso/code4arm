@@ -5,18 +5,23 @@ import { Code4ArmDebugAdapterTrackerFactory } from './debugAdapterTracker';
 import { Code4ArmDebugConfigurationProvider } from './debugConfigurationProvider';
 import { ApsrViewProvider } from './apsrWebview';
 import { SessionService } from './sessionService';
+import { DebugConfigurationService } from './configuration/debugConfigurationService';
 
 export async function activateDebugAdapter(context: ExtensionContext) {
     // Provider for making debug configurations
     const configurationProvider = new Code4ArmDebugConfigurationProvider();
     context.subscriptions.push(debug.registerDebugConfigurationProvider('code4arm-runtime', configurationProvider));
 
+    // Configuration service
+    const configService = new DebugConfigurationService();
+    context.subscriptions.push(configService);
+
     // Session service
-    const sessionService = new SessionService();
+    const sessionService = new SessionService(configService);
     context.subscriptions.push(sessionService);
 
     // Debug adapter
-    const factory = new InlineDebugAdapterFactory(sessionService);
+    const factory = new InlineDebugAdapterFactory(configService, sessionService);
     context.subscriptions.push(debug.registerDebugAdapterDescriptorFactory('code4arm-runtime', factory));
 
     // Tracker factory that creates our tracker that updates sessions and APSR
@@ -32,10 +37,10 @@ export async function activateDebugAdapter(context: ExtensionContext) {
 
 class InlineDebugAdapterFactory implements DebugAdapterDescriptorFactory {
 
-    constructor(private _sessionService : SessionService) {
+    constructor(private _configService: DebugConfigurationService, private _sessionService : SessionService) {
     }
 
     createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {
-        return new vscode.DebugAdapterInlineImplementation(new Code4ArmDebugSession(this._sessionService));
+        return new vscode.DebugAdapterInlineImplementation(new Code4ArmDebugSession(this._configService, this._sessionService));
     }
 }

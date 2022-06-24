@@ -123,7 +123,7 @@ public abstract class GenericSession : ISession
 
         var exe = await this.GetEngine();
 
-        if (_engineOptionsChangeBehavior == OptionChangeBehavior.ReloadExecutable 
+        if (_engineOptionsChangeBehavior == OptionChangeBehavior.ReloadExecutable
             || exe.ExecutableInfo == null
             || exe.ExecutableInfo != buildResult.Executable)
         {
@@ -247,7 +247,7 @@ public abstract class GenericSession : ISession
 
         var compResult = ExecutionOptions.Compare(configuredOptions);
         ExecutionOptions = configuredOptions;
-        if (_engine != null)
+        if (_engine is { State: ExecutionState.Unloaded or ExecutionState.Ready or ExecutionState.Finished })
             _engine.Options = configuredOptions;
 
         _engineOptionsChangeBehavior = compResult;

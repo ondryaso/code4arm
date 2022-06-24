@@ -2,8 +2,9 @@ import { DebugSession, ExitedEvent, logger, LoggingDebugSession, Response, Termi
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { ProtocolServer } from '@vscode/debugadapter/lib/protocol';
-import { time } from 'console';
 import { SessionService } from './sessionService';
+import { DebugConfigurationService } from './configuration/debugConfigurationService';
+import { Disposable } from 'vscode-languageclient';
 
 interface ICustomLaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     sourceDirectory?: string;
@@ -29,17 +30,17 @@ enum ServiceLogLevel {
 
 export class Code4ArmDebugSession extends ProtocolServer {
 
-    private readonly connection: HubConnection;
+    private readonly _connection: HubConnection;
+    private _toolConfigChangeHandlerDisposable?: Disposable;
 
-
-    public constructor(private _sessionService : SessionService) {
+    public constructor(private _configService: DebugConfigurationService, private _sessionService: SessionService) {
         super();
 
         const builder = new HubConnectionBuilder()
             .withUrl('http://localhost:5058/debuggerSession')
             .configureLogging(LogLevel.Information);
 
-        this.connection = builder.build();
+        this._connection = builder.build();
     }
 
     private log(msg: any) {
@@ -78,16 +79,16 @@ export class Code4ArmDebugSession extends ProtocolServer {
     }
 
     private async ensureConnected(): Promise<boolean> {
-        if (this.connection.state == HubConnectionState.Disconnected) {
+        if (this._connection.state == HubConnectionState.Disconnected) {
             const _this = this;
 
-            this.connection.on('HandleEvent', (eventName: string, body: any | null) => { _this.handleRemoteEvent(eventName, body); });
-            this.connection.on('Log', (id: number, name: string, message: string) => { _this.handleServiceLog(id, name, message); });
+            this._connection.on('HandleEvent', (eventName: string, body: any | null) => { _this.handleRemoteEvent(eventName, body); });
+            this._connection.on('Log', (id: number, name: string, message: string) => { _this.handleServiceLog(id, name, message); });
 
-            this.connection.onclose((error?: Error) => { _this.handleConnectionClose(error) });
+            this._connection.onclose((error?: Error) => { _this.handleConnectionClose(error) });
 
             try {
-                await this.connection.start();
+                await this._connection.start();
                 return true;
             } catch (err) {
                 this.logError(err);
@@ -146,19 +147,58 @@ export class Code4ArmDebugSession extends ProtocolServer {
         return errorResponse;
     }
 
+    private async dispatchPreInitTasks(request: DebugProtocol.Request): Promise<boolean> {
+        let errResponse: DebugProtocol.Response | null = null;
+
+        if (this._configService.isRemote()) {
+            // If remote, attach this debugger SignalR connection to the session created by the tool (SessionService)
+            const sessionId = await this._sessionService.getSessionId();
+            if (sessionId !== null) {
+                this.log(`Attaching the debug adapter to session ${sessionId}.`);
+                await this._connection.invoke('AttachToSession', sessionId);
+            } else {
+                errResponse = this.makeErrorResponse(request, 'remoteConnectionError',
+                    'Cannot connect to the execution service (cannot get session ID).', 1002, false);
+            }
+        } else {
+            // If not remote, pass client configuration
+            this.log('Pushing editor configuration (from DA).');
+            const config = this._configService.getConfigurationForService();
+
+            try {
+                await this._connection.invoke('UseClientConfiguration', config);
+
+                this._toolConfigChangeHandlerDisposable = this._configService.onDidChangeClientConfiguration(
+                    async (c) => await this._connection.invoke('UseClientConfiguration', c), this)
+            } catch {
+                errResponse = this.makeErrorResponse(request, 'remoteConnectionError',
+                    'Cannot connect to the execution service (error pushing configuration).', 1003, false);
+            }
+        }
+
+        if (errResponse !== null) {
+            this.sendResponse(errResponse);
+            this.handleConnectionClose();
+
+            return false;
+        }
+
+        return true;
+    }
+
     protected async dispatchRequest(request: DebugProtocol.Request) {
         if (!(await this.ensureConnected())) {
-            const response = this.makeErrorResponse(request, 'remoteConnectionError', 'Cannot connect to the execution service.', 1001);
+            const response = this.makeErrorResponse(request, 'remoteConnectionError',
+                'Cannot connect to the execution service.', 1001);
+
             this.sendResponse(response);
-            this.sendEvent(new TerminatedEvent());
+            this.handleConnectionClose();
             return;
         }
 
         if (request.command == 'initialize') {
-            const sessionId = await this._sessionService.getSessionId();
-            if (sessionId !== null) {
-                await this.connection.invoke('AttachToSession', sessionId);
-            }
+            if (!(await this.dispatchPreInitTasks(request)))
+                return;
         }
 
         try {
@@ -168,9 +208,9 @@ export class Code4ArmDebugSession extends ProtocolServer {
             let remoteResponse: IDebuggerResponse;
 
             if (typeof request.arguments === 'undefined' || request.arguments === null) {
-                remoteResponse = await this.connection.invoke<IDebuggerResponse>(remoteMethodName, null);
+                remoteResponse = await this._connection.invoke<IDebuggerResponse>(remoteMethodName, null);
             } else {
-                remoteResponse = await this.connection.invoke<IDebuggerResponse>(remoteMethodName, request.arguments);
+                remoteResponse = await this._connection.invoke<IDebuggerResponse>(remoteMethodName, request.arguments);
             }
 
             let response: DebugProtocol.Response = new Response(request);
@@ -187,8 +227,13 @@ export class Code4ArmDebugSession extends ProtocolServer {
             this.sendResponse(response);
         } catch (err) {
             this.logError(err);
-            const response = this.makeErrorResponse(request, 'unexpectedError', 'Unexpected execution service error. Connection ID: ' + this.connection.connectionId, 1000, false);
+            const response = this.makeErrorResponse(request, 'unexpectedError', 'Unexpected execution service error. Connection ID: ' + this._connection.connectionId, 1000, false);
             this.sendResponse(response);
         }
+    }
+
+    override dispose() {
+        super.dispose();
+        this._toolConfigChangeHandlerDisposable?.dispose();
     }
 }

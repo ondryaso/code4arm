@@ -30,7 +30,7 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
 
             this._lastEventDisposable?.dispose();
             this._lastEventDisposable = this._sessionService.onDidAttachToSession(
-                (e) => this._sessionService.initDebugging(session), this);
+                (e) => this._sessionService.syncRemoteFiles(session), this);
         }
 
         this.emitApsrAvailableIfChanged(false);

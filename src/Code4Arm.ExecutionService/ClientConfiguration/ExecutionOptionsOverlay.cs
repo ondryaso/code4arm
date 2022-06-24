@@ -11,7 +11,7 @@ public class ExecutionOptionsOverlay
     public uint? StackSize { get; set; }
     public uint? ForcedStackAddress { get; set; }
     public StackPlacementOptions[]? StackPlacementOptions { get; set; }
-    public StackPointerType[]? StackPointerType { get; set; }
+    public StackPointerType? StackPointerType { get; set; }
     public bool? RandomizeExtraAllocatedSpaceContents { get; set; }
     public bool? UseStrictMemoryAccess { get; set; }
     public bool? EnableAccurateExecutionTracking { get; set; }
