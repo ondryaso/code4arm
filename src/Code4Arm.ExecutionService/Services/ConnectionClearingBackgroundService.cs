@@ -23,7 +23,7 @@ public class ConnectionClearingBackgroundService : IHostedService, IDisposable
         _logger.LogInformation("Starting the connection clearing service.");
 
         _timer = new Timer(_ => _sessionManager.CleanConnections(),
-            null, TimeSpan.Zero, TimeSpan.FromHours(1));
+            null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
 
         return Task.CompletedTask;
     }

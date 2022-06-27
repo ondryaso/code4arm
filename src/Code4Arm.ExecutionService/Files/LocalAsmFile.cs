@@ -40,6 +40,7 @@ public class LocalAsmFile : IAsmFile, IEquatable<LocalAsmFile>
 
     private readonly string _fsPath;
     private LocalLocatedFile? _lastLocated;
+    private int? _forcedVersion;
 
     internal LocalAsmFile(string fsPath, string? name = null, IAsmMakeTarget? project = null)
     {
@@ -50,9 +51,23 @@ public class LocalAsmFile : IAsmFile, IEquatable<LocalAsmFile>
         Project = project;
     }
 
-    public string Name { get; }
+    internal LocalAsmFile(string fsPath, string clientPath, string? name = null, IAsmMakeTarget? project = null)
+    {
+        _fsPath = fsPath;
+        Name = name ?? Path.GetFileName(clientPath);
+        ClientPath = clientPath;
+        Project = project;
+    }
 
-    public int Version => (int)(File.GetLastWriteTime(_fsPath).Ticks % int.MaxValue);
+    public string Name { get; }
+    public string FileSystemPath => _fsPath;
+
+    public int Version
+    {
+        get => _forcedVersion ?? (int)(File.GetLastWriteTime(_fsPath).Ticks % int.MaxValue);
+        set => _forcedVersion = value;
+    }
+
     public string ClientPath { get; }
     public IAsmMakeTarget? Project { get; }
     public int LastBuiltVersion { get; set; }

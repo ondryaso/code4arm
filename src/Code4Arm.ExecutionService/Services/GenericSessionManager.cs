@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Code4Arm.ExecutionCore.Execution;
 using Code4Arm.ExecutionCore.Execution.Abstractions;
+using Code4Arm.ExecutionService.Extensions;
 using Code4Arm.ExecutionService.Hubs;
 using Code4Arm.ExecutionService.Services.Abstractions;
 using Microsoft.AspNetCore.SignalR;
@@ -45,6 +46,8 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
     private readonly ConcurrentDictionary<string, SessionWrapper> _connections = new();
     private readonly ConcurrentDictionary<IExecutionEngine, SessionWrapper> _engines = new();
 
+    private readonly ConcurrentDictionary<string, ManualResetEventSlim> _waitingDebuggers = new();
+
     public GenericSessionManager(IHubContext<TToolHub, TToolHubClient> toolHub,
         IHubContext<TDebuggerHub, TDebuggerHubClient> debuggerHub, ILoggerFactory loggerFactory)
     {
@@ -53,7 +56,7 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
         Logger = loggerFactory.CreateLogger(this.GetType());
     }
 
-    public async Task<string> CreateSession()
+    public async Task<string> CreateSession(string? toolConnectionId = null)
     {
         var guid = Guid.NewGuid();
         var session = await this.MakeSession(guid);
@@ -61,10 +64,16 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
 
         while (!success)
         {
-            success = _sessions.TryAdd(guid, new SessionWrapper(session));
+            success = _sessions.TryAdd(guid, new SessionWrapper(session)
+                { ToolConnectionId = toolConnectionId });
 
             if (success)
+            {
+                if (toolConnectionId != null)
+                    await this.AssignConnection(toolConnectionId, session.SessionId, ConnectionType.Tool);
+
                 break;
+            }
 
             session.Dispose();
             guid = Guid.NewGuid();
@@ -96,7 +105,7 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
 
         if (!Logger.IsEnabled(LogLevel.Debug))
             return;
-        
+
         if (e.NewEngine is ExecutionEngine ee)
         {
             var eeId = ee.GetType().GetField("_executionId",
@@ -153,9 +162,16 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
                 throw new ArgumentException("Invalid session ID.", nameof(sessionId));
 
             if (type == ConnectionType.Debugger)
+            {
                 wrapper.DebuggerConnectionId = connectionId;
+
+                var re = _waitingDebuggers.GetOrAdd(connectionId, _ => new ManualResetEventSlim(true));
+                re.Set();
+            }
             else
+            {
                 wrapper.ToolConnectionId = connectionId;
+            }
 
             if (!_connections.TryAdd(connectionId, wrapper))
             {
@@ -182,12 +198,33 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
         lock (session.SessionLocker)
         {
             if (session.DebuggerConnectionId == connectionId)
+            {
                 session.DebuggerConnectionId = null;
-            else
+                if (_waitingDebuggers.TryRemove(connectionId, out var re))
+                    re.Dispose();
+            }
+
+            if (session.ToolConnectionId == connectionId)
                 session.ToolConnectionId = null;
         }
 
         return Task.CompletedTask;
+    }
+
+    public async Task WaitForDebuggerAttachment(string connectionId)
+    {
+        if (_connections.TryGetValue(connectionId, out var session) && session.DebuggerConnectionId == connectionId)
+        {
+            if (_waitingDebuggers.TryGetValue(connectionId, out var existingRe))
+                existingRe.Dispose();
+
+            return;
+        }
+
+        var re = _waitingDebuggers.GetOrAdd(connectionId, _ => new ManualResetEventSlim(false));
+        await re.WaitHandle.AsTask();
+        _waitingDebuggers.TryRemove(connectionId, out _);
+        re.Dispose();
     }
 
     public ValueTask<string?> GetSessionId(string connectionId)
@@ -244,18 +281,37 @@ public abstract class GenericSessionManager<TSession, TToolHub, TDebuggerHub, TT
 
     public void CleanConnections()
     {
-        var snapshot = _sessions.ToArray();
-
-        foreach (var (id, wrapper) in snapshot)
+        if (!_sessions.IsEmpty)
         {
-            lock (wrapper.SessionLocker)
-            {
-                if (wrapper is { DebuggerConnectionId: null, ToolConnectionId: null })
-                {
-                    Logger.LogDebug("Removing session {SessionId} (no connections).", id);
+            var snapshot = _sessions.ToArray();
 
-                    if (_sessions.TryRemove(id, out _))
-                        wrapper.Session.Dispose();
+            foreach (var (id, wrapper) in snapshot)
+            {
+                lock (wrapper.SessionLocker)
+                {
+                    if (wrapper is { DebuggerConnectionId: null, ToolConnectionId: null })
+                    {
+                        Logger.LogDebug("Removing session {SessionId} (no connections).", id);
+
+                        if (_sessions.TryRemove(id, out _))
+                            wrapper.Session.Dispose();
+                    }
+                }
+            }
+        }
+
+        if (_waitingDebuggers.IsEmpty)
+            return;
+
+        var waitingDebuggersSnapshot = _waitingDebuggers.ToArray();
+        foreach (var (connectionId, re) in waitingDebuggersSnapshot)
+        {
+            if (re.IsSet)
+            {
+                if (_waitingDebuggers.TryRemove(connectionId, out _))
+                {
+                    re.Dispose();
+                    Logger.LogDebug("Disposed waiting event for debugger connection {ConnectionId} (cleaning up).", connectionId);
                 }
             }
         }

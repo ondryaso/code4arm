@@ -3,6 +3,7 @@ import { DebugProtocol } from '@vscode/debugprotocol';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { ProtocolServer } from '@vscode/debugadapter/lib/protocol';
 import { time } from 'console';
+import { SessionService } from './sessionService';
 
 interface ICustomLaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     sourceDirectory?: string;
@@ -31,7 +32,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
     private readonly connection: HubConnection;
 
 
-    public constructor() {
+    public constructor(private _sessionService : SessionService) {
         super();
 
         const builder = new HubConnectionBuilder()
@@ -151,6 +152,13 @@ export class Code4ArmDebugSession extends ProtocolServer {
             this.sendResponse(response);
             this.sendEvent(new TerminatedEvent());
             return;
+        }
+
+        if (request.command == 'initialize') {
+            const sessionId = await this._sessionService.getSessionId();
+            if (sessionId !== null) {
+                await this.connection.invoke('AttachToSession', sessionId);
+            }
         }
 
         try {

@@ -18,4 +18,6 @@ public class ServiceOptions
     public uint StackSizeLimit { get; set; } = 2 * 1024 * 1024;
     public string? AllowedLinkerOptionsRegex { get; set; }
     public string? AllowedAssemblerOptionsRegex { get; set; }
+
+    public string RemoteFilesStorageDirectory { get; set; } = "RemoteFileStorage";
 }

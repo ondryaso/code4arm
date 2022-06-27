@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { DebugProtocol } from '@vscode/debugprotocol';
+import { SessionService } from "./sessionService";
+import { Disposable } from "vscode-languageclient";
 
 
 export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
@@ -13,12 +15,24 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
     private _lastApsrAvailableValue: boolean = false;
 
     private _session?: vscode.DebugSession;
+    private _lastEventDisposable? : Disposable;
+
+    constructor(private _sessionService: SessionService) {
+    }
 
     setSession(session: vscode.DebugSession) {
         this._session = session;
     }
 
     onWillStartSession(): void {
+        if (this._session) {
+            const session = this._session!;
+
+            this._lastEventDisposable?.dispose();
+            this._lastEventDisposable = this._sessionService.onDidAttachToSession(
+                (e) => this._sessionService.initDebugging(session), this);
+        }
+
         this.emitApsrAvailableIfChanged(false);
     }
 
@@ -89,7 +103,11 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
 }
 
 export class Code4ArmDebugAdapterTrackerFactory implements vscode.DebugAdapterTrackerFactory {
-    public readonly instance: Code4ArmDebugAdapterTracker = new Code4ArmDebugAdapterTracker();
+    public readonly instance: Code4ArmDebugAdapterTracker;
+
+    constructor(sessionService: SessionService) {
+        this.instance = new Code4ArmDebugAdapterTracker(sessionService);
+    }
 
     createDebugAdapterTracker(session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterTracker> {
         this.instance.setSession(session);

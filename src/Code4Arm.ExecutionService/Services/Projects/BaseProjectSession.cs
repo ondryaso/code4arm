@@ -41,7 +41,7 @@ public abstract class BaseProjectSession : IProjectSession
         _lastResult = null;
     }
 
-    public async Task<MakeResult> Build(bool rebuild)
+    public virtual async Task<MakeResult> Build(bool rebuild)
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(BaseProjectSession));

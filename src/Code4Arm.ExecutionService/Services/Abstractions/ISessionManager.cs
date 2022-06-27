@@ -26,6 +26,8 @@ public interface ISession : IDisposable
     event EventHandler<EngineCreatedEventArgs> EngineCreated;
 
     IClientConfiguration? SessionOptions { get; set; }
+
+    ValueTask<IEnumerable<KeyValuePair<string, int>>> GetTrackedFiles();
 }
 
 public enum ConnectionType
@@ -36,11 +38,13 @@ public enum ConnectionType
 
 public interface ISessionManager
 {
-    Task<string> CreateSession();
+    Task<string> CreateSession(string? toolConnectionId = null);
     Task CloseSession(string sessionId);
 
     Task AssignConnection(string connectionId, string sessionId, ConnectionType connectionType);
     Task RemoveConnection(string connectionId);
+    Task WaitForDebuggerAttachment(string connectionId);
+    
     ValueTask<string?> GetSessionId(string connectionId);
     ValueTask<string?> GetSessionId(IExecutionEngine engine);
     ValueTask<string?> GetConnectionId(string sessionId, ConnectionType connectionType);

@@ -43,6 +43,8 @@ public abstract class GenericSession : ISession
         }
     }
 
+    public abstract ValueTask<IEnumerable<KeyValuePair<string, int>>> GetTrackedFiles();
+
     private ISessionLaunchArguments? _lastLaunchArgs;
 
     private ExecutionEngine? _engine;
@@ -113,7 +115,7 @@ public abstract class GenericSession : ISession
     public async Task BuildAndLoad(ISessionLaunchArguments arguments)
     {
         await this.Init(arguments);
-        
+
         var buildResult = await Build();
 
         this.UpdateExecutionOptions(arguments);
@@ -121,7 +123,9 @@ public abstract class GenericSession : ISession
 
         var exe = await this.GetEngine();
 
-        if (_engineOptionsChangeBehavior == OptionChangeBehavior.ReloadExecutable || exe.ExecutableInfo == null)
+        if (_engineOptionsChangeBehavior == OptionChangeBehavior.ReloadExecutable 
+            || exe.ExecutableInfo == null
+            || exe.ExecutableInfo != buildResult.Executable)
         {
             await exe.LoadExecutable(buildResult.Executable!);
             _engineOptionsChangeBehavior = OptionChangeBehavior.None;
@@ -154,7 +158,6 @@ public abstract class GenericSession : ISession
 
                 throw new AssemblingException(string.Format(ExceptionMessages.Assembling, build.InvalidObjects?.Count));
             }
-            
 
             if (build.State == MakeResultState.LinkingError)
             {
@@ -360,7 +363,7 @@ public abstract class GenericSession : ISession
 
     protected abstract Task Init(ISessionLaunchArguments arguments);
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         _engine?.Dispose();
     }

@@ -48,9 +48,9 @@ public class LocalSession : GenericSession
     public LocalSession(ISessionManager manager, string sessionId, IMediator mediator, ILoggerFactory loggerFactory,
         IMapper mapper, IOptionsMonitor<AssemblerOptions> asmOptMon, IOptionsMonitor<LinkerOptions> ldOptMon,
         IOptionsMonitor<ExecutionOptions> exeOptMon, IOptionsMonitor<DebuggerOptions> dbgOptMon,
-        IOptionsMonitor<ServiceOptions> serviceOptMon, IEnumerable<IFunctionSimulator> simulators) 
+        IOptionsMonitor<ServiceOptions> serviceOptMon, IEnumerable<IFunctionSimulator> simulators)
         : base(manager, sessionId, mediator, loggerFactory, mapper,
-        asmOptMon, ldOptMon, exeOptMon, dbgOptMon, serviceOptMon)
+            asmOptMon, ldOptMon, exeOptMon, dbgOptMon, serviceOptMon)
     {
         _simulators = simulators.ToArray();
     }
@@ -69,8 +69,23 @@ public class LocalSession : GenericSession
 
     private void InitFromFiles(IEnumerable<string> files)
     {
-        Project?.Dispose();
-        Project = new FilesProjectSession(files, null, AssemblerOptions, LinkerOptions, _simulators, LoggerFactory);
+        if (Project is not FilesProjectSession fps)
+        {
+            Project?.Dispose();
+            fps = new FilesProjectSession(SessionId, AssemblerOptions, LinkerOptions, _simulators, LoggerFactory);
+            Project = fps;
+        }
+
+        fps.UseFiles(files.Select(f => new FilesProjectSession.File(f, f, null)).ToList());
+    }
+
+    public override ValueTask<IEnumerable<KeyValuePair<string, int>>> GetTrackedFiles()
+    {
+        if (Project == null)
+            return new ValueTask<IEnumerable<KeyValuePair<string, int>>>(Enumerable.Empty<KeyValuePair<string, int>>());
+
+        return new ValueTask<IEnumerable<KeyValuePair<string, int>>>(
+            Project.GetFiles().Select(f => new KeyValuePair<string, int>(f.ClientPath ?? string.Empty, f.Version)));
     }
 
     protected override Task Init(ISessionLaunchArguments arguments)

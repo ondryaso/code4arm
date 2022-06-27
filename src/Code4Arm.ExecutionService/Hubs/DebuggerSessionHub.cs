@@ -31,12 +31,12 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
         var currentId = await _sessionManager.GetSessionId(Context.ConnectionId);
 
         if (currentId == null)
-            throw new HubException(); // TODO
+            throw new HubException("This debugger client is not attached to a session.");
 
         var session = await _sessionManager.GetSession(currentId);
 
         if (session == null)
-            throw new HubException(); // TODO
+            throw new HubException("This debugger client is not attached to a session.");
 
         return session;
     }
@@ -70,18 +70,19 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
 
     public override async Task OnConnectedAsync()
     {
+#if !REMOTE
         var sessionId = await _sessionManager.CreateSession();
         await _sessionManager.AssignConnection(Context.ConnectionId, sessionId, ConnectionType.Tool);
         await _sessionManager.AssignConnection(Context.ConnectionId, sessionId, ConnectionType.Debugger);
-
+#endif
+        
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        await _sessionManager.CloseSession(Context.ConnectionId);
-
         await base.OnDisconnectedAsync(exception);
+        await _sessionManager.RemoveConnection(Context.ConnectionId);
     }
 
     public async Task<BreakpointLocationsResponse> BreakpointLocations(BreakpointLocationsArguments arguments)
@@ -92,6 +93,11 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
         return new BreakpointLocationsResponse() { Breakpoints = new Container<BreakpointLocation>(result) };
     }
 
+    public async Task AttachToSession(string sessionId)
+    {
+        await _sessionManager.AssignConnection(Context.ConnectionId, sessionId, ConnectionType.Debugger);
+    }
+    
     public async Task<ConfigurationDoneResponse> ConfigurationDone(ConfigurationDoneArguments arguments)
     {
         // TODO
@@ -172,11 +178,13 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
 
     public async Task<LaunchResponse> Launch(CustomLaunchArguments arguments)
     {
+        await _sessionManager.WaitForDebuggerAttachment(Context.ConnectionId);
+        
         var session = await this.GetSession();
         await session.BuildAndLoad(arguments);
 
         var exe = await session.GetEngine();
-        
+
         await Clients.Caller.HandleEvent(EventNames.Initialized, null);
         await exe.InitLaunch(!arguments.NoDebug);
 

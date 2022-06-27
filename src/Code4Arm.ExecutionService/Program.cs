@@ -5,7 +5,6 @@ using Code4Arm.ExecutionCore.Protocol.StringEnum;
 using Code4Arm.ExecutionService.Configuration;
 using Code4Arm.ExecutionService.Extensions;
 using Code4Arm.ExecutionService.Hubs;
-using Code4Arm.ExecutionService.MapperConfiguration;
 using Code4Arm.ExecutionService.Services;
 using Code4Arm.ExecutionService.Services.Abstractions;
 using MediatR;
@@ -31,6 +30,21 @@ builder.Services.Configure<DebuggerOptions>(builder.Configuration.GetSection("Se
 builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddMediatR(typeof(Program));
+
+#if REMOTE
+builder.Services.AddProtocolEventHandlers<DebuggerSessionHub<RemoteSession>>(typeof(IProtocolEvent));
+
+builder.Services.AddSingleton<ISessionManager<RemoteSession>,
+    RemoteSessionManager<DebuggerSessionHub<RemoteSession>,
+        DebuggerSessionHub<RemoteSession>,
+        IDebuggerSession,
+        IDebuggerSession>>();
+
+builder.Services.AddSingleton<ISessionManager>(provider =>
+    provider.GetRequiredService<ISessionManager<RemoteSession>>());
+
+builder.Services.AddHostedService<ConnectionClearingBackgroundService>();
+#else
 builder.Services.AddProtocolEventHandlers<DebuggerSessionHub<LocalSession>>(typeof(IProtocolEvent));
 
 builder.Services.AddSingleton<ISessionManager<LocalSession>,
@@ -41,13 +55,18 @@ builder.Services.AddSingleton<ISessionManager<LocalSession>,
 
 builder.Services.AddSingleton<ISessionManager>(provider =>
     provider.GetRequiredService<ISessionManager<LocalSession>>());
+#endif
 
 builder.Services.AddSingleton<DebuggerSessionHubResponseFilter>();
 builder.Services.AddFunctionSimulators();
 
-builder.Services.AddSignalR(o =>
+builder.Services.AddSignalR(o => { o.EnableDetailedErrors = true; })
+#if REMOTE
+       .AddHubOptions<DebuggerSessionHub<RemoteSession>>(o =>
+#else
+       .AddHubOptions<DebuggerSessionHub<LocalSession>>(o =>
+#endif
        {
-           o.EnableDetailedErrors = true;
            o.AddFilter(typeof(DebuggerSessionHubResponseFilter));
        })
        .AddNewtonsoftJsonProtocol(options =>
@@ -71,6 +90,14 @@ app.UseCors(b => b.AllowAnyHeader()
                   .WithOrigins("https://gourav-d.github.io"));
 
 app.UseRouting();
-app.UseEndpoints(endpoints => { endpoints.MapHub<DebuggerSessionHub<LocalSession>>("debuggerSession"); });
+app.UseEndpoints(endpoints =>
+{
+#if REMOTE
+    endpoints.MapHub<DebuggerSessionHub<RemoteSession>>("debuggerSession");
+    endpoints.MapHub<ToolSessionHub>("toolSession");
+#else
+    endpoints.MapHub<DebuggerSessionHub<LocalSession>>("debuggerSession");
+#endif
+});
 
 app.Run();
