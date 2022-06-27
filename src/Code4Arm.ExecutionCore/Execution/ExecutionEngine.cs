@@ -838,7 +838,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         foreach (var segment in _segments)
         {
-            if (segment.IsStack)
+            if (segment.IsStack || segment.IsHeap)
                 continue;
 
             Engine.MemUnmap(segment.StartAddress, segment.Size);
