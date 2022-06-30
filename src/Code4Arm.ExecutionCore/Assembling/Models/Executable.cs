@@ -75,7 +75,7 @@ public class Executable : IExecutableInfo, IDisposable
     /// </summary>
     public uint EntryPoint { get; private set; }
 
-    public uint[] DataSequencesStarts { get; private set; }
+    public uint[] DataSequencesStarts { get; private set; } = Array.Empty<uint>();
     public bool StartSymbolDefined { get; private set; }
 
     public uint TextSectionStartAddress { get; private set; }

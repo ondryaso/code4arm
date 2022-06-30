@@ -57,7 +57,7 @@ internal class InstructionVariantModel
 
 internal class InstructionDefinition
 {
-    public string Name { get; init; }
+    public string Name { get; init; } = string.Empty;
     public List<InstructionVariant> Variants { get; } = new();
 }
 
@@ -663,7 +663,8 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             _ when firstSymbol.StartsWith("I") => OperandType.Immediate,
             _ when firstSymbol.StartsWith("SH") => OperandType.Shift,
             "AI" => OperandType.ImmediateAddressing,
-            "AR" => OperandType.RegisterAddressing
+            "AR" => OperandType.RegisterAddressing,
+            _ => throw new ArgumentException("Invalid operand type.", nameof(firstSymbol))
             // TODO (maybe)
         };
     }
