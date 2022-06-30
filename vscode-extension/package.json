@@ -2,7 +2,7 @@
     "name": "code4arm",
     "publisher": "ondryaso",
     "displayName": "Code4Leg",
-    "description": "Arm® Unified Assembly Language Support & Emulator",
+    "description": "Arm® AArch32 Unified Assembly Language Simulator & Language support",
     "repository": "github:ondryaso/bp-code",
     "license": "GPL-3.0+",
     "version": "0.0.2",
@@ -12,7 +12,9 @@
     "dependencies": {
         "@microsoft/signalr": "^6.0.4",
         "@vscode/debugadapter": "^1.55.1",
+        "extrakt": "^1.0.8",
         "net": "^1.0.2",
+        "nodejs-file-downloader": "^4.9.3",
         "portfinder": "^1.0.28",
         "vscode-languageclient": "^7.0.0"
     },
@@ -36,6 +38,15 @@
             {
                 "command": "code4arm.configureRuntime",
                 "title": "Configure runtime/debugger connection"
+            },
+            {
+                "command": "code4arm.findMnemonicDocumentation",
+                "title": "Find instruction/mnemonic documentation",
+                "shortTitle": "Find instruction"
+            },
+            {
+                "command": "code4arm.showInstructionPseudocodes",
+                "title": "Show instruction pseudocodes"
             }
         ],
         "languages": [
@@ -1172,6 +1183,41 @@
                     "name": "CPU status flags",
                     "when": "debugConfigurationType == code4arm-runtime && inDebugMode"
                 }
+            ],
+            "arm-instructions": [
+                {
+                    "id": "arm-instructions.base",
+                    "name": "Base Instructions",
+                    "visibility": "visible",
+                    "when": "resourceLangId == arm-ual"
+                },
+                {
+                    "id": "arm-instructions.simd",
+                    "name": "SIMD&FP Instructions",
+                    "visibility": "collapsed",
+                    "when": "resourceLangId == arm-ual"
+                }
+            ]
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "arm-instructions",
+                    "title": "Arm® AArch32 Instructions Reference",
+                    "icon": "media/panel_icon.png"
+                }
+            ]
+        },
+        "menus": {
+            "view/title": [
+                {
+                    "group": "arm-instructions",
+                    "command": "code4arm.showInstructionPseudocodes"
+                },
+                {
+                    "group": "arm-instructions",
+                    "command": "code4arm.findMnemonicDocumentation"
+                }
             ]
         }
     },
@@ -1179,7 +1225,12 @@
         "onLanguage:arm-ual",
         "onDebugResolve:code4arm-runtime",
         "onDebugInitialConfigurations",
-        "onView:code4arm.apsr"
+        "onView:code4arm.apsr",
+        "onView:arm-instructions.base",
+        "onView:arm-instructions.simd",
+        "onCommand:code4arm.findMnemonicDocumentation",
+        "onCommand:code4arm.showInstructionReference",
+        "onCommand:code4arm.showInstructionPseudocodes"
     ],
     "scripts": {
         "vscode:prepublish": "npm run compile",
@@ -1192,7 +1243,7 @@
     "devDependencies": {
         "@types/glob": "^7.2.0",
         "@types/mocha": "^9.0.0",
-        "@types/node": "14.x",
+        "@types/node": "^18.0.0",
         "@types/vscode": "^1.63.0",
         "@typescript-eslint/eslint-plugin": "^5.9.1",
         "@typescript-eslint/parser": "^5.9.1",
@@ -1202,5 +1253,5 @@
         "mocha": "^9.1.3",
         "typescript": "^4.5.4"
     },
-    "dotnetOptions": {}
+    "armDocsLink": "https://developer.arm.com/-/media/developer/products/architecture/armv9-a-architecture/2022-03/ISA_AArch32_xml_A_profile-2022-03.tar.gz"
 }
