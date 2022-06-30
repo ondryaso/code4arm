@@ -41,7 +41,7 @@ export class InstructionWebviewService {
             if (!mnemonic) {
                 throw new Error('Invalid instruction documentation request.');
             }
-            
+
             docLink = await this._provider.getDocLinkForMnemonic(mnemonic);
         }
 
@@ -59,7 +59,11 @@ export class InstructionWebviewService {
 
         const panel = vscode.window.createWebviewPanel('code4arm.mnemonicWebview',
             mnemonic ?? 'Instruction', vscode.ViewColumn.One,
-            { localResourceRoots: [this._mediaUri], enableScripts: true }
+            {
+                localResourceRoots: [this._mediaUri],
+                enableScripts: true,
+                enableFindWidget: true
+            }
         );
 
         panel.webview.onDidReceiveMessage(async (name: string) => {
@@ -103,7 +107,12 @@ export class InstructionWebviewService {
         if (hasNewInstance) {
             this._sharedPseudocodeView = vscode.window.createWebviewPanel('code4arm.mnemonicWebview',
                 'Instruction pseudocodes', vscode.ViewColumn.One,
-                { localResourceRoots: [this._mediaUri], enableScripts: true, retainContextWhenHidden: true }
+                {
+                    localResourceRoots: [this._mediaUri],
+                    enableScripts: true,
+                    retainContextWhenHidden: true,
+                    enableFindWidget: true
+                }
             );
 
             this._sharedPseudocodeView.webview.onDidReceiveMessage((m) => {
