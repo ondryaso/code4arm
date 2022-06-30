@@ -1,6 +1,8 @@
 ﻿// ToolSessionHub.cs
 // Author: Ondřej Ondryáš
 
+#if REMOTE // Tool sessions are not used in the local mode
+
 using Code4Arm.ExecutionService.ClientConfiguration;
 using Code4Arm.ExecutionService.Files;
 using Code4Arm.ExecutionService.Services;
@@ -113,3 +115,4 @@ public class ToolSessionHub : Hub
         await this.CloseSession();
     }
 }
+#endif

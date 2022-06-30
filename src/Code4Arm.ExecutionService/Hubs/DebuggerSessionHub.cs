@@ -84,6 +84,10 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
     {
         await base.OnDisconnectedAsync(exception);
         await _sessionManager.RemoveConnection(Context.ConnectionId);
+
+#if !REMOTE
+        Environment.Exit(0);
+#endif
     }
 
     public async Task<BreakpointLocationsResponse> BreakpointLocations(BreakpointLocationsArguments arguments)

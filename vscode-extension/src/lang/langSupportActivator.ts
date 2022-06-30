@@ -1,20 +1,20 @@
 import * as vscode from 'vscode';
-import * as net from 'net';
 import { Disposable, LanguageClient, LanguageClientOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
 import { commands, ExtensionContext, OutputChannel, Range, TextDocumentShowOptions, window } from 'vscode';
+import { RuntimeService } from '../packageManager/runtimeService';
 
 let client: LanguageClient;
 let clientDisposable: Disposable;
 let outputChannel: OutputChannel;
 
-export async function activateLanguageSupport(context: ExtensionContext) {
+export async function activateLanguageSupport(context: ExtensionContext, runtimeService: RuntimeService) {
     const refreshHandler = async () => {
         const currentIndex = context.subscriptions.indexOf(clientDisposable);
         context.subscriptions.splice(currentIndex, 1);
 
         outputChannel.appendLine("\n--- Refreshing Code4Arm connection ---\n");
 
-        await initLanguageServer(context);
+        await initLanguageServer(context, runtimeService);
     };
 
     const labelRefsHandler = async (line: number, char: number) => {
@@ -34,50 +34,19 @@ export async function activateLanguageSupport(context: ExtensionContext) {
     context.subscriptions.push(commands.registerCommand('code4arm.labelAndReferences', labelRefsHandler));
 
     outputChannel = window.createOutputChannel("Arm UAL Language Server");
-    await initLanguageServer(context);
+    await initLanguageServer(context, runtimeService);
     context.subscriptions.push(outputChannel);
 }
 
 export async function deactivateLanguageSupport() {
 	if (!client) {
-		return undefined;
+		return;
 	}
 
-	return client.stop();
+	await client.stop();
 }
 
-async function initLanguageServer(context: ExtensionContext) {
-    // TODO: find dotnet path: https://github.com/YarnSpinnerTool/VSCodeExtension/blob/main/src/extension.ts
-
-    /*
-    const dotnetPath = "dotnet";
-    const exeArgs = ["run", "--project",
-        "/home/ondryaso/Projects/bp/Armulator/Armfors.LanguageServer"];
-
-    const serverOptions: ServerOptions = {
-        run: {
-            command: dotnetPath,
-            args: exeArgs
-        },
-        debug: {
-            command: dotnetPath,
-            args: exeArgs
-        }
-    };
-    */
-
-    const serverOptions = () => {
-        const stream = net.connect({ host: '127.0.0.1', port: 5057 });
-
-        let result: StreamInfo = {
-            writer: stream,
-            reader: stream
-        };
-
-        return Promise.resolve(result);
-    };
-
-
+async function initLanguageServer(context: ExtensionContext, runtimeService: RuntimeService) {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
@@ -95,6 +64,9 @@ async function initLanguageServer(context: ExtensionContext) {
             isTrusted: true
         }
     };
+
+    // Get server options
+    const serverOptions = await runtimeService.makeLanguageServerOptions();
 
     // Create the language client and start the client.
     client = new LanguageClient(

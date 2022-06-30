@@ -1,5 +1,13 @@
 import { EventEmitter, Event, Disposable, workspace, ConfigurationChangeEvent } from "vscode";
+import { MainConfigurationService } from "../../configuration/mainConfigurationService";
 import { IClientConfiguration, ExecutionOptionsOverlay, DebuggerOptionsOverlay } from "./serverModels";
+
+function appendToAddress(address: string, path: string) {
+    if (address.endsWith('/'))
+        return address + path;
+    else
+        return address + '/' + path;
+}
 
 export class DebugConfigurationService implements Disposable {
     private _onDidChangeClientConfigurationEmitter: EventEmitter<IClientConfiguration> = new EventEmitter<IClientConfiguration>();
@@ -7,7 +15,7 @@ export class DebugConfigurationService implements Disposable {
 
     private _currentConfig: IClientConfiguration;
 
-    constructor() {
+    constructor(private _mainConfig: MainConfigurationService) {
         this._currentConfig = {};
         this.handleConfigurationChange();
         workspace.onDidChangeConfiguration(this.handleConfigurationChange, this);
@@ -17,8 +25,23 @@ export class DebugConfigurationService implements Disposable {
         return this._currentConfig;
     }
 
+    public getToolAddress(): string | undefined {
+        const config = this._mainConfig.get();
+        if (config.useLocalRuntimeInstallation)
+            return;
+
+        if (!config.remoteRuntimeAddress)
+            throw new Error();
+
+        return appendToAddress(config.remoteRuntimeAddress, 'toolSession');
+    }
+
+    public getDebuggerAddress(serviceUrl: string): string {
+        return appendToAddress(serviceUrl, 'debuggerSession');
+    }
+
     public isRemote(): boolean {
-        return false;
+        return !this._mainConfig.get().useLocalRuntimeInstallation;
     }
 
     private handleConfigurationChange(event?: ConfigurationChangeEvent) {

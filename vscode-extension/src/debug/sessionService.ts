@@ -12,8 +12,17 @@ export class SessionService implements Disposable {
     private _toolConfigChangeHandlerDisposable?: Disposable;
 
     constructor(private _configService: DebugConfigurationService) {
+        const url = _configService.getToolAddress();
+        if (!url) {
+            if (_configService.isRemote()) {
+                throw new Error();
+            }
+
+            return;
+        }
+        
         const builder = new HubConnectionBuilder()
-            .withUrl('http://localhost:5058/toolSession')
+            .withUrl(url)
             .configureLogging(LogLevel.Information);
 
         this._connection = builder.build();

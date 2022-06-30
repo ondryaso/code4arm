@@ -1,15 +1,16 @@
 import { ExtensionContext } from 'vscode';
-import { activateDebugAdapter } from './debug/debugActivator';
-
-import { activateLanguageSupport, deactivateLanguageSupport } from './lang/langSupportActivator';
+import { MainConfigurationService } from './configuration/mainConfigurationService';
+import { RuntimeService } from './packageManager/runtimeService';
 
 
 export async function activate(context: ExtensionContext) {
-	// await activateLanguageSupport(context);
-	activateDebugAdapter(context);
+	const configService = new MainConfigurationService();
+	const runtimeService = new RuntimeService(configService, context);
+	context.subscriptions.push(runtimeService);
+
+	await runtimeService.initRuntime();
 }
 
 export function deactivate() {
-	// deactivateLanguageSupport();
 }
 

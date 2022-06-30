@@ -1,4 +1,4 @@
-import { DebugSession, ExitedEvent, logger, LoggingDebugSession, Response, TerminatedEvent } from '@vscode/debugadapter';
+import { Response, TerminatedEvent } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { ProtocolServer } from '@vscode/debugadapter/lib/protocol';
@@ -33,28 +33,31 @@ export class Code4ArmDebugSession extends ProtocolServer {
     private readonly _connection: HubConnection;
     private _toolConfigChangeHandlerDisposable?: Disposable;
 
-    public constructor(private _configService: DebugConfigurationService, private _sessionService: SessionService) {
+    public constructor(private _configService: DebugConfigurationService, private _sessionService: SessionService,
+        debuggerHubAddress: string) {
         super();
 
         const builder = new HubConnectionBuilder()
-            .withUrl('http://localhost:5058/debuggerSession')
+            .withUrl(debuggerHubAddress)
             .configureLogging(LogLevel.Information);
 
         this._connection = builder.build();
     }
 
-    private log(msg: any) {
-        const protoEvent: DebugProtocol.OutputEvent = {
-            seq: 0,
-            type: 'event',
-            event: 'output',
-            body: {
-                output: msg,
-                category: 'console'
-            }
-        };
+    private log(msg: any, debugConsoleOutput: boolean = true) {
+        if (debugConsoleOutput) {
+            const protoEvent: DebugProtocol.OutputEvent = {
+                seq: 0,
+                type: 'event',
+                event: 'output',
+                body: {
+                    output: msg,
+                    category: 'console'
+                }
+            };
 
-        this.sendEvent(protoEvent);
+            this.sendEvent(protoEvent);
+        }
         console.info(msg);
     }
 
@@ -154,7 +157,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             // If remote, attach this debugger SignalR connection to the session created by the tool (SessionService)
             const sessionId = await this._sessionService.getSessionId();
             if (sessionId !== null) {
-                this.log(`Attaching the debug adapter to session ${sessionId}.`);
+                this.log(`Attaching the debug adapter to session ${sessionId}.`, false);
                 await this._connection.invoke('AttachToSession', sessionId);
             } else {
                 errResponse = this.makeErrorResponse(request, 'remoteConnectionError',
@@ -162,7 +165,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
             }
         } else {
             // If not remote, pass client configuration
-            this.log('Pushing editor configuration (from DA).');
+            this.log('Pushing editor configuration (from DA).', false);
             const config = this._configService.getConfigurationForService();
 
             try {
@@ -235,5 +238,6 @@ export class Code4ArmDebugSession extends ProtocolServer {
     override dispose() {
         super.dispose();
         this._toolConfigChangeHandlerDisposable?.dispose();
+        this._connection.stop();
     }
 }

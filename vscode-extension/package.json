@@ -1,17 +1,24 @@
 {
     "name": "code4arm",
     "publisher": "ondryaso",
-    "displayName": "Code4Arm",
-    "description": "Arm Unified Assembly Language support",
-    "version": "0.0.1",
+    "displayName": "Code4Leg",
+    "description": "Arm® Unified Assembly Language Support & Emulator",
+    "repository": "github:ondryaso/bp-code",
+    "license": "GPL-3.0+",
+    "version": "0.0.2",
     "engines": {
         "vscode": "^1.63.0"
     },
     "dependencies": {
-        "vscode-languageclient": "^7.0.0",
         "@microsoft/signalr": "^6.0.4",
-        "net": "^1.0.2"
+        "@vscode/debugadapter": "^1.55.1",
+        "net": "^1.0.2",
+        "portfinder": "^1.0.28",
+        "vscode-languageclient": "^7.0.0"
     },
+    "extensionDependencies": [
+        "ms-dotnettools.vscode-dotnet-runtime"
+    ],
     "categories": [
         "Programming Languages"
     ],
@@ -1187,7 +1194,6 @@
         "@types/mocha": "^9.0.0",
         "@types/node": "14.x",
         "@types/vscode": "^1.63.0",
-        "@vscode/debugadapter": "^1.55.1",
         "@typescript-eslint/eslint-plugin": "^5.9.1",
         "@typescript-eslint/parser": "^5.9.1",
         "@vscode/test-electron": "^2.0.3",
@@ -1195,5 +1201,6 @@
         "glob": "^7.2.0",
         "mocha": "^9.1.3",
         "typescript": "^4.5.4"
-    }
+    },
+    "dotnetOptions": {}
 }
