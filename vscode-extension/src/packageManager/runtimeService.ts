@@ -8,8 +8,7 @@ import { ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { MainConfigurationService } from '../configuration/mainConfigurationService';
 import { activateDebugAdapter, deactivateDebugAdapter } from '../debug/debugActivator';
 import { activateLanguageSupport, deactivateLanguageSupport } from '../lang/langSupportActivator';
-
-const _testing = false;
+import * as dev from '../dev_consts';
 
 interface IDotnetAcquireResult {
     dotnetPath: string;
@@ -109,9 +108,9 @@ export class RuntimeService implements Disposable {
     }
 
     public async makeLanguageServerOptions(): Promise<ServerOptions> {
-        if (_testing) {
+        if (dev.DevMode) {
             const serverOptions = () => {
-                const stream = net.connect({ host: '127.0.0.1', port: 5057 });
+                const stream = net.connect({ host: dev.LanguageServerHost, port: dev.LanguageServerPort });
 
                 let result: StreamInfo = {
                     writer: stream,
@@ -151,8 +150,8 @@ export class RuntimeService implements Disposable {
             this._currentProcess.kill();
 
         if (config.useLocalRuntimeInstallation) {
-            if (_testing)
-                return 'http://127.0.0.1:5058';
+            if (dev.DevMode)
+                return dev.ExecutionServiceAddress;
 
             if (!this._dotnetPath)
                 throw new Error();
@@ -165,7 +164,7 @@ export class RuntimeService implements Disposable {
             const env = { ASPNETCORE_URLS: url };
 
             this._currentProcess = spawn(this._dotnetPath, exeArgs, { env: env, detached: false, cwd: serverDirUri.fsPath });
-            await new Promise(r => setTimeout(r, 4000)); // TODO wait
+            await new Promise(r => setTimeout(r, 3000)); // TODO: figure out a better mechanism for waiting for the service initialization
             return url;
         } else {
             if (!config.remoteRuntimeAddress)

@@ -29,11 +29,8 @@
         "commands": [
             {
                 "command": "code4arm.refreshConnection",
-                "title": "Refresh Code4Arm connection"
-            },
-            {
-                "command": "code4arm.labelAndReferences",
-                "title": "Go to label and find references"
+                "title": "Refresh Code4Arm connection",
+                "when": "code4arm.dev"
             },
             {
                 "command": "code4arm.configureRuntime",
@@ -1111,23 +1108,25 @@
                         }
                     }
                 },
-                "initialConfigurations": [
-                    {
-                        "type": "code4arm-runtime",
-                        "request": "launch",
-                        "name": "Code4Arm: Assemble, link and debug all assembly files",
-                        "sourceDirectory": "${workspaceFolder}"
-                    }
-                ],
                 "configurationSnippets": [
                     {
-                        "label": "Code4Arm: All files",
-                        "description": "A new configuration for debugging an Arm executable linked together from all source files in the workspace folder.",
+                        "label": "Code4Arm",
+                        "markdownDescription": "A new configuration for debugging an Arm executable in the Code4Arm simulator. Provide a list of files in `sourceFiles`. The paths must be **absolute** (e.g. start them with `${workspaceFolder}`).",
                         "body": {
                             "type": "code4arm-runtime",
                             "request": "launch",
-                            "name": "Code4Arm: Assemble, link and debug all assembly files",
-                            "sourceDirectory": "^\\${workspaceFolder}"
+                            "name": "Code4Arm: Build and Debug in simulator",
+                            "sourceDirectory": []
+                        }
+                    },
+                    {
+                        "label": "Code4Arm: All files in folder (local service only)",
+                        "markdownDescription": "A new configuration for debugging an Arm executable linked together from all source files in the workspace folder. This **only** works when using a **local** instance of the debugger/runtime service (`sourceDirectory` is not supported in remote environments).",
+                        "body": {
+                            "type": "code4arm-runtime",
+                            "request": "launch",
+                            "name": "Code4Arm: Build workspace folder and Debug in simulator",
+                            "sourceDirectory": "^\"\\${workspaceFolder}\""
                         }
                     }
                 ]

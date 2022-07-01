@@ -2,20 +2,26 @@ import * as vscode from 'vscode';
 import { Disposable, LanguageClient, LanguageClientOptions, StreamInfo, Trace } from 'vscode-languageclient/node';
 import { commands, ExtensionContext, OutputChannel, Range, TextDocumentShowOptions, window } from 'vscode';
 import { RuntimeService } from '../packageManager/runtimeService';
+import * as dev from '../dev_consts';
 
 let client: LanguageClient;
 let clientDisposable: Disposable;
 let outputChannel: OutputChannel;
 
 export async function activateLanguageSupport(context: ExtensionContext, runtimeService: RuntimeService) {
-    const refreshHandler = async () => {
-        const currentIndex = context.subscriptions.indexOf(clientDisposable);
-        context.subscriptions.splice(currentIndex, 1);
+    if (dev.DevMode) {
+        const refreshHandler = async () => {
+            const currentIndex = context.subscriptions.indexOf(clientDisposable);
+            context.subscriptions.splice(currentIndex, 1);
 
-        outputChannel.appendLine("\n--- Refreshing Code4Arm connection ---\n");
+            outputChannel.appendLine("\n--- Refreshing Code4Arm connection ---\n");
 
-        await initLanguageServer(context, runtimeService);
-    };
+            await initLanguageServer(context, runtimeService);
+        };
+
+        context.subscriptions.push(commands.registerCommand('code4arm.refreshConnection', refreshHandler));
+        vscode.commands.executeCommand('setContext', 'code4arm.dev', true);
+    }
 
     const labelRefsHandler = async (line: number, char: number) => {
         const doc = window.activeTextEditor?.document;
@@ -30,31 +36,28 @@ export async function activateLanguageSupport(context: ExtensionContext, runtime
         await commands.executeCommand('editor.action.goToReferences');
     };
 
-    context.subscriptions.push(commands.registerCommand('code4arm.refreshConnection', refreshHandler));
     context.subscriptions.push(commands.registerCommand('code4arm.labelAndReferences', labelRefsHandler));
 
     outputChannel = window.createOutputChannel("Arm UAL Language Server");
-    await initLanguageServer(context, runtimeService);
     context.subscriptions.push(outputChannel);
+
+    await initLanguageServer(context, runtimeService);
 }
 
 export async function deactivateLanguageSupport() {
-	if (!client) {
-		return;
-	}
+    if (!client) {
+        return;
+    }
 
-	await client.stop();
+    await client.stop();
 }
 
 async function initLanguageServer(context: ExtensionContext, runtimeService: RuntimeService) {
-    // Options to control the language client
     const clientOptions: LanguageClientOptions = {
-        // Register the server for plain text documents
         documentSelector: [{ scheme: 'file', language: 'arm-ual' }],
         diagnosticCollectionName: "arm-ual",
         outputChannel: outputChannel,
         synchronize: {
-            // Notify the server about file changes to '.clientrc files contained in the workspace
             fileEvents: [
                 vscode.workspace.createFileSystemWatcher('**/.s'),
                 vscode.workspace.createFileSystemWatcher('**/.S')
@@ -68,7 +71,7 @@ async function initLanguageServer(context: ExtensionContext, runtimeService: Run
     // Get server options
     const serverOptions = await runtimeService.makeLanguageServerOptions();
 
-    // Create the language client and start the client.
+    // Create the language client and start the client
     client = new LanguageClient(
         'arm-ual',
         'Arm UAL',
@@ -78,7 +81,7 @@ async function initLanguageServer(context: ExtensionContext, runtimeService: Run
 
     client.trace = Trace.Verbose;
 
-    // Start the client. This will also launch the server
+    // Start the client. This will also launch the server (if executable).
     clientDisposable = client.start();
     context.subscriptions.push(clientDisposable);
 }
