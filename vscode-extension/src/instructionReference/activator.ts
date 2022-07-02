@@ -46,6 +46,7 @@ async function pickInstruction(provider: MnemonicProvider) {
 
 async function ensureDocs(context: vscode.ExtensionContext, cont: boolean = true): Promise<string | undefined> {
     const path = Uri.joinPath(context.globalStorageUri, 'docs');
+    let exists = true;
     try {
         const files = await vscode.workspace.fs.readDirectory(path);
 
@@ -68,17 +69,21 @@ async function ensureDocs(context: vscode.ExtensionContext, cont: boolean = true
     } catch {
         if (!cont)
             return;
+
+        exists = false;
     }
 
     const res = await vscode.window.showInformationMessage(`To use instruction documentation, you must
 download the ISA descriptions package protected by copyright held by Arm Limited. By clicking Download,
 you agree to the terms of usage of the copyright holders. Find more information [here](https://developer.arm.com/downloads/-/exploration-tools).`,
-         'Agree and Download');
+        'Agree and Download');
 
     if (!res)
         return;
 
-    await vscode.workspace.fs.delete(path, { recursive: true, useTrash: false });
+    if (exists)
+        await vscode.workspace.fs.delete(path, { recursive: true, useTrash: false });
+    
     await vscode.workspace.fs.createDirectory(path);
 
     const url = context.extension.packageJSON.armDocsLink;
