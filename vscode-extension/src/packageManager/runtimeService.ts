@@ -146,7 +146,7 @@ export class RuntimeService implements Disposable {
 
     public async makeDebugger(): Promise<string | null> {
         const config = this._configService.get();
-        if (this._currentProcess && !this._currentProcess.exitCode)
+        if (this._currentProcess && this._currentProcess.exitCode === null)
             this._currentProcess.kill();
 
         if (config.useLocalRuntimeInstallation) {
@@ -177,6 +177,8 @@ export class RuntimeService implements Disposable {
     dispose(): void {
         deactivateLanguageSupport();
         deactivateDebugAdapter();
+        if (this._currentProcess && this._currentProcess.exitCode === null)
+            this._currentProcess.kill();
     }
 
 }

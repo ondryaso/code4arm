@@ -23,12 +23,13 @@ export class ApsrViewProvider implements vscode.WebviewViewProvider {
 			// Allow scripts in the webview
 			enableScripts: true,
 
+			// Allow the webview to load resources from the extension files 
 			localResourceRoots: [
 				this._extensionUri
 			]
 		};
 
-		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+		webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
         this._onDidChangeApsr(this.onApsrChange, this);
         this._onDidChangeApsrAvailable(this.onApsrAvailableChange, this)
 	}
@@ -54,16 +55,14 @@ export class ApsrViewProvider implements vscode.WebviewViewProvider {
         this._view.webview.postMessage({ n, z, c, v });
 	}
 
-	private _getHtmlForWebview(webview: vscode.Webview) {
-		// Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
+	private getHtmlForWebview(webview: vscode.Webview) {
+		// Convert local resource paths to 'webview URIs' available from within the webview 
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'apsrWebview', 'main.js'));
-
-		// Do the same for the stylesheet.
 		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'reset.css'));
 		const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
 		const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'apsrWebview', 'main.css'));
 
-		// Use a nonce to only allow a specific script to be run.
+		// Use a nonce to only allow a specific script to be run
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>

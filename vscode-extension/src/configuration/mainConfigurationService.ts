@@ -8,6 +8,10 @@ class Configuration implements IMainConfiguration {
     remoteRuntimeAddress?: string;
 }
 
+/**
+ * Provides top-level configuration, that is, settings that enable/disable language services
+ * and execution service and control the execution mode (local/remote).
+ */
 export class MainConfigurationService {
     private _instance: Configuration = new Configuration();
 

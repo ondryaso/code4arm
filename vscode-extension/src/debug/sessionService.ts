@@ -2,6 +2,11 @@ import { debug, DebugSession, Disposable, EventEmitter, Event, TextDocument, Uri
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { DebugConfigurationService } from "./configuration/debugConfigurationService";
 
+/**
+ * Manages a 'tool' connection to a *remote* execution service.
+ * If the current configuration uses a local service, the functions in this class are
+ * basically no-ops.
+ */
 export class SessionService implements Disposable {
 
     private readonly _connection?: HubConnection;

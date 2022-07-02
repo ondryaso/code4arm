@@ -15,7 +15,7 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
     private _lastApsrAvailableValue: boolean = false;
 
     private _session?: vscode.DebugSession;
-    private _lastEventDisposable? : Disposable;
+    private _lastEventDisposable?: Disposable;
 
     constructor(private _sessionService: SessionService) {
     }

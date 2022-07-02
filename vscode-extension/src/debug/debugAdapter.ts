@@ -5,28 +5,13 @@ import { ProtocolServer } from '@vscode/debugadapter/lib/protocol';
 import { SessionService } from './sessionService';
 import { DebugConfigurationService } from './configuration/debugConfigurationService';
 import { Disposable } from 'vscode-languageclient';
-
-interface ICustomLaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
-    sourceDirectory?: string;
-    sourceFiles?: string[];
-}
+import * as dev from '../dev_consts';
 
 interface IDebuggerResponse {
     success: boolean;
     message?: string;
     body?: any;
 }
-
-enum ServiceLogLevel {
-    Trace = 0,
-    Debug,
-    Information,
-    Warning,
-    Error,
-    Critical,
-    None,
-}
-
 
 export class Code4ArmDebugSession extends ProtocolServer {
 
@@ -76,7 +61,6 @@ export class Code4ArmDebugSession extends ProtocolServer {
         console.error(msg);
     }
 
-
     private handleServiceLog(eventId: number, message: string, description: string) {
         this.log(description);
     }
@@ -99,12 +83,12 @@ export class Code4ArmDebugSession extends ProtocolServer {
             }
         }
 
-        // TODO: wait for connection?
         return true;
     }
 
     private handleRemoteEvent(eventName: string, body: any | null) {
-        console.info("-> EVENT " + eventName);
+        if (dev.DebugAdapterTracking)
+            console.info(`-> EVENT ${eventName}`);
 
         const protoEvent: DebugProtocol.Event = {
             event: eventName,
@@ -120,15 +104,12 @@ export class Code4ArmDebugSession extends ProtocolServer {
     }
 
     private handleConnectionClose(error?: Error | undefined) {
-        // TODO
-        console.info("Connection closed");
+        console.info("Execution service connection closed");
+        if (error)
+            console.error(error);
 
         this.sendEvent(new TerminatedEvent());
         this.stop();
-
-        if (!this._isRunningInline()) {
-            setTimeout(() => { process.exit(0); }, 100);
-        }
     }
 
     private makeErrorResponse(request: DebugProtocol.Request, message: string, description: string, id: number, showUser?: boolean): DebugProtocol.Response {
@@ -206,7 +187,8 @@ export class Code4ArmDebugSession extends ProtocolServer {
 
         try {
             const remoteMethodName = request.command.charAt(0).toUpperCase() + request.command.slice(1);
-            console.info("<- REQ " + remoteMethodName);
+            if (dev.DebugAdapterTracking)
+                console.info(`<- REQ ${remoteMethodName}`);
 
             let remoteResponse: IDebuggerResponse;
 
@@ -225,7 +207,8 @@ export class Code4ArmDebugSession extends ProtocolServer {
                 response.message = remoteResponse.message;
             }
 
-            console.info("   | RESP " + (response.success ? "Success" : ("Error " + response.message)) + " (" + remoteMethodName + ")");
+            if (dev.DebugAdapterTracking)
+                console.info(`   | RESP ${response.success ? "Success" : (`Error ${response.message}`)} (${remoteMethodName})`);
 
             this.sendResponse(response);
         } catch (err) {
