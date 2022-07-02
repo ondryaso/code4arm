@@ -39,11 +39,27 @@
             {
                 "command": "code4arm.findMnemonicDocumentation",
                 "title": "Find instruction/mnemonic documentation",
-                "shortTitle": "Find instruction"
+                "shortTitle": "Find instruction",
+                "enablement": "!code4arm.noDocs",
+                "category": "Instructions"
             },
             {
                 "command": "code4arm.showInstructionPseudocodes",
-                "title": "Show instruction pseudocodes"
+                "title": "Show instruction pseudocodes",
+                "enablement": "!code4arm.noDocs",
+                "category": "Instructions"
+            },
+            {
+                "command": "code4arm.showIsaProprietaryNotice",
+                "title": "Show the Arm® A32/T32 Instruction Set proprietary notice",
+                "enablement": "!code4arm.noDocs",
+                "category": "Instructions"
+            },
+            {
+                "command": "code4arm.fetchDocs",
+                "title": "Download documentation for the Arm® A32/T32 Instruction Set",
+                "enablement": "code4arm.noDocs",
+                "category": "Instructions"
             }
         ],
         "languages": [
@@ -1188,13 +1204,13 @@
                     "id": "arm-instructions.base",
                     "name": "Base Instructions",
                     "visibility": "visible",
-                    "when": "resourceLangId == arm-ual"
+                    "when": "resourceLangId == arm-ual && !code4arm.noDocs"
                 },
                 {
                     "id": "arm-instructions.simd",
                     "name": "SIMD&FP Instructions",
                     "visibility": "collapsed",
-                    "when": "resourceLangId == arm-ual"
+                    "when": "resourceLangId == arm-ual && !code4arm.noDocs"
                 }
             ]
         },

@@ -36,7 +36,7 @@ export class InstructionWebviewService {
         return body;
     }
 
-    async viewInstruction(docLink?: string | undefined, mnemonic?: string | undefined) {
+    public async viewInstruction(docLink?: string | undefined, mnemonic?: string | undefined) {
         if (!docLink) {
             if (!mnemonic) {
                 throw new Error('Invalid instruction documentation request.');
@@ -100,7 +100,7 @@ export class InstructionWebviewService {
 
     private _lastAnchor?: string;
 
-    async viewSharedPseudocode(anchor?: string | undefined) {
+    public async viewSharedPseudocode(anchor?: string | undefined) {
         const hasNewInstance = !this._sharedPseudocodeView;
         this._lastAnchor = anchor;
 

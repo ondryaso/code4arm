@@ -4,7 +4,20 @@ import { Uri } from 'vscode';
 import { MnemonicProvider, MnemonicTreeDataProvider } from "./instructionsProvider";
 import { InstructionWebviewService } from './instructionWebview';
 
+let firstActivationAttempt = true;
+
 export async function activateInstructionReference(context: vscode.ExtensionContext) {
+    if (firstActivationAttempt) {
+        context.subscriptions.push(vscode.commands.registerCommand('code4arm.fetchDocs',
+            async () => {
+                await context.globalState.update('noDocsPrompt', undefined);
+                await activateInstructionReference(context);
+            }));
+
+
+        firstActivationAttempt = false;
+    }
+
     const dataUri = await ensureDocs(context);
     if (!dataUri)
         return;
@@ -26,6 +39,8 @@ export async function activateInstructionReference(context: vscode.ExtensionCont
         () => viewService.viewSharedPseudocode()));
     context.subscriptions.push(vscode.commands.registerCommand('code4arm.findMnemonicDocumentation',
         () => pickInstruction(provider)));
+    context.subscriptions.push(vscode.commands.registerCommand('code4arm.showIsaProprietaryNotice',
+        () => viewService.viewInstruction('notice.html', 'Proprietary Notice')));
 }
 
 async function pickInstruction(provider: MnemonicProvider) {
@@ -62,6 +77,7 @@ async function ensureDocs(context: vscode.ExtensionContext, cont: boolean = true
                         return;
                     }
 
+                    await vscode.commands.executeCommand('setContext', 'code4arm.noDocs', false);
                     return dataUri.fsPath;
                 }
             }
@@ -73,17 +89,26 @@ async function ensureDocs(context: vscode.ExtensionContext, cont: boolean = true
         exists = false;
     }
 
+    await vscode.commands.executeCommand('setContext', 'code4arm.noDocs', true);
+    if (await context.globalState.get('noDocsPrompt'))
+        return;
+
     const res = await vscode.window.showInformationMessage(`To use instruction documentation, you must
 download the ISA descriptions package protected by copyright held by Arm Limited. By clicking Download,
-you agree to the terms of usage of the copyright holders. Find more information [here](https://developer.arm.com/downloads/-/exploration-tools).`,
-        'Agree and Download');
+you agree to proprietary notice of the package. Find more information [here](https://developer.arm.com/downloads/-/exploration-tools).`,
+        'Agree and Download', "Don't ask again");
 
     if (!res)
         return;
 
+    if (res === "Don't ask again") {
+        await context.globalState.update('noDocsPrompt', true);
+        return;
+    }
+
     if (exists)
         await vscode.workspace.fs.delete(path, { recursive: true, useTrash: false });
-    
+
     await vscode.workspace.fs.createDirectory(path);
 
     const url = context.extension.packageJSON.armDocsLink;

@@ -48,13 +48,6 @@ export class MnemonicProvider {
     }
 
     private async parseIndexFile(path: string): Promise<ParsedMnemonic[]> {
-        let mnemonic = '';
-        let summary = '';
-        let link = '';
-
-        let foundTd = false;
-        let column = 1;
-
         const html = await readFile(path, {
             encoding: 'utf-8'
         });
