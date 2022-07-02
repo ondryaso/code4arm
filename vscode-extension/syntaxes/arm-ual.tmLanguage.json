@@ -1,13 +1,13 @@
 {
-	"$license": "Based on https://github.com/dan-c-underwood/vscode-arm/blob/master/syntaxes/arm.tmlanguage.json. Copyright (c) 2022 Dan Underwood, licensed under the MIT License.",
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"$license": "Based on https://github.com/dan-c-underwood/vscode-arm/blob/master/syntaxes/arm.tmlanguage.json. Licensed under the MIT License. Copyright (c) 2022 Dan Underwood, Ondřej Ondryáš.",
 	"scopeName": "source.arm-ual",
 	"name": "Arm UAL",
 	"fileTypes": [
 		"s",
 		"S"
 	],
-	"_patterns": [
+	"patterns": [
 		{
 			"match": "^\\s*[#\\.](define|include|(end|el|else)?if|if(def|ndef)?|else)(\\s+(defined\\(\\w+\\)|\\w+)(\\s+(&&|\\|\\|)\\s+defined\\(\\w+\\)|\\w]+)*)?\\b",
 			"name": "meta.preprocessor"
@@ -17,138 +17,43 @@
 			"name": "routine.arm-ual"
 		},
 		{
-			"match": "\\b(?i)(?:v?(?:add|cvt|bic|sub|trn|cmp|cb(?:z|nz)|[us]?div|qdmulh|mul|ld1|qadd|qshrun|st[1234]|addw|mull|mlal|rshrn|swp|qmovunand|m(?:rs|sr)|eor|sub|rsb|adc|sbc|rsc|and|tst|teq|cmp|cmn|orr|mov|bic|mvn|neg|lsr|lsl|ror|asr)|mul|mla|mull|smlabb|rev(?:8|16)?|pld|adr|adrl|vswp)(?:(?:(?=s)s(\\w{2})?)|(\\w{2})s?)?(?-i)\\b",
-			"name": "support.function.mnemonic.arithmetic.arm-ual",
+			"match": "\\b(?i)(?:TSB CSYNC|SHADD16|SHSUB16|SXTAB16|UHADD16|UHSUB16|UQADD16|UQSUB16|UXTAB16|CRC32C|QADD16|QSUB16|SADD16|SETEND|SETPAN|SHADD8|SHSUB8|SMLSLD(?:X)?|SSAT16|SSUB16|STLEXB|STLEXD|STLEXH|SXTB16|UADD16|UHADD8|UHSUB8|UQADD8|UQSUB8|USADA8|USAT16|USUB16|UXTB16|CLREX|CRC32|DCPS1|DCPS2|DCPS3|PKHBT(?:)?|PSSBB|QADD8|QDADD|QDSUB|QSUB8|REV16|REVSH|SADD8|SHASX|SHSAX|SMLSD(?:X)?|SMMUL(?:R)?|SMUAD(?:X)?|SMUSD(?:X)?|SSUB8|STLEX|SXTAB|SXTAH|UADD8|UHASX|UHSAX|UMAAL|UMLALS?|UMULLS?|UQASX|UQSAX|USAD8|USUB8|UXTAB|UXTAH|YIELD|BKPT|CSDB|ERET|MCRR|MOVT|MRRC|PUSH|QADD|QASX|QSAX|QSUB|RBIT|SASX|SBFX|SDIV|SEVL|SSAT|SSAX|SSBB|STLB|STLH|SXTB|SXTH|UASX|UBFX|UDIV|USAT|USAX|UXTB|UXTH|ADCS?|ADDS?|ADR|ANDS?|ASRS?|BFC|BFI|BICS?|BLX|BXJ|CLZ|CMN|CMP|CPS(?:ID|IE)?|DBG|DMB|DSB|EORS?|ESB|HLT|HVC|ISB|LDA(?:B|EX|EXB|EXD|EXH|H)?|LDC|LDM(?:IA|FD|DA|DB|IB|FA|EA|ED)?|LDR(?:B|BT|D|EX|EXB|EXD|EXH|H|HT|SB|SBT|SH|SHT|T)?|LSLS?|LSRS?|MCR|MLAS?|MLS|MOVS?|MRC|MRS|MSR|MULS?|MVNS?|NOP|ORNS?|ORRS?|PLD(?:W)?|PLI|POP|REV|RFE(?:DA|DB|IA|IB)?|RORS?|RRXS?|RSB(?:S)?|RSC(?:S)?|SBC(?:S)?|SEL|SEV|SMC|SRS(?:DA|DB|IA|IB)?|STC|STL|STM(?:IA|EA|DA|DB|IB)?|STR(?:B|BT|D|EX|EXB|EXD|EXH|H|HT|T)?|SUB(?:S)?|SVC|TBB(?:)?|TEQ|TST|UDF|WFE|WFI|BL(?:X)?|BX|CB(?:NZ|Z)?|IT|SB|B|SMLA(?:BB|BT|TB|TT|DX|D|LS|L|LBB|LBT|LTB|LTT|LD|LDX|WB|WT)|SMUL(?:BB|BT|TB|TT|LS|L|WT|WB)|SMML(?:AR|A|SR|S))(\\w{2})?(?-i)\\b",
+			"name": "support.function.mnemonic.arm-ual",
 			"captures": {
 				"1": {
+					"name": "keyword.condition_code.arm-ual",
 					"patterns": [
 						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.arithmetic.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
-						}
-					]
-				},
-				"2": {
-					"patterns": [
-						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.arithmetic.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
+							"include": "#conditions"
 						}
 					]
 				}
 			}
 		},
 		{
-			"match": "\\b(?i)v?(?:ldr|str)(?:d(\\w{2})?|(?:(?:s?b|s?h)(\\w{2})?|(\\w{2})(?:s?b|s?h)?))(?-i)\\b",
-			"name": "support.function.mnemonic.memory.arm-ual",
+			"match": "\\b(?i)(?:SHA256SU(?:0|1)|SHA256H(?:2)?|SHA1SU(?:0|1)|VQDMUL(?:H|L)|VQRDML(?:AH|SH)|VQRSHR(?:N|UN)|VRSQRT(?:E|S)|VPADD(?:L)?|VQDML(?:AL|SL)|VQMOV(?:N|UN)|VQRDM(?:ULH)|VQRSH(?:L)|VQSHL(?:U)?|VQSHR(?:N|UN)|VRECP(?:E|S)|VRINT(?:A|M|N|P|R|X|Z)|VRSHR(?:N)?|VSELG(?:E|T)|FLDM(?:DBX|IAX)|FSTM(?:DBX|IAX)|SHA1(?:C|H|M|P)|VABA(?:L)?|VABD(?:L)?|VACG(?:E|T)|VACL(?:E|T)|VADD(?:HN|L|W)?|VCMP(?:E)?|VCVT(?:A|B|M|N|P|R|T)?|VFMA(?:B|T|L)?|VFMS(?:L)?|VFNM(?:A|S)|VLDM(?:DB|IA)?|VMAX(?:NM)?|VMIN(?:NM)?|VMLA(?:L)?|VMLS(?:L)?|VMOV(?:L|N|X)?|VMUL(?:L)?|VNML(?:A|S)|VPAD(?:AL)|VREV(?:16|32|64)|VRSH(?:L)|VSEL(?:EQ|VS)|VSHL(?:L)?|VSHR(?:N)?|VSTM(?:DB|IA)?|VSUB(?:HN|L|W)?|AES(?:D|E|IMC|MC)|VAB(?:S)|VBI(?:C|F|T)|VCG(?:E|T)|VCL(?:E|S|T|Z)|VCM(?:LA)|VLD(?:1|2|3|4|R)|VNM(?:UL)|VOR(?:N|R)|VPM(?:AX|IN)|VQA(?:BS|DD)|VQS(?:UB)|VRS(?:RA|UBHN)|VSR(?:A|I)|VST(?:1|2|3|4|R)|VSU(?:DOT)|VTB(?:L|X)|VUS(?:DOT|MMLA)|VA(?:ND)|VB(?:SL)|VC(?:ADD|EQ|NT)|VD(?:IV|OT|UP)|VE(?:OR|XT)|VH(?:ADD|SUB)|VM(?:MLA|RS|SR|VN)|VN(?:EG)|VP(?:OP|USH)|VQ(?:NEG)|VR(?:ADDHN|HADD)|VS(?:DOT|LI|MMLA|QRT|WP)|VT(?:RN|ST)|VU(?:DOT|MMLA|ZP)|V(?:INS|JCVT|ZIP))(\\w{2})?(?:\\.([IPSU]?8|[IPSUF]?16|[ISUF]?32|[IPSU]?64))?(?-i)\\b",
+			"name": "support.function.mnemonic.simd.arm-ual",
 			"captures": {
 				"1": {
+					"name": "keyword.condition_code.arm-ual",
 					"patterns": [
 						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.memory.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
+							"include": "#conditions"
 						}
 					]
 				},
 				"2": {
-					"patterns": [
-						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.memory.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
-						}
-					]
-				},
-				"3": {
-					"patterns": [
-						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.memory.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
-						}
-					]
+					"name": "entity.name.type.arm-ual"
 				}
 			}
 		},
 		{
-			"match": "\\b(?i)(?:ldar[bh]?|ldax[pb(?:rh?)]|ldn?p|ldpsw|ldr[bh]?|ldrsb|ldrsh|ldrsw|ldtr[bh]?|ldtrsw|ldurb?|ldursb|ldursh|ldursw|ldx[pr]|ldxr[bh])(?-i)\\b",
-			"name": "support.function.mnemonic.memory.arm-ual"
+			"match": "\\.(?i)(globl|global|extern|weak|macro|endm|purgem|section|text|data|bss|arm|align|balign|irp|rept|endr|(un)?req|error|short|(end)?func|hidden|type|cpu|fpu|arch|code|syntax|altmacro|object_arch|thumb(_set)?|set|pragma|undef|line|get)(?-i)\\b",
+			"name": "keyword.control.directive.arm-ual"
 		},
 		{
-			"match": "\\b(?i)(?:prfu?m)(?-i)\\b",
-			"name": "support.function.mnemonic.memory.arm-ual"
-		},
-		{
-			"match": "\\b(?i)(?:stlr[bh]?|stlx[pb(?:rh?)]|stn?p|str[bh]?|sttr[bh]?|stur[nh]?|stx[pb(?:rh?)])(?-i)\\b",
-			"name": "support.function.mnemonic.memory.arm-ual"
-		},
-		{
-			"match": "\\b(?i)(dc[dubi](?:[qw]u?)?)|area|space|fill\\b",
-			"name": "support.function.mnemonic.memory.arm-ual"
-		},
-		{
-			"match": "\\b(?i)(?:ldm(?:ia)?|ldmf[da]|ldmd[ab]|ldmea|ldmib|ldmed|v?(?:push|pop)|stm(?:ia)?|stmd[ab]|stmed|stmfd|stmib|smfa(?:\\.n|\\.w)?)(?-i)\\b",
-			"name": "support.function.mnemonic.multiple.arm-ual"
-		},
-		{
-			"match": "\\b(?i)(?:mov(?:w|t)?|pac(?:dz?[a|b]|ga|i(?:[a|b](?:1716|sp|z)?)|z[a|b])|swi|svc|hvc|dmb|clrex|dsb|isb|tlbi|b(?:l|l?x|l?r)?|(?:i|e)?ret(?:aa|ab)?)(?:(?:(?=s)s(\\w{2})?)|(\\w{2})s?)?(?-i)\\b",
-			"name": "support.function.mnemonic.memory.arm-ual",
-			"captures": {
-				"1": {
-					"patterns": [
-						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.memory.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
-						}
-					]
-				},
-				"2": {
-					"patterns": [
-						{
-							"include": "#conditions",
-							"name": "support.function.mnemonic.memory.arm-ual"
-						},
-						{
-							"match": "\\w{2}",
-							"name": "invalid.illegal.condition.arm-ual"
-						}
-					]
-				}
-			}
-		},
-		{
-			"match": "\\b(?i)((wf[ei])|cps(i[de])?)(?-i)\\b",
-			"name": "keyword.control.cpu.arm-ual"
-		},
-		{
-			"match": "\\b(?i)(def(b|w|s)|equ\\s.+\\.s)(?-i)\\b",
-			"name": "keyword.control.define.arm-ual"
-		},
-		{
-			"name": "keyword.control.directive.arm-ual",
-			"match": "\\.(?i)(globl|global|extern|weak|macro|endm|purgem|section|text|data|bss|arm|align|balign|irp|rept|endr|(un)?req|error|short|(end)?func|hidden|type|cpu|fpu|arch|code|syntax|altmacro|object_arch|word|int|string|thumb(_set)?|set|pragma|undef|line|get)(?-i)\\b"
+			"match": "\\.(?i)(asci[iz]|dc(?:\\.[abdlswx])?|dcb(?:\\.[bdlswx])?|ds(?:\\.[bdlpswx])?|double|float|single|hword|int|octa|quad|short|sleb128|uleb128|word|long|byte|[248]byte|string(?:8|16|32|64)?)\\b",
+			"name": "keyword.control.directive.emit.arm-ual"
 		},
 		{
 			"match": "\\b\\=",
@@ -161,20 +66,15 @@
 				"1": {
 					"patterns": [
 						{
-							"include": "#conditions",
-							"name": "comment.nop.arm-ual"
-						},
-						{
-							"match": "\\w+",
-							"name": "invalid.illegal.condition.arm-ual"
+							"include": "#conditions"
 						}
 					]
 				}
 			}
 		},
 		{
-			"name": "storage.memaddress.arm-ual",
 			"match": "\\[[ \\t]*(\\w+),[ \\t]*([a-zA-Z0-9#-_]+)[ \\t]*\\]!?",
+			"name": "storage.memaddress.arm-ual",
 			"captures": {
 				"1": {
 					"patterns": [
@@ -251,7 +151,8 @@
 		"conditions": {
 			"patterns": [
 				{
-					"match": "ne|eq|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|lt|le|gt|ge|al"
+					"match": "ne|eq|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|lt|le|gt|ge|al",
+					"name": "keyword.condition_code.arm-ual"
 				}
 			]
 		},
