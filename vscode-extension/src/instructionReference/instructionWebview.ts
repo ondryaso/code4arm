@@ -13,7 +13,6 @@ export class InstructionWebviewService {
     constructor(_dataPath: string, private _extensionUri: Uri, private _provider: MnemonicProvider) {
         this._dataUri = Uri.file(_dataPath);
         this._mediaUri = Uri.joinPath(this._extensionUri, 'media', 'instructionWebview');
-
     }
 
     private async makeBody(webview: vscode.Webview, docLink: string): Promise<string> {
@@ -22,9 +21,11 @@ export class InstructionWebviewService {
 
         const stylePath = Uri.joinPath(this._mediaUri, 'insn_custom.css');
         const styleSrc = webview.asWebviewUri(stylePath);
+        const origStylePath = Uri.joinPath(this._dataUri, 'insn.css');
+        const origStyleSrc = webview.asWebviewUri(origStylePath);
         const scriptSrc = webview.asWebviewUri(Uri.joinPath(this._mediaUri, 'main.js'));
 
-        body = body.replace('insn.css', styleSrc.toString());
+        body = body.replace('href="insn.css"/>', `href="${origStyleSrc.toString()}"/><link rel="stylesheet" type="text/css" href="${styleSrc.toString()}"/>`);
 
         // cut header
         body = body.replace('<body>', '<body><!--');
@@ -60,7 +61,7 @@ export class InstructionWebviewService {
         const panel = vscode.window.createWebviewPanel('code4arm.mnemonicWebview',
             mnemonic ?? 'Instruction', vscode.ViewColumn.One,
             {
-                localResourceRoots: [this._mediaUri],
+                localResourceRoots: [this._mediaUri, this._dataUri],
                 enableScripts: true,
                 enableFindWidget: true
             }
@@ -108,7 +109,7 @@ export class InstructionWebviewService {
             this._sharedPseudocodeView = vscode.window.createWebviewPanel('code4arm.mnemonicWebview',
                 'Instruction pseudocodes', vscode.ViewColumn.One,
                 {
-                    localResourceRoots: [this._mediaUri],
+                    localResourceRoots: [this._mediaUri, this._dataUri],
                     enableScripts: true,
                     retainContextWhenHidden: true,
                     enableFindWidget: true
