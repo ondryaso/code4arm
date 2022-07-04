@@ -67,7 +67,7 @@ publish_platform() {
     shift 2
 
     prepare_execution_service "$uni_platform" "$vsc_platform"
-    if [ $? -eq 0 ];
+    if [ "$?" -eq 0 ];
     then
         cp -f "$SCRIPT_DIR/res/allow_es.ts" "$EXTENSION_SRC_DIR/src/has_local_es.ts"
     else
@@ -80,7 +80,7 @@ publish_platform() {
     cd "$EXTENSION_SRC_DIR"
     vsce package --target "$vsc_platform" --out "$target" "$@"
 
-    if [ $PUBLISH -eq 0 ];
+    if [ "$PUBLISH" -eq 0 ];
     then
         vsce publish --packagePath "$target"
     fi

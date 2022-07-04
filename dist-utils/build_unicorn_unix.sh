@@ -44,6 +44,23 @@ build_unicorn() {
             return 1
         fi
 
+        [[ "$(wslpath -w .)" == "\\\\wsl"* ]]
+        is_wsl_path=$?
+
+        if [ "$is_wsl_path" -eq 0 ];
+        then
+            tmp_dir="/mnt/c/Windows/Temp/_c4a_build"
+            rm -rf "$tmp_dir"
+            cp -rf "$SCRIPT_DIR" "$tmp_dir"
+
+            prev_sd=$SCRIPT_DIR
+            prev_pb=$PUB_DIR
+
+            SCRIPT_DIR=$tmp_dir
+            PUB_DIR="$SCRIPT_DIR/publish"
+            cd "$PUB_DIR/unicorn/build-$target"
+        fi
+
         if [[ "$target" == "windows-x86_64" ]];
         then
             echo "Patching CMakeLists"
@@ -65,6 +82,15 @@ build_unicorn() {
         else
             echo "Windows taget $target is not supported yet"
             return 1
+        fi
+
+        if [ "$is_wsl_path" -eq 0 ];
+        then
+            cp -rf "$PUB_DIR/unicorn/build-$target" "$prev_pb/unicorn/build-$target"
+            SCRIPT_DIR=$prev_sd
+            PUB_DIR=$prev_pb
+            cd "$PUB_DIR/unicorn/build-$target" 
+            rm -rf "$tmp_dir"
         fi
 
         return 0
@@ -101,12 +127,12 @@ then
         build_unicorn
         build_unicorn "darwin-arm64"
     else
-        build_unicorn
-        build_unicorn "linux-arm64"
-        build_unicorn "linux-arm"
-        build_unicorn "linux-i386"
+        # build_unicorn
+        # build_unicorn "linux-arm64"
+        # build_unicorn "linux-arm"
+        # build_unicorn "linux-i386"
         build_unicorn "windows-x86_64"
-        build_unicorn "windows-i386"
+        # build_unicorn "windows-i386"
         # build_unicorn "windows-arm64" # TODO
     fi
 else
