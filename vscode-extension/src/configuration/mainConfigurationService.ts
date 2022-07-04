@@ -1,11 +1,13 @@
 import { EventEmitter, Event } from "vscode";
+import { HasLocalExecutionService } from "../has_local_es";
 import { IMainConfiguration } from "./mainConfiguration";
 
 class Configuration implements IMainConfiguration {
     enableLanguageServices: boolean = false;
     enableDebuggerServices: boolean = true;
-    useLocalRuntimeInstallation: boolean = true;
+    useLocalRuntimeInstallation: boolean = HasLocalExecutionService;
     remoteRuntimeAddress?: string;
+    localRuntimeAllowed: boolean = HasLocalExecutionService;
 }
 
 /**
@@ -33,6 +35,10 @@ export class MainConfigurationService {
     }
 
     public useLocalRuntime() {
+        if (!HasLocalExecutionService) {
+            throw Error('Local runtime is not available on this platform.');
+        }
+
         if (this._instance.useLocalRuntimeInstallation)
             return;
 
