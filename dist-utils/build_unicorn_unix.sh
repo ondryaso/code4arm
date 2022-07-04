@@ -86,7 +86,7 @@ build_unicorn() {
 
         if [ "$is_wsl_path" -eq 0 ];
         then
-            cp -rf "$PUB_DIR/unicorn/build-$target" "$prev_pb/unicorn/build-$target"
+            cp -rf "$PUB_DIR/unicorn/build-$target" "$prev_pb/unicorn/"
             SCRIPT_DIR=$prev_sd
             PUB_DIR=$prev_pb
             cd "$PUB_DIR/unicorn/build-$target" 
