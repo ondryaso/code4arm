@@ -11,9 +11,9 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Code4Arm.LanguageServer.Models;
 
-public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
+public class xPreprocessedSource : BufferedSourceBase, IPreprocessedSource
 {
-    internal PreprocessedSource(ISource baseSource, ILogger<PreprocessedSource> logger)
+    internal xPreprocessedSource(ISource baseSource, ILogger<xPreprocessedSource> logger)
     {
         this.BaseSource = baseSource;
         _text = string.Empty;

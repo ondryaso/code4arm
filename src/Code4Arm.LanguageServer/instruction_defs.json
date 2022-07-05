@@ -17,6 +17,8 @@
       {
         "asm": [
           "ADC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
           "<Ic>"
         ],
         "doc": "adc_i",
@@ -151,12 +153,8144 @@
     "name": "Interrupt",
     "variants": [
       {
-        "asm": ["SWI", "<Ic>"],
+        "asm": [
+          "SWI",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
         "doc": "swi"
       },
       {
-        "asm": ["SVC", "<Ic>"],
+        "asm": [
+          "SVC",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
         "doc": "swi"
+      }
+    ]
+  },
+  "ADD": {
+    "Name": "Add to PC",
+    "variants": [
+      {
+        "asm": [
+          "ADD<CQ>"
+        ],
+        "doc": "add_adr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "add_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "add_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "add_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "add_rr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "add_sp_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "add_sp_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "add_sp_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ADR": {
+    "Name": "Form PC-relative address",
+    "variants": [
+      {
+        "asm": [
+          "ADR<CQ>"
+        ],
+        "doc": "adr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "AND": {
+    "Name": "Bitwise AND",
+    "variants": [
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "and_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "and_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "and_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "and_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ASR": {
+    "Name": "Arithmetic Shift Right",
+    "variants": [
+      {
+        "asm": [
+          "ASR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "asr_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ASR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "asr_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ASR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "asr_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ASRS": {
+    "Name": "Arithmetic Shift Right, setting flags",
+    "variants": [
+      {
+        "asm": [
+          "ASRS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "asrs_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ASRS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "asrs_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ASRS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "asrs_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BFC": {
+    "Name": "Bit Field Clear",
+    "variants": [
+      {
+        "asm": [
+          "BFC<CQ>"
+        ],
+        "doc": "bfc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BFI": {
+    "Name": "Bit Field Insert",
+    "variants": [
+      {
+        "asm": [
+          "BFI<CQ>"
+        ],
+        "doc": "bfi",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BIC": {
+    "Name": "Bitwise Bit Clear",
+    "variants": [
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "bic_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "bic_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "bic_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "bic_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BKPT": {
+    "Name": "Breakpoint",
+    "variants": [
+      {
+        "asm": [
+          "BKPT<CQ>"
+        ],
+        "doc": "bkpt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BL": {
+    "Name": "Branch with Link and optional Exchange",
+    "variants": [
+      {
+        "asm": [
+          "BL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "bl_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BLX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "bl_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BLX": {
+    "Name": "Branch with Link and Exchange",
+    "variants": [
+      {
+        "asm": [
+          "BLX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "blx_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BLX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "blx_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BXJ": {
+    "Name": "Branch and Exchange, previously Branch and Exchange Jazelle",
+    "variants": [
+      {
+        "asm": [
+          "BXJ<CQ>"
+        ],
+        "doc": "bxj",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CB": {
+    "Name": "Compare and Branch on Nonzero or Zero",
+    "variants": [
+      {
+        "asm": [
+          "CBNZ<CQ>"
+        ],
+        "doc": "cbnz",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CBZ<CQ>"
+        ],
+        "doc": "cbnz",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CLREX": {
+    "Name": "Clear-Exclusive",
+    "variants": [
+      {
+        "asm": [
+          "CLREX<CQ>"
+        ],
+        "doc": "clrex",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CLZ": {
+    "Name": "Count Leading Zeros",
+    "variants": [
+      {
+        "asm": [
+          "CLZ<CQ>"
+        ],
+        "doc": "clz",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CMN": {
+    "Name": "Compare Negative",
+    "variants": [
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "cmn_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "cmn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "cmn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "cmn_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CMP": {
+    "Name": "Compare",
+    "variants": [
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "cmp_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "cmp_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "cmp_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "cmp_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CPS": {
+    "Name": "Change PE State",
+    "variants": [
+      {
+        "asm": [
+          "CPS<CQ>"
+        ],
+        "doc": "cps",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CPSID<CQ>"
+        ],
+        "doc": "cps",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CPSIE<CQ>"
+        ],
+        "doc": "cps",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CRC32": {
+    "Name": "CRC32",
+    "variants": [
+      {
+        "asm": [
+          "CRC32<CQ>"
+        ],
+        "doc": "crc32",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CRC32C": {
+    "Name": "CRC32C",
+    "variants": [
+      {
+        "asm": [
+          "CRC32C<CQ>"
+        ],
+        "doc": "crc32c",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CSDB": {
+    "Name": "Consumption of Speculative Data Barrier",
+    "variants": [
+      {
+        "asm": [
+          "CSDB<CQ>"
+        ],
+        "doc": "csdb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "DBG": {
+    "Name": "Debug hint",
+    "variants": [
+      {
+        "asm": [
+          "DBG<CQ>"
+        ],
+        "doc": "dbg",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "DCPS1": {
+    "Name": "Debug Change PE State to EL1",
+    "variants": [
+      {
+        "asm": [
+          "DCPS1<CQ>"
+        ],
+        "doc": "dcps1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "DCPS2": {
+    "Name": "Debug Change PE State to EL2",
+    "variants": [
+      {
+        "asm": [
+          "DCPS2<CQ>"
+        ],
+        "doc": "dcps2",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "DCPS3": {
+    "Name": "Debug Change PE State to EL3",
+    "variants": [
+      {
+        "asm": [
+          "DCPS3<CQ>"
+        ],
+        "doc": "dcps3",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "DMB": {
+    "Name": "Data Memory Barrier",
+    "variants": [
+      {
+        "asm": [
+          "DMB<CQ>"
+        ],
+        "doc": "dmb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "DSB": {
+    "Name": "Data Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "DSB<CQ>"
+        ],
+        "doc": "dsb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "EOR": {
+    "Name": "Bitwise Exclusive OR",
+    "variants": [
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "eor_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "eor_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "eor_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "eor_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ERET": {
+    "Name": "Exception Return",
+    "variants": [
+      {
+        "asm": [
+          "ERET<CQ>"
+        ],
+        "doc": "eret",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ESB": {
+    "Name": "Error Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "ESB<CQ>"
+        ],
+        "doc": "esb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "HLT": {
+    "Name": "Halting Breakpoint",
+    "variants": [
+      {
+        "asm": [
+          "HLT<CQ>"
+        ],
+        "doc": "hlt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "HVC": {
+    "Name": "Hypervisor Call",
+    "variants": [
+      {
+        "asm": [
+          "HVC<CQ>"
+        ],
+        "doc": "hvc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ISB": {
+    "Name": "Instruction Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "ISB<CQ>"
+        ],
+        "doc": "isb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "IT": {
+    "Name": "If-Then",
+    "variants": [
+      {
+        "asm": [
+          "IT<CQ>"
+        ],
+        "doc": "it",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDA": {
+    "Name": "Load-Acquire Word",
+    "variants": [
+      {
+        "asm": [
+          "LDA<CQ>"
+        ],
+        "doc": "lda",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDAB": {
+    "Name": "Load-Acquire Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDAB<CQ>"
+        ],
+        "doc": "ldab",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDAEX": {
+    "Name": "Load-Acquire Exclusive Word",
+    "variants": [
+      {
+        "asm": [
+          "LDAEX<CQ>"
+        ],
+        "doc": "ldaex",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDAEXB": {
+    "Name": "Load-Acquire Exclusive Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDAEXB<CQ>"
+        ],
+        "doc": "ldaexb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDAEXD": {
+    "Name": "Load-Acquire Exclusive Doubleword",
+    "variants": [
+      {
+        "asm": [
+          "LDAEXD<CQ>"
+        ],
+        "doc": "ldaexd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDAEXH": {
+    "Name": "Load-Acquire Exclusive Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDAEXH<CQ>"
+        ],
+        "doc": "ldaexh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDAH": {
+    "Name": "Load-Acquire Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDAH<CQ>"
+        ],
+        "doc": "ldah",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDC": {
+    "Name": "Load data to System register",
+    "variants": [
+      {
+        "asm": [
+          "LDC<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldc_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDC<CQ>"
+        ],
+        "doc": "ldc_l",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDM": {
+    "Name": "Load Multiple",
+    "variants": [
+      {
+        "asm": [
+          "LDM<CQ>"
+        ],
+        "doc": "ldm_e",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDM<CQ>"
+        ],
+        "doc": "ldm_u",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDM<CQ>"
+        ],
+        "doc": "ldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMIA<CQ>"
+        ],
+        "doc": "ldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMFD<CQ>"
+        ],
+        "doc": "ldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMDA<CQ>"
+        ],
+        "doc": "ldmda",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMFA<CQ>"
+        ],
+        "doc": "ldmda",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMDB<CQ>"
+        ],
+        "doc": "ldmdb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMEA<CQ>"
+        ],
+        "doc": "ldmdb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMIB<CQ>"
+        ],
+        "doc": "ldmib",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDMED<CQ>"
+        ],
+        "doc": "ldmib",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRB": {
+    "Name": "Load Register Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDRB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldrb_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRB<CQ>"
+        ],
+        "doc": "ldrb_l",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "ldrb_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "ldrb_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRBT": {
+    "Name": "Load Register Byte Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "LDRBT<CQ>"
+        ],
+        "doc": "ldrbt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRD": {
+    "Name": "Load Register Dual",
+    "variants": [
+      {
+        "asm": [
+          "LDRD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldrd_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRD<CQ>"
+        ],
+        "doc": "ldrd_l",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "ldrd_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "ldrd_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDREX": {
+    "Name": "Load Register Exclusive",
+    "variants": [
+      {
+        "asm": [
+          "LDREX<CQ>"
+        ],
+        "doc": "ldrex",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDREXB": {
+    "Name": "Load Register Exclusive Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDREXB<CQ>"
+        ],
+        "doc": "ldrexb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDREXD": {
+    "Name": "Load Register Exclusive Doubleword",
+    "variants": [
+      {
+        "asm": [
+          "LDREXD<CQ>"
+        ],
+        "doc": "ldrexd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDREXH": {
+    "Name": "Load Register Exclusive Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDREXH<CQ>"
+        ],
+        "doc": "ldrexh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRH": {
+    "Name": "Load Register Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDRH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldrh_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRH<CQ>"
+        ],
+        "doc": "ldrh_l",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "ldrh_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "ldrh_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRHT": {
+    "Name": "Load Register Halfword Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "LDRHT<CQ>"
+        ],
+        "doc": "ldrht",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRSB": {
+    "Name": "Load Register Signed Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDRSB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldrsb_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRSB<CQ>"
+        ],
+        "doc": "ldrsb_l",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRSB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "ldrsb_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRSB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "ldrsb_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRSBT": {
+    "Name": "Load Register Signed Byte Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "LDRSBT<CQ>"
+        ],
+        "doc": "ldrsbt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRSH": {
+    "Name": "Load Register Signed Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDRSH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldrsh_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRSH<CQ>"
+        ],
+        "doc": "ldrsh_l",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRSH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "ldrsh_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDRSH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "ldrsh_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRSHT": {
+    "Name": "Load Register Signed Halfword Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "LDRSHT<CQ>"
+        ],
+        "doc": "ldrsht",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LDRT": {
+    "Name": "Load Register Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "LDRT<CQ>"
+        ],
+        "doc": "ldrt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LSL": {
+    "Name": "Logical Shift Left",
+    "variants": [
+      {
+        "asm": [
+          "LSL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "lsl_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "lsl_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "lsl_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LSLS": {
+    "Name": "Logical Shift Left, setting flags",
+    "variants": [
+      {
+        "asm": [
+          "LSLS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "lsls_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSLS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "lsls_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSLS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "lsls_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LSR": {
+    "Name": "Logical Shift Right",
+    "variants": [
+      {
+        "asm": [
+          "LSR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "lsr_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "lsr_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "lsr_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "LSRS": {
+    "Name": "Logical Shift Right, setting flags",
+    "variants": [
+      {
+        "asm": [
+          "LSRS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "lsrs_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSRS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "lsrs_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LSRS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "lsrs_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MCR": {
+    "Name": "Move to System register from general-purpose register or execute a System instruction",
+    "variants": [
+      {
+        "asm": [
+          "MCR<CQ>"
+        ],
+        "doc": "mcr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MCRR": {
+    "Name": "Move to System register from two general-purpose registers",
+    "variants": [
+      {
+        "asm": [
+          "MCRR<CQ>"
+        ],
+        "doc": "mcrr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MLA": {
+    "Name": "Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "MLA<SCQ>"
+        ],
+        "doc": "mla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MLS": {
+    "Name": "Multiply and Subtract",
+    "variants": [
+      {
+        "asm": [
+          "MLS<CQ>"
+        ],
+        "doc": "mls",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MOV": {
+    "Name": "Move",
+    "variants": [
+      {
+        "asm": [
+          "MOV<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "mov_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MOV<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MOV<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MOV<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MOVT": {
+    "Name": "Move Top",
+    "variants": [
+      {
+        "asm": [
+          "MOVT<CQ>"
+        ],
+        "doc": "movt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MRC": {
+    "Name": "Move to general-purpose register from System register",
+    "variants": [
+      {
+        "asm": [
+          "MRC<CQ>"
+        ],
+        "doc": "mrc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MRRC": {
+    "Name": "Move to two general-purpose registers from System register",
+    "variants": [
+      {
+        "asm": [
+          "MRRC<CQ>"
+        ],
+        "doc": "mrrc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MRS": {
+    "Name": "Move Special register to general-purpose register",
+    "variants": [
+      {
+        "asm": [
+          "MRS<CQ>"
+        ],
+        "doc": "mrs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MRS<CQ>"
+        ],
+        "doc": "mrs_br",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MSR": {
+    "Name": "Move general-purpose register to Banked or Special register",
+    "variants": [
+      {
+        "asm": [
+          "MSR<CQ>"
+        ],
+        "doc": "msr_br",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MSR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "msr_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MSR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "msr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MSR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "msr_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MUL": {
+    "Name": "Multiply",
+    "variants": [
+      {
+        "asm": [
+          "MUL<SCQ>"
+        ],
+        "doc": "mul",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "MVN": {
+    "Name": "Bitwise NOT",
+    "variants": [
+      {
+        "asm": [
+          "MVN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "mvn_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MVN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "mvn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MVN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "mvn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "MVN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "mvn_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "NOP": {
+    "Name": "No Operation",
+    "variants": [
+      {
+        "asm": [
+          "NOP<CQ>"
+        ],
+        "doc": "nop",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ORN": {
+    "Name": "Bitwise OR NOT",
+    "variants": [
+      {
+        "asm": [
+          "ORN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "orn_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ORN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "orn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ORN<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "orn_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ORR": {
+    "Name": "Bitwise OR",
+    "variants": [
+      {
+        "asm": [
+          "ORR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "orr_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ORR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "orr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ORR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "orr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ORR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "orr_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "PKH": {
+    "Name": "Pack Halfword",
+    "variants": [
+      {
+        "asm": [
+          "PKHBT<CQ>"
+        ],
+        "doc": "pkh",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PKHTB<CQ>"
+        ],
+        "doc": "pkh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "PLD": {
+    "Name": "Preload Data",
+    "variants": [
+      {
+        "asm": [
+          "PLD<CQ>"
+        ],
+        "doc": "pld_l",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "pld_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLDW<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "pld_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "pld_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "pld_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLDW<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "pld_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLDW<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "pld_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "PLI": {
+    "Name": "Preload Instruction",
+    "variants": [
+      {
+        "asm": [
+          "PLI<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "pli_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLI<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "pli_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PLI<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "pli_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "POP": {
+    "Name": "Pop Multiple Registers from Stack",
+    "variants": [
+      {
+        "asm": [
+          "POP<CQ>"
+        ],
+        "doc": "pop",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "POP<CQ>"
+        ],
+        "doc": "pop_ldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "POP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "pop_ldr_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "PSSBB": {
+    "Name": "Physical Speculative Store Bypass Barrier",
+    "variants": [
+      {
+        "asm": [
+          "PSSBB<CQ>"
+        ],
+        "doc": "pssbb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "PUSH": {
+    "Name": "Push Multiple Registers to Stack",
+    "variants": [
+      {
+        "asm": [
+          "PUSH<CQ>"
+        ],
+        "doc": "push",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PUSH<CQ>"
+        ],
+        "doc": "push_stmdb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "PUSH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "push_str_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QADD": {
+    "Name": "Saturating Add",
+    "variants": [
+      {
+        "asm": [
+          "QADD<CQ>"
+        ],
+        "doc": "qadd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QADD16": {
+    "Name": "Saturating Add 16",
+    "variants": [
+      {
+        "asm": [
+          "QADD16<CQ>"
+        ],
+        "doc": "qadd16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QADD8": {
+    "Name": "Saturating Add 8",
+    "variants": [
+      {
+        "asm": [
+          "QADD8<CQ>"
+        ],
+        "doc": "qadd8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QASX": {
+    "Name": "Saturating Add and Subtract with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "QASX<CQ>"
+        ],
+        "doc": "qasx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QDADD": {
+    "Name": "Saturating Double and Add",
+    "variants": [
+      {
+        "asm": [
+          "QDADD<CQ>"
+        ],
+        "doc": "qdadd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QDSUB": {
+    "Name": "Saturating Double and Subtract",
+    "variants": [
+      {
+        "asm": [
+          "QDSUB<CQ>"
+        ],
+        "doc": "qdsub",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QSAX": {
+    "Name": "Saturating Subtract and Add with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "QSAX<CQ>"
+        ],
+        "doc": "qsax",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QSUB": {
+    "Name": "Saturating Subtract",
+    "variants": [
+      {
+        "asm": [
+          "QSUB<CQ>"
+        ],
+        "doc": "qsub",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QSUB16": {
+    "Name": "Saturating Subtract 16",
+    "variants": [
+      {
+        "asm": [
+          "QSUB16<CQ>"
+        ],
+        "doc": "qsub16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "QSUB8": {
+    "Name": "Saturating Subtract 8",
+    "variants": [
+      {
+        "asm": [
+          "QSUB8<CQ>"
+        ],
+        "doc": "qsub8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RBIT": {
+    "Name": "Reverse Bits",
+    "variants": [
+      {
+        "asm": [
+          "RBIT<CQ>"
+        ],
+        "doc": "rbit",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "REV": {
+    "Name": "Byte-Reverse Word",
+    "variants": [
+      {
+        "asm": [
+          "REV<CQ>"
+        ],
+        "doc": "rev",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "REV16": {
+    "Name": "Byte-Reverse Packed Halfword",
+    "variants": [
+      {
+        "asm": [
+          "REV16<CQ>"
+        ],
+        "doc": "rev16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "REVSH": {
+    "Name": "Byte-Reverse Signed Halfword",
+    "variants": [
+      {
+        "asm": [
+          "REVSH<CQ>"
+        ],
+        "doc": "revsh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RFE": {
+    "Name": "Return From Exception",
+    "variants": [
+      {
+        "asm": [
+          "RFE<CQ>"
+        ],
+        "doc": "rfe",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RFEDA<CQ>"
+        ],
+        "doc": "rfe",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RFEDB<CQ>"
+        ],
+        "doc": "rfe",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RFEIA<CQ>"
+        ],
+        "doc": "rfe",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RFEIB<CQ>"
+        ],
+        "doc": "rfe",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ROR": {
+    "Name": "Rotate Right",
+    "variants": [
+      {
+        "asm": [
+          "ROR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "ror_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ROR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "ror_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ROR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "ror_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RORS": {
+    "Name": "Rotate Right, setting flags",
+    "variants": [
+      {
+        "asm": [
+          "RORS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "rors_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RORS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "rors_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RORS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "rors_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RRX": {
+    "Name": "Rotate Right with Extend",
+    "variants": [
+      {
+        "asm": [
+          "RRX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "rrx_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RRX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "rrx_mov_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RRXS": {
+    "Name": "Rotate Right with Extend, setting flags",
+    "variants": [
+      {
+        "asm": [
+          "RRXS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "rrxs_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RRXS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "rrxs_mov_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RS": {
+    "Name": "Reverse Subtract",
+    "variants": [
+      {
+        "asm": [
+          "RSB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "rsb_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RSB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "rsb_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RSB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "rsb_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RSB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "rsb_rr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RSC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "rsc_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "RSC": {
+    "Name": "Reverse Subtract with Carry",
+    "variants": [
+      {
+        "asm": [
+          "RSC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "rsc_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RSC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "rsc_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "RSC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "rsc_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SADD16": {
+    "Name": "Signed Add 16",
+    "variants": [
+      {
+        "asm": [
+          "SADD16<CQ>"
+        ],
+        "doc": "sadd16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SADD8": {
+    "Name": "Signed Add 8",
+    "variants": [
+      {
+        "asm": [
+          "SADD8<CQ>"
+        ],
+        "doc": "sadd8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SASX": {
+    "Name": "Signed Add and Subtract with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "SASX<CQ>"
+        ],
+        "doc": "sasx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SB": {
+    "Name": "Speculation Barrier",
+    "variants": [
+      {
+        "asm": [
+          "SB<CQ>"
+        ],
+        "doc": "sb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SBC": {
+    "Name": "Subtract with Carry",
+    "variants": [
+      {
+        "asm": [
+          "SBC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "sbc_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SBC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "sbc_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SBC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "sbc_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SBC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "sbc_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SBFX": {
+    "Name": "Signed Bit Field Extract",
+    "variants": [
+      {
+        "asm": [
+          "SBFX<CQ>"
+        ],
+        "doc": "sbfx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SDIV": {
+    "Name": "Signed Divide",
+    "variants": [
+      {
+        "asm": [
+          "SDIV<CQ>"
+        ],
+        "doc": "sdiv",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SEL": {
+    "Name": "Select Bytes",
+    "variants": [
+      {
+        "asm": [
+          "SEL<CQ>"
+        ],
+        "doc": "sel",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SETEND": {
+    "Name": "Set Endianness",
+    "variants": [
+      {
+        "asm": [
+          "SETEND<CQ>"
+        ],
+        "doc": "setend",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SETPAN": {
+    "Name": "Set Privileged Access Never",
+    "variants": [
+      {
+        "asm": [
+          "SETPAN<CQ>"
+        ],
+        "doc": "setpan",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SEV": {
+    "Name": "Send Event",
+    "variants": [
+      {
+        "asm": [
+          "SEV<CQ>"
+        ],
+        "doc": "sev",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SEVL": {
+    "Name": "Send Event Local",
+    "variants": [
+      {
+        "asm": [
+          "SEVL<CQ>"
+        ],
+        "doc": "sevl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHADD16": {
+    "Name": "Signed Halving Add 16",
+    "variants": [
+      {
+        "asm": [
+          "SHADD16<CQ>"
+        ],
+        "doc": "shadd16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHADD8": {
+    "Name": "Signed Halving Add 8",
+    "variants": [
+      {
+        "asm": [
+          "SHADD8<CQ>"
+        ],
+        "doc": "shadd8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHASX": {
+    "Name": "Signed Halving Add and Subtract with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "SHASX<CQ>"
+        ],
+        "doc": "shasx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHSAX": {
+    "Name": "Signed Halving Subtract and Add with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "SHSAX<CQ>"
+        ],
+        "doc": "shsax",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHSUB16": {
+    "Name": "Signed Halving Subtract 16",
+    "variants": [
+      {
+        "asm": [
+          "SHSUB16<CQ>"
+        ],
+        "doc": "shsub16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHSUB8": {
+    "Name": "Signed Halving Subtract 8",
+    "variants": [
+      {
+        "asm": [
+          "SHSUB8<CQ>"
+        ],
+        "doc": "shsub8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMC": {
+    "Name": "Secure Monitor Call",
+    "variants": [
+      {
+        "asm": [
+          "SMC<CQ>"
+        ],
+        "doc": "smc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMLA": {
+    "Name": "Signed Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "SMLABB<CQ>"
+        ],
+        "doc": "smlabb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLABT<CQ>"
+        ],
+        "doc": "smlabb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLATB<CQ>"
+        ],
+        "doc": "smlabb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLATT<CQ>"
+        ],
+        "doc": "smlabb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLAWB<CQ>"
+        ],
+        "doc": "smlawb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLAWT<CQ>"
+        ],
+        "doc": "smlawb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMLAD": {
+    "Name": "Signed Multiply Accumulate Dual",
+    "variants": [
+      {
+        "asm": [
+          "SMLAD<CQ>"
+        ],
+        "doc": "smlad",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLADX<CQ>"
+        ],
+        "doc": "smlad",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMLAL": {
+    "Name": "Signed Multiply Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "SMLAL<SCQ>"
+        ],
+        "doc": "smlal",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLALBB<CQ>"
+        ],
+        "doc": "smlalbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLALBT<CQ>"
+        ],
+        "doc": "smlalbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLALTB<CQ>"
+        ],
+        "doc": "smlalbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLALTT<CQ>"
+        ],
+        "doc": "smlalbb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMLALD": {
+    "Name": "Signed Multiply Accumulate Long Dual",
+    "variants": [
+      {
+        "asm": [
+          "SMLALD<CQ>"
+        ],
+        "doc": "smlald",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLALDX<CQ>"
+        ],
+        "doc": "smlald",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SM": {
+    "Name": "Signed Multiply Subtract Dual",
+    "variants": [
+      {
+        "asm": [
+          "SMLSD<CQ>"
+        ],
+        "doc": "smlsd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLSDX<CQ>"
+        ],
+        "doc": "smlsd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMUSD<CQ>"
+        ],
+        "doc": "smusd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMUSDX<CQ>"
+        ],
+        "doc": "smusd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMLSLD": {
+    "Name": "Signed Multiply Subtract Long Dual",
+    "variants": [
+      {
+        "asm": [
+          "SMLSLD<CQ>"
+        ],
+        "doc": "smlsld",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMLSLDX<CQ>"
+        ],
+        "doc": "smlsld",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMMLA": {
+    "Name": "Signed Most Significant Word Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "SMMLA<CQ>"
+        ],
+        "doc": "smmla",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMMLAR<CQ>"
+        ],
+        "doc": "smmla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMMLS": {
+    "Name": "Signed Most Significant Word Multiply Subtract",
+    "variants": [
+      {
+        "asm": [
+          "SMMLS<CQ>"
+        ],
+        "doc": "smmls",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMMLSR<CQ>"
+        ],
+        "doc": "smmls",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMMUL": {
+    "Name": "Signed Most Significant Word Multiply",
+    "variants": [
+      {
+        "asm": [
+          "SMMUL<CQ>"
+        ],
+        "doc": "smmul",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMMULR<CQ>"
+        ],
+        "doc": "smmul",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMUAD": {
+    "Name": "Signed Dual Multiply Add",
+    "variants": [
+      {
+        "asm": [
+          "SMUAD<CQ>"
+        ],
+        "doc": "smuad",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMUADX<CQ>"
+        ],
+        "doc": "smuad",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMUL": {
+    "Name": "Signed Multiply",
+    "variants": [
+      {
+        "asm": [
+          "SMULBB<CQ>"
+        ],
+        "doc": "smulbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMULBT<CQ>"
+        ],
+        "doc": "smulbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMULTB<CQ>"
+        ],
+        "doc": "smulbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMULTT<CQ>"
+        ],
+        "doc": "smulbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMULWB<CQ>"
+        ],
+        "doc": "smulwb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SMULWT<CQ>"
+        ],
+        "doc": "smulwb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SMULL": {
+    "Name": "Signed Multiply Long",
+    "variants": [
+      {
+        "asm": [
+          "SMULL<SCQ>"
+        ],
+        "doc": "smull",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SRS": {
+    "Name": "Store Return State",
+    "variants": [
+      {
+        "asm": [
+          "SRS<CQ>"
+        ],
+        "doc": "srs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SRSDA<CQ>"
+        ],
+        "doc": "srs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SRSDB<CQ>"
+        ],
+        "doc": "srs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SRSIA<CQ>"
+        ],
+        "doc": "srs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SRSIB<CQ>"
+        ],
+        "doc": "srs",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SSAT": {
+    "Name": "Signed Saturate",
+    "variants": [
+      {
+        "asm": [
+          "SSAT<CQ>"
+        ],
+        "doc": "ssat",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SSAT16": {
+    "Name": "Signed Saturate 16",
+    "variants": [
+      {
+        "asm": [
+          "SSAT16<CQ>"
+        ],
+        "doc": "ssat16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SSAX": {
+    "Name": "Signed Subtract and Add with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "SSAX<CQ>"
+        ],
+        "doc": "ssax",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SSBB": {
+    "Name": "Speculative Store Bypass Barrier",
+    "variants": [
+      {
+        "asm": [
+          "SSBB<CQ>"
+        ],
+        "doc": "ssbb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SSUB16": {
+    "Name": "Signed Subtract 16",
+    "variants": [
+      {
+        "asm": [
+          "SSUB16<CQ>"
+        ],
+        "doc": "ssub16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SSUB8": {
+    "Name": "Signed Subtract 8",
+    "variants": [
+      {
+        "asm": [
+          "SSUB8<CQ>"
+        ],
+        "doc": "ssub8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STC": {
+    "Name": "Store data to System register",
+    "variants": [
+      {
+        "asm": [
+          "STC<CQ>"
+        ],
+        "doc": "stc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STL": {
+    "Name": "Store-Release Word",
+    "variants": [
+      {
+        "asm": [
+          "STL<CQ>"
+        ],
+        "doc": "stl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STLB": {
+    "Name": "Store-Release Byte",
+    "variants": [
+      {
+        "asm": [
+          "STLB<CQ>"
+        ],
+        "doc": "stlb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STLEX": {
+    "Name": "Store-Release Exclusive Word",
+    "variants": [
+      {
+        "asm": [
+          "STLEX<CQ>"
+        ],
+        "doc": "stlex",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STLEXB": {
+    "Name": "Store-Release Exclusive Byte",
+    "variants": [
+      {
+        "asm": [
+          "STLEXB<CQ>"
+        ],
+        "doc": "stlexb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STLEXD": {
+    "Name": "Store-Release Exclusive Doubleword",
+    "variants": [
+      {
+        "asm": [
+          "STLEXD<CQ>"
+        ],
+        "doc": "stlexd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STLEXH": {
+    "Name": "Store-Release Exclusive Halfword",
+    "variants": [
+      {
+        "asm": [
+          "STLEXH<CQ>"
+        ],
+        "doc": "stlexh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STLH": {
+    "Name": "Store-Release Halfword",
+    "variants": [
+      {
+        "asm": [
+          "STLH<CQ>"
+        ],
+        "doc": "stlh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STM": {
+    "Name": "Store Multiple",
+    "variants": [
+      {
+        "asm": [
+          "STM<CQ>"
+        ],
+        "doc": "stm_u",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STM<CQ>"
+        ],
+        "doc": "stm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMIA<CQ>"
+        ],
+        "doc": "stm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMEA<CQ>"
+        ],
+        "doc": "stm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMDA<CQ>"
+        ],
+        "doc": "stmda",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMED<CQ>"
+        ],
+        "doc": "stmda",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMDB<CQ>"
+        ],
+        "doc": "stmdb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMFD<CQ>"
+        ],
+        "doc": "stmdb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMIB<CQ>"
+        ],
+        "doc": "stmib",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STMFA<CQ>"
+        ],
+        "doc": "stmib",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STR": {
+    "Name": "Store Register",
+    "variants": [
+      {
+        "asm": [
+          "STR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "str_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "str_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "str_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STRB": {
+    "Name": "Store Register Byte",
+    "variants": [
+      {
+        "asm": [
+          "STRB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "strb_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STRB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "strb_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STRB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "strb_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STRBT": {
+    "Name": "Store Register Byte Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "STRBT<CQ>"
+        ],
+        "doc": "strbt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STRD": {
+    "Name": "Store Register Dual",
+    "variants": [
+      {
+        "asm": [
+          "STRD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "strd_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STRD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "strd_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STRD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "strd_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STREX": {
+    "Name": "Store Register Exclusive",
+    "variants": [
+      {
+        "asm": [
+          "STREX<CQ>"
+        ],
+        "doc": "strex",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STREXB": {
+    "Name": "Store Register Exclusive Byte",
+    "variants": [
+      {
+        "asm": [
+          "STREXB<CQ>"
+        ],
+        "doc": "strexb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STREXD": {
+    "Name": "Store Register Exclusive Doubleword",
+    "variants": [
+      {
+        "asm": [
+          "STREXD<CQ>"
+        ],
+        "doc": "strexd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STREXH": {
+    "Name": "Store Register Exclusive Halfword",
+    "variants": [
+      {
+        "asm": [
+          "STREXH<CQ>"
+        ],
+        "doc": "strexh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STRH": {
+    "Name": "Store Register Halfword",
+    "variants": [
+      {
+        "asm": [
+          "STRH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "strh_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STRH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "strh_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "STRH<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "strh_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STRHT": {
+    "Name": "Store Register Halfword Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "STRHT<CQ>"
+        ],
+        "doc": "strht",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "STRT": {
+    "Name": "Store Register Unprivileged",
+    "variants": [
+      {
+        "asm": [
+          "STRT<CQ>"
+        ],
+        "doc": "strt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SUB": {
+    "Name": "Subtract from PC",
+    "variants": [
+      {
+        "asm": [
+          "SUB<CQ>"
+        ],
+        "doc": "sub_adr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "sub_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "sub_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "sub_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "sub_rr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "sub_sp_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "sub_sp_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SUB<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "sub_sp_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SVC": {
+    "Name": "Supervisor Call",
+    "variants": [
+      {
+        "asm": [
+          "SVC<CQ>"
+        ],
+        "doc": "svc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SXTAB": {
+    "Name": "Signed Extend and Add Byte",
+    "variants": [
+      {
+        "asm": [
+          "SXTAB<CQ>"
+        ],
+        "doc": "sxtab",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SXTAB16": {
+    "Name": "Signed Extend and Add Byte 16",
+    "variants": [
+      {
+        "asm": [
+          "SXTAB16<CQ>"
+        ],
+        "doc": "sxtab16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SXTAH": {
+    "Name": "Signed Extend and Add Halfword",
+    "variants": [
+      {
+        "asm": [
+          "SXTAH<CQ>"
+        ],
+        "doc": "sxtah",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SXTB": {
+    "Name": "Signed Extend Byte",
+    "variants": [
+      {
+        "asm": [
+          "SXTB<CQ>"
+        ],
+        "doc": "sxtb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SXTB16": {
+    "Name": "Signed Extend Byte 16",
+    "variants": [
+      {
+        "asm": [
+          "SXTB16<CQ>"
+        ],
+        "doc": "sxtb16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SXTH": {
+    "Name": "Signed Extend Halfword",
+    "variants": [
+      {
+        "asm": [
+          "SXTH<CQ>"
+        ],
+        "doc": "sxth",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "TB": {
+    "Name": "Table Branch Byte or Halfword",
+    "variants": [
+      {
+        "asm": [
+          "TBB<CQ>"
+        ],
+        "doc": "tbb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TBH<CQ>"
+        ],
+        "doc": "tbb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "TEQ": {
+    "Name": "Test Equivalence",
+    "variants": [
+      {
+        "asm": [
+          "TEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "teq_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "teq_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "teq_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "teq_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "TSB CSYNC": {
+    "Name": "Trace Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "TSB CSYNC<CQ>"
+        ],
+        "doc": "tsb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "TST": {
+    "Name": "Test",
+    "variants": [
+      {
+        "asm": [
+          "TST<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "tst_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TST<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "tst_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TST<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "tst_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "TST<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "tst_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UADD16": {
+    "Name": "Unsigned Add 16",
+    "variants": [
+      {
+        "asm": [
+          "UADD16<CQ>"
+        ],
+        "doc": "uadd16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UADD8": {
+    "Name": "Unsigned Add 8",
+    "variants": [
+      {
+        "asm": [
+          "UADD8<CQ>"
+        ],
+        "doc": "uadd8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UASX": {
+    "Name": "Unsigned Add and Subtract with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "UASX<CQ>"
+        ],
+        "doc": "uasx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UBFX": {
+    "Name": "Unsigned Bit Field Extract",
+    "variants": [
+      {
+        "asm": [
+          "UBFX<CQ>"
+        ],
+        "doc": "ubfx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UDF": {
+    "Name": "Permanently Undefined",
+    "variants": [
+      {
+        "asm": [
+          "UDF<CQ>"
+        ],
+        "doc": "udf",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UDIV": {
+    "Name": "Unsigned Divide",
+    "variants": [
+      {
+        "asm": [
+          "UDIV<CQ>"
+        ],
+        "doc": "udiv",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UHADD16": {
+    "Name": "Unsigned Halving Add 16",
+    "variants": [
+      {
+        "asm": [
+          "UHADD16<CQ>"
+        ],
+        "doc": "uhadd16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UHADD8": {
+    "Name": "Unsigned Halving Add 8",
+    "variants": [
+      {
+        "asm": [
+          "UHADD8<CQ>"
+        ],
+        "doc": "uhadd8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UHASX": {
+    "Name": "Unsigned Halving Add and Subtract with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "UHASX<CQ>"
+        ],
+        "doc": "uhasx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UHSAX": {
+    "Name": "Unsigned Halving Subtract and Add with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "UHSAX<CQ>"
+        ],
+        "doc": "uhsax",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UHSUB16": {
+    "Name": "Unsigned Halving Subtract 16",
+    "variants": [
+      {
+        "asm": [
+          "UHSUB16<CQ>"
+        ],
+        "doc": "uhsub16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UHSUB8": {
+    "Name": "Unsigned Halving Subtract 8",
+    "variants": [
+      {
+        "asm": [
+          "UHSUB8<CQ>"
+        ],
+        "doc": "uhsub8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UMAAL": {
+    "Name": "Unsigned Multiply Accumulate Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "UMAAL<CQ>"
+        ],
+        "doc": "umaal",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UMLAL": {
+    "Name": "Unsigned Multiply Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "UMLAL<SCQ>"
+        ],
+        "doc": "umlal",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UMULL": {
+    "Name": "Unsigned Multiply Long",
+    "variants": [
+      {
+        "asm": [
+          "UMULL<SCQ>"
+        ],
+        "doc": "umull",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UQADD16": {
+    "Name": "Unsigned Saturating Add 16",
+    "variants": [
+      {
+        "asm": [
+          "UQADD16<CQ>"
+        ],
+        "doc": "uqadd16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UQADD8": {
+    "Name": "Unsigned Saturating Add 8",
+    "variants": [
+      {
+        "asm": [
+          "UQADD8<CQ>"
+        ],
+        "doc": "uqadd8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UQASX": {
+    "Name": "Unsigned Saturating Add and Subtract with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "UQASX<CQ>"
+        ],
+        "doc": "uqasx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UQSAX": {
+    "Name": "Unsigned Saturating Subtract and Add with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "UQSAX<CQ>"
+        ],
+        "doc": "uqsax",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UQSUB16": {
+    "Name": "Unsigned Saturating Subtract 16",
+    "variants": [
+      {
+        "asm": [
+          "UQSUB16<CQ>"
+        ],
+        "doc": "uqsub16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UQSUB8": {
+    "Name": "Unsigned Saturating Subtract 8",
+    "variants": [
+      {
+        "asm": [
+          "UQSUB8<CQ>"
+        ],
+        "doc": "uqsub8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USAD8": {
+    "Name": "Unsigned Sum of Absolute Differences",
+    "variants": [
+      {
+        "asm": [
+          "USAD8<CQ>"
+        ],
+        "doc": "usad8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USADA8": {
+    "Name": "Unsigned Sum of Absolute Differences and Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "USADA8<CQ>"
+        ],
+        "doc": "usada8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USAT": {
+    "Name": "Unsigned Saturate",
+    "variants": [
+      {
+        "asm": [
+          "USAT<CQ>"
+        ],
+        "doc": "usat",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USAT16": {
+    "Name": "Unsigned Saturate 16",
+    "variants": [
+      {
+        "asm": [
+          "USAT16<CQ>"
+        ],
+        "doc": "usat16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USAX": {
+    "Name": "Unsigned Subtract and Add with Exchange",
+    "variants": [
+      {
+        "asm": [
+          "USAX<CQ>"
+        ],
+        "doc": "usax",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USUB16": {
+    "Name": "Unsigned Subtract 16",
+    "variants": [
+      {
+        "asm": [
+          "USUB16<CQ>"
+        ],
+        "doc": "usub16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "USUB8": {
+    "Name": "Unsigned Subtract 8",
+    "variants": [
+      {
+        "asm": [
+          "USUB8<CQ>"
+        ],
+        "doc": "usub8",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UXTAB": {
+    "Name": "Unsigned Extend and Add Byte",
+    "variants": [
+      {
+        "asm": [
+          "UXTAB<CQ>"
+        ],
+        "doc": "uxtab",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UXTAB16": {
+    "Name": "Unsigned Extend and Add Byte 16",
+    "variants": [
+      {
+        "asm": [
+          "UXTAB16<CQ>"
+        ],
+        "doc": "uxtab16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UXTAH": {
+    "Name": "Unsigned Extend and Add Halfword",
+    "variants": [
+      {
+        "asm": [
+          "UXTAH<CQ>"
+        ],
+        "doc": "uxtah",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UXTB": {
+    "Name": "Unsigned Extend Byte",
+    "variants": [
+      {
+        "asm": [
+          "UXTB<CQ>"
+        ],
+        "doc": "uxtb",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UXTB16": {
+    "Name": "Unsigned Extend Byte 16",
+    "variants": [
+      {
+        "asm": [
+          "UXTB16<CQ>"
+        ],
+        "doc": "uxtb16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "UXTH": {
+    "Name": "Unsigned Extend Halfword",
+    "variants": [
+      {
+        "asm": [
+          "UXTH<CQ>"
+        ],
+        "doc": "uxth",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "WFE": {
+    "Name": "Wait For Event",
+    "variants": [
+      {
+        "asm": [
+          "WFE<CQ>"
+        ],
+        "doc": "wfe",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "WFI": {
+    "Name": "Wait For Interrupt",
+    "variants": [
+      {
+        "asm": [
+          "WFI<CQ>"
+        ],
+        "doc": "wfi",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "YIELD": {
+    "Name": "Yield hint",
+    "variants": [
+      {
+        "asm": [
+          "YIELD<CQ>"
+        ],
+        "doc": "yield",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "Proprietary Notice": {
+    "Name": "</div></td></tr></table><hr/><h1 class=\"alphindextitle\">AArch32 -- SIMD&amp;FP Instructions",
+    "variants": [
+      {
+        "asm": [
+          "Proprietary Notice<CQ>"
+        ],
+        "doc": "index",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "AESD": {
+    "Name": "AES single round decryption",
+    "variants": [
+      {
+        "asm": [
+          "AESD<CQ>"
+        ],
+        "doc": "aesd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "AESE": {
+    "Name": "AES single round encryption",
+    "variants": [
+      {
+        "asm": [
+          "AESE<CQ>"
+        ],
+        "doc": "aese",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "AESIMC": {
+    "Name": "AES inverse mix columns",
+    "variants": [
+      {
+        "asm": [
+          "AESIMC<CQ>"
+        ],
+        "doc": "aesimc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "AESMC": {
+    "Name": "AES mix columns",
+    "variants": [
+      {
+        "asm": [
+          "AESMC<CQ>"
+        ],
+        "doc": "aesmc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "FLDM": {
+    "Name": "FLDM*X",
+    "variants": [
+      {
+        "asm": [
+          "FLDMDBX<CQ>"
+        ],
+        "doc": "fldmx",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "FLDMIAX<CQ>"
+        ],
+        "doc": "fldmx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "FSTM": {
+    "Name": "FSTMX",
+    "variants": [
+      {
+        "asm": [
+          "FSTMDBX<CQ>"
+        ],
+        "doc": "fstmx",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "FSTMIAX<CQ>"
+        ],
+        "doc": "fstmx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA1": {
+    "Name": "SHA1 hash update",
+    "variants": [
+      {
+        "asm": [
+          "SHA1C<CQ>"
+        ],
+        "doc": "sha1c",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SHA1M<CQ>"
+        ],
+        "doc": "sha1m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "SHA1P<CQ>"
+        ],
+        "doc": "sha1p",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA1H": {
+    "Name": "SHA1 fixed rotate",
+    "variants": [
+      {
+        "asm": [
+          "SHA1H<CQ>"
+        ],
+        "doc": "sha1h",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA1SU0": {
+    "Name": "SHA1 schedule update 0",
+    "variants": [
+      {
+        "asm": [
+          "SHA1SU0<CQ>"
+        ],
+        "doc": "sha1su0",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA1SU1": {
+    "Name": "SHA1 schedule update 1",
+    "variants": [
+      {
+        "asm": [
+          "SHA1SU1<CQ>"
+        ],
+        "doc": "sha1su1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA256H": {
+    "Name": "SHA256 hash update part 1",
+    "variants": [
+      {
+        "asm": [
+          "SHA256H<CQ>"
+        ],
+        "doc": "sha256h",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA256H2": {
+    "Name": "SHA256 hash update part 2",
+    "variants": [
+      {
+        "asm": [
+          "SHA256H2<CQ>"
+        ],
+        "doc": "sha256h2",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA256SU0": {
+    "Name": "SHA256 schedule update 0",
+    "variants": [
+      {
+        "asm": [
+          "SHA256SU0<CQ>"
+        ],
+        "doc": "sha256su0",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "SHA256SU1": {
+    "Name": "SHA256 schedule update 1",
+    "variants": [
+      {
+        "asm": [
+          "SHA256SU1<CQ>"
+        ],
+        "doc": "sha256su1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VABA": {
+    "Name": "Vector Absolute Difference and Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VABA<CQ>"
+        ],
+        "doc": "vaba",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VABAL": {
+    "Name": "Vector Absolute Difference and Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "VABAL<CQ>"
+        ],
+        "doc": "vabal",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VABD": {
+    "Name": "Vector Absolute Difference",
+    "variants": [
+      {
+        "asm": [
+          "VABD<CQ>"
+        ],
+        "doc": "vabd_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VABD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vabd_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VABDL": {
+    "Name": "Vector Absolute Difference Long",
+    "variants": [
+      {
+        "asm": [
+          "VABDL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vabdl_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VABS": {
+    "Name": "Vector Absolute",
+    "variants": [
+      {
+        "asm": [
+          "VABS<CQ>"
+        ],
+        "doc": "vabs",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VACGE": {
+    "Name": "Vector Absolute Compare Greater Than or Equal",
+    "variants": [
+      {
+        "asm": [
+          "VACGE<CQ>"
+        ],
+        "doc": "vacge",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VACGT": {
+    "Name": "Vector Absolute Compare Greater Than",
+    "variants": [
+      {
+        "asm": [
+          "VACGT<CQ>"
+        ],
+        "doc": "vacgt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VACLE": {
+    "Name": "Vector Absolute Compare Less Than or Equal",
+    "variants": [
+      {
+        "asm": [
+          "VACLE<CQ>"
+        ],
+        "doc": "vacle_vacge",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VACLT": {
+    "Name": "Vector Absolute Compare Less Than",
+    "variants": [
+      {
+        "asm": [
+          "VACLT<CQ>"
+        ],
+        "doc": "vaclt_vacgt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VADD": {
+    "Name": "Vector Add",
+    "variants": [
+      {
+        "asm": [
+          "VADD<CQ>"
+        ],
+        "doc": "vadd_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VADD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vadd_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VADDHN": {
+    "Name": "Vector Add and Narrow, returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VADDHN<CQ>"
+        ],
+        "doc": "vaddhn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VADDL": {
+    "Name": "Vector Add Long",
+    "variants": [
+      {
+        "asm": [
+          "VADDL<CQ>"
+        ],
+        "doc": "vaddl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VADDW": {
+    "Name": "Vector Add Wide",
+    "variants": [
+      {
+        "asm": [
+          "VADDW<CQ>"
+        ],
+        "doc": "vaddw",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VAND": {
+    "Name": "Vector Bitwise AND",
+    "variants": [
+      {
+        "asm": [
+          "VAND<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vand_vbic_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VAND<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vand_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VAND<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vand_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VBIC": {
+    "Name": "Vector Bitwise Bit Clear",
+    "variants": [
+      {
+        "asm": [
+          "VBIC<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vbic_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VBIC<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vbic_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VBIC<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vbic_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VBIF": {
+    "Name": "Vector Bitwise Insert if False",
+    "variants": [
+      {
+        "asm": [
+          "VBIF<CQ>"
+        ],
+        "doc": "vbif",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VBIT": {
+    "Name": "Vector Bitwise Insert if True",
+    "variants": [
+      {
+        "asm": [
+          "VBIT<CQ>"
+        ],
+        "doc": "vbit",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VBSL": {
+    "Name": "Vector Bitwise Select",
+    "variants": [
+      {
+        "asm": [
+          "VBSL<CQ>"
+        ],
+        "doc": "vbsl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCADD": {
+    "Name": "Vector Complex Add",
+    "variants": [
+      {
+        "asm": [
+          "VCADD<CQ>"
+        ],
+        "doc": "vcadd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCEQ": {
+    "Name": "Vector Compare Equal to Zero",
+    "variants": [
+      {
+        "asm": [
+          "VCEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vceq_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vceq_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCEQ<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vceq_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCGE": {
+    "Name": "Vector Compare Greater Than or Equal to Zero",
+    "variants": [
+      {
+        "asm": [
+          "VCGE<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vcge_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCGE<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vcge_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCGE<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vcge_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCGT": {
+    "Name": "Vector Compare Greater Than Zero",
+    "variants": [
+      {
+        "asm": [
+          "VCGT<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vcgt_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCGT<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vcgt_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCGT<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vcgt_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCLE": {
+    "Name": "Vector Compare Less Than or Equal to Zero",
+    "variants": [
+      {
+        "asm": [
+          "VCLE<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vcle_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCLE<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vcle_vcge_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCLE<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vcle_vcge_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCLS": {
+    "Name": "Vector Count Leading Sign Bits",
+    "variants": [
+      {
+        "asm": [
+          "VCLS<CQ>"
+        ],
+        "doc": "vcls",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCLT": {
+    "Name": "Vector Compare Less Than Zero",
+    "variants": [
+      {
+        "asm": [
+          "VCLT<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vclt_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCLT<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vclt_vcgt_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCLT<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vclt_vcgt_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCLZ": {
+    "Name": "Vector Count Leading Zeros",
+    "variants": [
+      {
+        "asm": [
+          "VCLZ<CQ>"
+        ],
+        "doc": "vclz",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCMLA": {
+    "Name": "Vector Complex Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VCMLA<CQ>"
+        ],
+        "doc": "vcmla",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCMLA<CQ>"
+        ],
+        "doc": "vcmla_s",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCMP": {
+    "Name": "Vector Compare",
+    "variants": [
+      {
+        "asm": [
+          "VCMP<CQ>"
+        ],
+        "doc": "vcmp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCMPE": {
+    "Name": "Vector Compare, raising Invalid Operation on NaN",
+    "variants": [
+      {
+        "asm": [
+          "VCMPE<CQ>"
+        ],
+        "doc": "vcmpe",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCNT": {
+    "Name": "Vector Count Set Bits",
+    "variants": [
+      {
+        "asm": [
+          "VCNT<CQ>"
+        ],
+        "doc": "vcnt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVT": {
+    "Name": "Convert between double-precision and single-precision",
+    "variants": [
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_ds",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_xs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_xv",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_is",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_hs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_iv",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_bfs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVT<CQ>"
+        ],
+        "doc": "vcvt_vi",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTA": {
+    "Name": "Vector Convert floating-point to integer with Round to Nearest with Ties to Away",
+    "variants": [
+      {
+        "asm": [
+          "VCVTA<CQ>"
+        ],
+        "doc": "vcvta_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVTA<CQ>"
+        ],
+        "doc": "vcvta_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTB": {
+    "Name": "Convert to or from a half-precision value in the bottom half of a single-precision register",
+    "variants": [
+      {
+        "asm": [
+          "VCVTB<CQ>"
+        ],
+        "doc": "vcvtb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVTB<CQ>"
+        ],
+        "doc": "vcvtb_bfs",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTM": {
+    "Name": "Vector Convert floating-point to integer with Round towards -Infinity",
+    "variants": [
+      {
+        "asm": [
+          "VCVTM<CQ>"
+        ],
+        "doc": "vcvtm_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVTM<CQ>"
+        ],
+        "doc": "vcvtm_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTN": {
+    "Name": "Vector Convert floating-point to integer with Round to Nearest",
+    "variants": [
+      {
+        "asm": [
+          "VCVTN<CQ>"
+        ],
+        "doc": "vcvtn_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVTN<CQ>"
+        ],
+        "doc": "vcvtn_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTP": {
+    "Name": "Vector Convert floating-point to integer with Round towards +Infinity",
+    "variants": [
+      {
+        "asm": [
+          "VCVTP<CQ>"
+        ],
+        "doc": "vcvtp_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVTP<CQ>"
+        ],
+        "doc": "vcvtp_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTR": {
+    "Name": "Convert floating-point to integer",
+    "variants": [
+      {
+        "asm": [
+          "VCVTR<CQ>"
+        ],
+        "doc": "vcvtr_iv",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VCVTT": {
+    "Name": "Convert to or from a half-precision value in the top half of a single-precision register",
+    "variants": [
+      {
+        "asm": [
+          "VCVTT<CQ>"
+        ],
+        "doc": "vcvtt",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VCVTT<CQ>"
+        ],
+        "doc": "vcvtt_bfs",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VDIV": {
+    "Name": "Divide",
+    "variants": [
+      {
+        "asm": [
+          "VDIV<CQ>"
+        ],
+        "doc": "vdiv",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VDOT": {
+    "Name": "BFloat16 floating-point indexed dot product",
+    "variants": [
+      {
+        "asm": [
+          "VDOT<CQ>"
+        ],
+        "doc": "vdot_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VDOT<CQ>"
+        ],
+        "doc": "vdot",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VDUP": {
+    "Name": "Duplicate general-purpose register to vector",
+    "variants": [
+      {
+        "asm": [
+          "VDUP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vdup_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VDUP<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vdup_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VDUP<CQ>"
+        ],
+        "doc": "vdup_s",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VEOR": {
+    "Name": "Vector Bitwise Exclusive OR",
+    "variants": [
+      {
+        "asm": [
+          "VEOR<CQ>"
+        ],
+        "doc": "veor",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VEXT": {
+    "Name": "Vector Extract",
+    "variants": [
+      {
+        "asm": [
+          "VEXT<CQ>"
+        ],
+        "doc": "vext",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VEXT<CQ>"
+        ],
+        "doc": "vext_vext",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VFMA": {
+    "Name": "Vector Fused Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VFMA<CQ>"
+        ],
+        "doc": "vfma",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VFMAB<CQ>"
+        ],
+        "doc": "vfma_bfs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VFMAT<CQ>"
+        ],
+        "doc": "vfma_bfs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VFMAB<CQ>"
+        ],
+        "doc": "vfma_bf",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VFMAT<CQ>"
+        ],
+        "doc": "vfma_bf",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VFMAL": {
+    "Name": "Vector Floating-point Multiply-Add Long to accumulator",
+    "variants": [
+      {
+        "asm": [
+          "VFMAL<CQ>"
+        ],
+        "doc": "vfmal_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VFMAL<CQ>"
+        ],
+        "doc": "vfmal",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VFMS": {
+    "Name": "Vector Fused Multiply Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VFMS<CQ>"
+        ],
+        "doc": "vfms",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VFMSL": {
+    "Name": "Vector Floating-point Multiply-Subtract Long from accumulator",
+    "variants": [
+      {
+        "asm": [
+          "VFMSL<CQ>"
+        ],
+        "doc": "vfmsl_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VFMSL<CQ>"
+        ],
+        "doc": "vfmsl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VFNMA": {
+    "Name": "Vector Fused Negate Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VFNMA<CQ>"
+        ],
+        "doc": "vfnma",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VFNMS": {
+    "Name": "Vector Fused Negate Multiply Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VFNMS<CQ>"
+        ],
+        "doc": "vfnms",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VHADD": {
+    "Name": "Vector Halving Add",
+    "variants": [
+      {
+        "asm": [
+          "VHADD<CQ>"
+        ],
+        "doc": "vhadd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VHSUB": {
+    "Name": "Vector Halving Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VHSUB<CQ>"
+        ],
+        "doc": "vhsub",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VINS": {
+    "Name": "Vector move Insertion",
+    "variants": [
+      {
+        "asm": [
+          "VINS<CQ>"
+        ],
+        "doc": "vins",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VJCVT": {
+    "Name": "Javascript Convert to signed fixed-point, rounding toward Zero",
+    "variants": [
+      {
+        "asm": [
+          "VJCVT<CQ>"
+        ],
+        "doc": "vjcvt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VLD1": {
+    "Name": "Load multiple single 1-element structures to one, two, three, or four registers",
+    "variants": [
+      {
+        "asm": [
+          "VLD1<CQ>"
+        ],
+        "doc": "vld1_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD1<CQ>"
+        ],
+        "doc": "vld1_a",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD1<CQ>"
+        ],
+        "doc": "vld1_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VLD2": {
+    "Name": "Load multiple 2-element structures to two or four registers",
+    "variants": [
+      {
+        "asm": [
+          "VLD2<CQ>"
+        ],
+        "doc": "vld2_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD2<CQ>"
+        ],
+        "doc": "vld2_a",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD2<CQ>"
+        ],
+        "doc": "vld2_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VLD3": {
+    "Name": "Load multiple 3-element structures to three registers",
+    "variants": [
+      {
+        "asm": [
+          "VLD3<CQ>"
+        ],
+        "doc": "vld3_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD3<CQ>"
+        ],
+        "doc": "vld3_a",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD3<CQ>"
+        ],
+        "doc": "vld3_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VLD4": {
+    "Name": "Load multiple 4-element structures to four registers",
+    "variants": [
+      {
+        "asm": [
+          "VLD4<CQ>"
+        ],
+        "doc": "vld4_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD4<CQ>"
+        ],
+        "doc": "vld4_a",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLD4<CQ>"
+        ],
+        "doc": "vld4_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VLDM": {
+    "Name": "Load Multiple SIMD&amp;FP registers",
+    "variants": [
+      {
+        "asm": [
+          "VLDM<CQ>"
+        ],
+        "doc": "vldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLDMDB<CQ>"
+        ],
+        "doc": "vldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLDMIA<CQ>"
+        ],
+        "doc": "vldm",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VLDR": {
+    "Name": "Load SIMD&amp;FP register",
+    "variants": [
+      {
+        "asm": [
+          "VLDR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vldr_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VLDR<CQ>"
+        ],
+        "doc": "vldr_l",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMAX": {
+    "Name": "Vector Maximum",
+    "variants": [
+      {
+        "asm": [
+          "VMAX<CQ>"
+        ],
+        "doc": "vmax_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMAX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmax_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMAXNM": {
+    "Name": "Floating-point Maximum Number",
+    "variants": [
+      {
+        "asm": [
+          "VMAXNM<CQ>"
+        ],
+        "doc": "vmaxnm",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMIN": {
+    "Name": "Vector Minimum",
+    "variants": [
+      {
+        "asm": [
+          "VMIN<CQ>"
+        ],
+        "doc": "vmin_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMIN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmin_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMINNM": {
+    "Name": "Floating-point Minimum Number",
+    "variants": [
+      {
+        "asm": [
+          "VMINNM<CQ>"
+        ],
+        "doc": "vminnm",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMLA": {
+    "Name": "Vector Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VMLA<CQ>"
+        ],
+        "doc": "vmla_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMLA<CQ>"
+        ],
+        "doc": "vmla_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMLA<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmla_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMLAL": {
+    "Name": "Vector Multiply Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "VMLAL<CQ>"
+        ],
+        "doc": "vmlal_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMLAL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmlal_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMLS": {
+    "Name": "Vector Multiply Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VMLS<CQ>"
+        ],
+        "doc": "vmls_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMLS<CQ>"
+        ],
+        "doc": "vmls_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMLS<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmls_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMLSL": {
+    "Name": "Vector Multiply Subtract Long",
+    "variants": [
+      {
+        "asm": [
+          "VMLSL<CQ>"
+        ],
+        "doc": "vmlsl_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMLSL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmlsl_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMMLA": {
+    "Name": "BFloat16 floating-point matrix multiply-accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VMMLA<CQ>"
+        ],
+        "doc": "vmmla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMOV": {
+    "Name": "Copy 16 bits of a general-purpose register to or from a 32-bit SIMD&amp;FP register",
+    "variants": [
+      {
+        "asm": [
+          "VMOV<CQ>"
+        ],
+        "doc": "vmov_h",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>"
+        ],
+        "doc": "vmov_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>"
+        ],
+        "doc": "vmov_d",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>"
+        ],
+        "doc": "vmov_ss",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>"
+        ],
+        "doc": "vmov_rs",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmov_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vmov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vmov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vmov_vorr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vmov_vorr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMOV<CQ>"
+        ],
+        "doc": "vmov_sr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMOVL": {
+    "Name": "Vector Move Long",
+    "variants": [
+      {
+        "asm": [
+          "VMOVL<CQ>"
+        ],
+        "doc": "vmovl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMOVN": {
+    "Name": "Vector Move and Narrow",
+    "variants": [
+      {
+        "asm": [
+          "VMOVN<CQ>"
+        ],
+        "doc": "vmovn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMOVX": {
+    "Name": "Vector Move extraction",
+    "variants": [
+      {
+        "asm": [
+          "VMOVX<CQ>"
+        ],
+        "doc": "vmovx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMRS": {
+    "Name": "Move SIMD&amp;FP Special register to general-purpose register",
+    "variants": [
+      {
+        "asm": [
+          "VMRS<CQ>"
+        ],
+        "doc": "vmrs",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMSR": {
+    "Name": "Move general-purpose register to SIMD&amp;FP Special register",
+    "variants": [
+      {
+        "asm": [
+          "VMSR<CQ>"
+        ],
+        "doc": "vmsr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMUL": {
+    "Name": "Vector Multiply",
+    "variants": [
+      {
+        "asm": [
+          "VMUL<CQ>"
+        ],
+        "doc": "vmul_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMUL<CQ>"
+        ],
+        "doc": "vmul_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMUL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmul_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMULL": {
+    "Name": "Vector Multiply Long",
+    "variants": [
+      {
+        "asm": [
+          "VMULL<CQ>"
+        ],
+        "doc": "vmull_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMULL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmull_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VMVN": {
+    "Name": "Vector Bitwise NOT",
+    "variants": [
+      {
+        "asm": [
+          "VMVN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vmvn_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMVN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vmvn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VMVN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vmvn_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VNEG": {
+    "Name": "Vector Negate",
+    "variants": [
+      {
+        "asm": [
+          "VNEG<CQ>"
+        ],
+        "doc": "vneg",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VNMLA": {
+    "Name": "Vector Negate Multiply Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VNMLA<CQ>"
+        ],
+        "doc": "vnmla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VNMLS": {
+    "Name": "Vector Negate Multiply Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VNMLS<CQ>"
+        ],
+        "doc": "vnmls",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VNMUL": {
+    "Name": "Vector Negate Multiply",
+    "variants": [
+      {
+        "asm": [
+          "VNMUL<CQ>"
+        ],
+        "doc": "vnmul",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VORN": {
+    "Name": "Vector Bitwise OR NOT",
+    "variants": [
+      {
+        "asm": [
+          "VORN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vorn_vorr_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VORN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vorn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VORN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vorn_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VORR": {
+    "Name": "Vector Bitwise OR",
+    "variants": [
+      {
+        "asm": [
+          "VORR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vorr_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VORR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vorr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VORR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vorr_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPADAL": {
+    "Name": "Vector Pairwise Add and Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "VPADAL<CQ>"
+        ],
+        "doc": "vpadal",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPADD": {
+    "Name": "Vector Pairwise Add",
+    "variants": [
+      {
+        "asm": [
+          "VPADD<CQ>"
+        ],
+        "doc": "vpadd_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VPADD<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vpadd_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPADDL": {
+    "Name": "Vector Pairwise Add Long",
+    "variants": [
+      {
+        "asm": [
+          "VPADDL<CQ>"
+        ],
+        "doc": "vpaddl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPMAX": {
+    "Name": "Vector Pairwise Maximum",
+    "variants": [
+      {
+        "asm": [
+          "VPMAX<CQ>"
+        ],
+        "doc": "vpmax_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VPMAX<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vpmax_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPMIN": {
+    "Name": "Vector Pairwise Minimum",
+    "variants": [
+      {
+        "asm": [
+          "VPMIN<CQ>"
+        ],
+        "doc": "vpmin_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VPMIN<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vpmin_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPOP": {
+    "Name": "Pop SIMD&amp;FP registers from stack",
+    "variants": [
+      {
+        "asm": [
+          "VPOP<CQ>"
+        ],
+        "doc": "vpop_vldm",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VPUSH": {
+    "Name": "Push SIMD&amp;FP registers to stack",
+    "variants": [
+      {
+        "asm": [
+          "VPUSH<CQ>"
+        ],
+        "doc": "vpush_vstm",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQABS": {
+    "Name": "Vector Saturating Absolute",
+    "variants": [
+      {
+        "asm": [
+          "VQABS<CQ>"
+        ],
+        "doc": "vqabs",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQADD": {
+    "Name": "Vector Saturating Add",
+    "variants": [
+      {
+        "asm": [
+          "VQADD<CQ>"
+        ],
+        "doc": "vqadd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQDMLAL": {
+    "Name": "Vector Saturating Doubling Multiply Accumulate Long",
+    "variants": [
+      {
+        "asm": [
+          "VQDMLAL<CQ>"
+        ],
+        "doc": "vqdmlal",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQDMLSL": {
+    "Name": "Vector Saturating Doubling Multiply Subtract Long",
+    "variants": [
+      {
+        "asm": [
+          "VQDMLSL<CQ>"
+        ],
+        "doc": "vqdmlsl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQDMULH": {
+    "Name": "Vector Saturating Doubling Multiply Returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VQDMULH<CQ>"
+        ],
+        "doc": "vqdmulh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQDMULL": {
+    "Name": "Vector Saturating Doubling Multiply Long",
+    "variants": [
+      {
+        "asm": [
+          "VQDMULL<CQ>"
+        ],
+        "doc": "vqdmull",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQMOV": {
+    "Name": "Vector Saturating Move and Narrow",
+    "variants": [
+      {
+        "asm": [
+          "VQMOVN<CQ>"
+        ],
+        "doc": "vqmovn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQMOVUN<CQ>"
+        ],
+        "doc": "vqmovn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQNEG": {
+    "Name": "Vector Saturating Negate",
+    "variants": [
+      {
+        "asm": [
+          "VQNEG<CQ>"
+        ],
+        "doc": "vqneg",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQRDMLAH": {
+    "Name": "Vector Saturating Rounding Doubling Multiply Accumulate Returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VQRDMLAH<CQ>"
+        ],
+        "doc": "vqrdmlah",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQRDMLSH": {
+    "Name": "Vector Saturating Rounding Doubling Multiply Subtract Returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VQRDMLSH<CQ>"
+        ],
+        "doc": "vqrdmlsh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQRDMULH": {
+    "Name": "Vector Saturating Rounding Doubling Multiply Returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VQRDMULH<CQ>"
+        ],
+        "doc": "vqrdmulh",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQRSHL": {
+    "Name": "Vector Saturating Rounding Shift Left",
+    "variants": [
+      {
+        "asm": [
+          "VQRSHL<CQ>"
+        ],
+        "doc": "vqrshl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQRSHR": {
+    "Name": "Vector Saturating Rounding Shift Right, Narrow",
+    "variants": [
+      {
+        "asm": [
+          "VQRSHRN<CQ>"
+        ],
+        "doc": "vqrshrn_vqmovn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQRSHRN<CQ>"
+        ],
+        "doc": "vqrshrn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQRSHRUN<CQ>"
+        ],
+        "doc": "vqrshrn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQRSHRUN<CQ>"
+        ],
+        "doc": "vqrshrun_vqmovn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQSHL": {
+    "Name": "Vector Saturating Shift Left",
+    "variants": [
+      {
+        "asm": [
+          "VQSHL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vqshl_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQSHL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vqshl_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQSHL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vqshl_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQSHLU<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vqshl_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQSHR": {
+    "Name": "Vector Saturating Shift Right, Narrow",
+    "variants": [
+      {
+        "asm": [
+          "VQSHRN<CQ>"
+        ],
+        "doc": "vqshrn_vqmovn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQSHRN<CQ>"
+        ],
+        "doc": "vqshrn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQSHRUN<CQ>"
+        ],
+        "doc": "vqshrn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VQSHRUN<CQ>"
+        ],
+        "doc": "vqshrun_vqmovn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VQSUB": {
+    "Name": "Vector Saturating Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VQSUB<CQ>"
+        ],
+        "doc": "vqsub",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRADDHN": {
+    "Name": "Vector Rounding Add and Narrow, returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VRADDHN<CQ>"
+        ],
+        "doc": "vraddhn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRECPE": {
+    "Name": "Vector Reciprocal Estimate",
+    "variants": [
+      {
+        "asm": [
+          "VRECPE<CQ>"
+        ],
+        "doc": "vrecpe",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRECPS": {
+    "Name": "Vector Reciprocal Step",
+    "variants": [
+      {
+        "asm": [
+          "VRECPS<CQ>"
+        ],
+        "doc": "vrecps",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VREV16": {
+    "Name": "Vector Reverse in halfwords",
+    "variants": [
+      {
+        "asm": [
+          "VREV16<CQ>"
+        ],
+        "doc": "vrev16",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VREV32": {
+    "Name": "Vector Reverse in words",
+    "variants": [
+      {
+        "asm": [
+          "VREV32<CQ>"
+        ],
+        "doc": "vrev32",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VREV64": {
+    "Name": "Vector Reverse in doublewords",
+    "variants": [
+      {
+        "asm": [
+          "VREV64<CQ>"
+        ],
+        "doc": "vrev64",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRHADD": {
+    "Name": "Vector Rounding Halving Add",
+    "variants": [
+      {
+        "asm": [
+          "VRHADD<CQ>"
+        ],
+        "doc": "vrhadd",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTA": {
+    "Name": "Vector Round floating-point to integer towards Nearest with Ties to Away",
+    "variants": [
+      {
+        "asm": [
+          "VRINTA<CQ>"
+        ],
+        "doc": "vrinta_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRINTA<CQ>"
+        ],
+        "doc": "vrinta_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTM": {
+    "Name": "Vector Round floating-point to integer towards -Infinity",
+    "variants": [
+      {
+        "asm": [
+          "VRINTM<CQ>"
+        ],
+        "doc": "vrintm_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRINTM<CQ>"
+        ],
+        "doc": "vrintm_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTN": {
+    "Name": "Vector Round floating-point to integer to Nearest",
+    "variants": [
+      {
+        "asm": [
+          "VRINTN<CQ>"
+        ],
+        "doc": "vrintn_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRINTN<CQ>"
+        ],
+        "doc": "vrintn_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTP": {
+    "Name": "Vector Round floating-point to integer towards +Infinity",
+    "variants": [
+      {
+        "asm": [
+          "VRINTP<CQ>"
+        ],
+        "doc": "vrintp_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRINTP<CQ>"
+        ],
+        "doc": "vrintp_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTR": {
+    "Name": "Round floating-point to integer",
+    "variants": [
+      {
+        "asm": [
+          "VRINTR<CQ>"
+        ],
+        "doc": "vrintr_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTX": {
+    "Name": "Vector round floating-point to integer inexact",
+    "variants": [
+      {
+        "asm": [
+          "VRINTX<CQ>"
+        ],
+        "doc": "vrintx_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRINTX<CQ>"
+        ],
+        "doc": "vrintx_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRINTZ": {
+    "Name": "Vector round floating-point to integer towards Zero",
+    "variants": [
+      {
+        "asm": [
+          "VRINTZ<CQ>"
+        ],
+        "doc": "vrintz_asimd",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRINTZ<CQ>"
+        ],
+        "doc": "vrintz_vfp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSHL": {
+    "Name": "Vector Rounding Shift Left",
+    "variants": [
+      {
+        "asm": [
+          "VRSHL<CQ>"
+        ],
+        "doc": "vrshl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSHR": {
+    "Name": "Vector Rounding Shift Right",
+    "variants": [
+      {
+        "asm": [
+          "VRSHR<CQ>"
+        ],
+        "doc": "vrshr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRSHR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vrshr_vorr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRSHR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vrshr_vorr_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSHRN": {
+    "Name": "Vector Rounding Shift Right and Narrow",
+    "variants": [
+      {
+        "asm": [
+          "VRSHRN<CQ>"
+        ],
+        "doc": "vrshrn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VRSHRN<CQ>"
+        ],
+        "doc": "vrshrn_vmovn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSQRTE": {
+    "Name": "Vector Reciprocal Square Root Estimate",
+    "variants": [
+      {
+        "asm": [
+          "VRSQRTE<CQ>"
+        ],
+        "doc": "vrsqrte",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSQRTS": {
+    "Name": "Vector Reciprocal Square Root Step",
+    "variants": [
+      {
+        "asm": [
+          "VRSQRTS<CQ>"
+        ],
+        "doc": "vrsqrts",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSRA": {
+    "Name": "Vector Rounding Shift Right and Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VRSRA<CQ>"
+        ],
+        "doc": "vrsra",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VRSUBHN": {
+    "Name": "Vector Rounding Subtract and Narrow, returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VRSUBHN<CQ>"
+        ],
+        "doc": "vrsubhn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSDOT": {
+    "Name": "Dot Product index form with signed integers.",
+    "variants": [
+      {
+        "asm": [
+          "VSDOT<CQ>"
+        ],
+        "doc": "vsdot_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSDOT<CQ>"
+        ],
+        "doc": "vsdot",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSEL": {
+    "Name": "Floating-point conditional select",
+    "variants": [
+      {
+        "asm": [
+          "VSELEQ<CQ>"
+        ],
+        "doc": "vsel",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSELGE<CQ>"
+        ],
+        "doc": "vsel",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSELGT<CQ>"
+        ],
+        "doc": "vsel",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSELVS<CQ>"
+        ],
+        "doc": "vsel",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSHL": {
+    "Name": "Vector Shift Left",
+    "variants": [
+      {
+        "asm": [
+          "VSHL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vshl_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSHL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vshl_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSHL<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vshl_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSHLL": {
+    "Name": "Vector Shift Left Long",
+    "variants": [
+      {
+        "asm": [
+          "VSHLL<CQ>"
+        ],
+        "doc": "vshll",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSHR": {
+    "Name": "Vector Shift Right",
+    "variants": [
+      {
+        "asm": [
+          "VSHR<CQ>"
+        ],
+        "doc": "vshr",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSHR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "vshr_vorr_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSHR<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "vshr_vorr_r",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSHRN": {
+    "Name": "Vector Shift Right Narrow",
+    "variants": [
+      {
+        "asm": [
+          "VSHRN<CQ>"
+        ],
+        "doc": "vshrn",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSHRN<CQ>"
+        ],
+        "doc": "vshrn_vmovn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSLI": {
+    "Name": "Vector Shift Left and Insert",
+    "variants": [
+      {
+        "asm": [
+          "VSLI<CQ>"
+        ],
+        "doc": "vsli",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSMMLA": {
+    "Name": "Widening 8-bit signed integer matrix multiply-accumulate into 2x2 matrix",
+    "variants": [
+      {
+        "asm": [
+          "VSMMLA<CQ>"
+        ],
+        "doc": "vsmmla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSQRT": {
+    "Name": "Square Root",
+    "variants": [
+      {
+        "asm": [
+          "VSQRT<CQ>"
+        ],
+        "doc": "vsqrt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSRA": {
+    "Name": "Vector Shift Right and Accumulate",
+    "variants": [
+      {
+        "asm": [
+          "VSRA<CQ>"
+        ],
+        "doc": "vsra",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSRI": {
+    "Name": "Vector Shift Right and Insert",
+    "variants": [
+      {
+        "asm": [
+          "VSRI<CQ>"
+        ],
+        "doc": "vsri",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VST1": {
+    "Name": "Store multiple single elements from one, two, three, or four registers",
+    "variants": [
+      {
+        "asm": [
+          "VST1<CQ>"
+        ],
+        "doc": "vst1_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VST1<CQ>"
+        ],
+        "doc": "vst1_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VST2": {
+    "Name": "Store multiple 2-element structures from two or four registers",
+    "variants": [
+      {
+        "asm": [
+          "VST2<CQ>"
+        ],
+        "doc": "vst2_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VST2<CQ>"
+        ],
+        "doc": "vst2_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VST3": {
+    "Name": "Store multiple 3-element structures from three registers",
+    "variants": [
+      {
+        "asm": [
+          "VST3<CQ>"
+        ],
+        "doc": "vst3_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VST3<CQ>"
+        ],
+        "doc": "vst3_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VST4": {
+    "Name": "Store multiple 4-element structures from four registers",
+    "variants": [
+      {
+        "asm": [
+          "VST4<CQ>"
+        ],
+        "doc": "vst4_m",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VST4<CQ>"
+        ],
+        "doc": "vst4_1",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSTM": {
+    "Name": "Store multiple SIMD&amp;FP registers",
+    "variants": [
+      {
+        "asm": [
+          "VSTM<CQ>"
+        ],
+        "doc": "vstm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSTMDB<CQ>"
+        ],
+        "doc": "vstm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSTMIA<CQ>"
+        ],
+        "doc": "vstm",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSTR": {
+    "Name": "Store SIMD&amp;FP register",
+    "variants": [
+      {
+        "asm": [
+          "VSTR<CQ>"
+        ],
+        "doc": "vstr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSUB": {
+    "Name": "Vector Subtract",
+    "variants": [
+      {
+        "asm": [
+          "VSUB<CQ>"
+        ],
+        "doc": "vsub_f",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VSUB<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "vsub_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSUBHN": {
+    "Name": "Vector Subtract and Narrow, returning High Half",
+    "variants": [
+      {
+        "asm": [
+          "VSUBHN<CQ>"
+        ],
+        "doc": "vsubhn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSUBL": {
+    "Name": "Vector Subtract Long",
+    "variants": [
+      {
+        "asm": [
+          "VSUBL<CQ>"
+        ],
+        "doc": "vsubl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSUBW": {
+    "Name": "Vector Subtract Wide",
+    "variants": [
+      {
+        "asm": [
+          "VSUBW<CQ>"
+        ],
+        "doc": "vsubw",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSUDOT": {
+    "Name": "Dot Product index form with signed and unsigned integers",
+    "variants": [
+      {
+        "asm": [
+          "VSUDOT<CQ>"
+        ],
+        "doc": "vsudot_s",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VSWP": {
+    "Name": "Vector Swap",
+    "variants": [
+      {
+        "asm": [
+          "VSWP<CQ>"
+        ],
+        "doc": "vswp",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VTB": {
+    "Name": "Vector Table Lookup and Extension",
+    "variants": [
+      {
+        "asm": [
+          "VTBL<CQ>"
+        ],
+        "doc": "vtbl",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VTBX<CQ>"
+        ],
+        "doc": "vtbl",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VTRN": {
+    "Name": "Vector Transpose",
+    "variants": [
+      {
+        "asm": [
+          "VTRN<CQ>"
+        ],
+        "doc": "vtrn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VTST": {
+    "Name": "Vector Test Bits",
+    "variants": [
+      {
+        "asm": [
+          "VTST<CQ>"
+        ],
+        "doc": "vtst",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VUDOT": {
+    "Name": "Dot Product index form with unsigned integers.",
+    "variants": [
+      {
+        "asm": [
+          "VUDOT<CQ>"
+        ],
+        "doc": "vudot_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VUDOT<CQ>"
+        ],
+        "doc": "vudot",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VUMMLA": {
+    "Name": "Widening 8-bit unsigned integer matrix multiply-accumulate into 2x2 matrix",
+    "variants": [
+      {
+        "asm": [
+          "VUMMLA<CQ>"
+        ],
+        "doc": "vummla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VUSDOT": {
+    "Name": "Dot Product index form with unsigned and signed integers",
+    "variants": [
+      {
+        "asm": [
+          "VUSDOT<CQ>"
+        ],
+        "doc": "vusdot_s",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VUSDOT<CQ>"
+        ],
+        "doc": "vusdot",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VUSMMLA": {
+    "Name": "Widening 8-bit mixed integer matrix multiply-accumulate into 2x2 matrix",
+    "variants": [
+      {
+        "asm": [
+          "VUSMMLA<CQ>"
+        ],
+        "doc": "vusmmla",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VUZP": {
+    "Name": "Vector Unzip",
+    "variants": [
+      {
+        "asm": [
+          "VUZP<CQ>"
+        ],
+        "doc": "vuzp",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VUZP<CQ>"
+        ],
+        "doc": "vuzp_vtrn",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "VZIP": {
+    "Name": "Vector Zip",
+    "variants": [
+      {
+        "asm": [
+          "VZIP<CQ>"
+        ],
+        "doc": "vzip",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "VZIP<CQ>"
+        ],
+        "doc": "vzip_vtrn",
+        "desc": 0,
+        "prio": 0
       }
     ]
   }

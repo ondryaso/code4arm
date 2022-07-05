@@ -13,10 +13,10 @@ public class BufferedSource : BufferedSourceBase
         this.Uri = uri;
         VersionInternal = version;
         IsValidRepresentationInternal = true;
-        this.PreprocessedSource = new PreprocessedSource(this, loggerFactory.CreateLogger<PreprocessedSource>());
+        this.PreprocessedSource = new MapPreprocessedSource(this);
     }
 
-    internal PreprocessedSource PreprocessedSource { get; }
+    internal MapPreprocessedSource PreprocessedSource { get; }
 
     internal bool IsValidRepresentationInternal;
     public override bool IsValidRepresentation => IsValidRepresentationInternal;
