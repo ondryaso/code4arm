@@ -27,16 +27,17 @@ public class FoldingRangesHandler : FoldingRangeHandlerBase
         await analyser.TriggerFullAnalysis();
         var originalLines = -1;
 
-        return new Container<FoldingRange>(analyser.GetFunctions().Select(f => new FoldingRange()
-        {
-            Kind = FoldingRangeKind.Region,
-            StartLine = source.GetOriginalLine(f.StartLine),
-            EndLine = f.EndLine == -1
-                ? (originalLines == -1
-                    ? (originalLines = originalSource.Lines - 1)
-                    : originalLines) // Lazy loading of the Lines property
-                : source.GetOriginalLine(f.EndLine)
-        }).Concat(source.Regions.Select(r => new FoldingRange()
+        return new Container<FoldingRange>(analyser.GetFunctions().Where(f => f.StartLine != -1).Select(f =>
+            new FoldingRange()
+            {
+                Kind = FoldingRangeKind.Region,
+                StartLine = source.GetOriginalLine(f.StartLine),
+                EndLine = f.EndLine == -1
+                    ? (originalLines == -1
+                        ? (originalLines = originalSource.Lines - 1)
+                        : originalLines) // Lazy loading of the Lines property
+                    : source.GetOriginalLine(f.EndLine)
+            }).Concat(source.Regions.Select(r => new FoldingRange()
         {
             Kind = FoldingRangeKind.Region,
             StartLine = r.Start.Line,

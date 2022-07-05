@@ -89,7 +89,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     if (analysis.NoOperandsAllowed)
                     {
                         var range = new Range(analysis.LineIndex, analysis.MnemonicRange!.End.Character + 1,
-                            analysis.LineIndex, analysis.LineLength);
+                            analysis.LineIndex, analysis.LineLength - 1);
                         diags.Add(new Diagnostic()
                         {
                             Code = DiagnosticCodes.NoOperandsAllowed,

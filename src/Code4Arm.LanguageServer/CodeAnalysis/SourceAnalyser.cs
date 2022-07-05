@@ -189,6 +189,8 @@ public class SourceAnalyser : ISourceAnalyser
         await this.AnalyseCurrentLine();
         var bestAttempt = _ctx.CurrentLine;
 
+        var attempts = 0;
+        
         while (_ctx.CurrentLine.State != LineAnalysisState.ValidLine
                && _ctx.CurrentLine.FullMatches.Count > 1
                && _ctx.CurrentLine.FullMatches.Count > _unsuccessfulVariants.Count)
@@ -204,6 +206,10 @@ public class SourceAnalyser : ISourceAnalyser
             }
 
             _ctx.FirstRunOnCurrentLine = false;
+
+            if (++attempts == 9)
+                break;
+            
             await this.AnalyseCurrentLine();
         }
 

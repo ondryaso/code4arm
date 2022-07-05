@@ -1,4 +1,4 @@
-// PreprocessedSource.cs
+// TransformationPreprocessedSource.cs
 // Author: Ondřej Ondryáš
 
 using System.Text.RegularExpressions;
@@ -11,9 +11,9 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Code4Arm.LanguageServer.Models;
 
-public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
+public class TransformationPreprocessedSource : BufferedSourceBase, IPreprocessorSource
 {
-    internal PreprocessedSource(ISource baseSource, ILogger<PreprocessedSource> logger)
+    internal TransformationPreprocessedSource(ISource baseSource)
     {
         this.BaseSource = baseSource;
         _text = string.Empty;
@@ -108,7 +108,7 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
         }
     }
 
-    internal Task Preprocess(Range? modifiedRange)
+    public Task Preprocess(Range? modifiedRange)
     {
         // TODO: Use ranges
         _replacements.Clear();
@@ -367,4 +367,5 @@ public class PreprocessedSource : BufferedSourceBase, IPreprocessedSource
     }
 
     public IEnumerable<Range> Regions => _regions;
+    public Task Preprocess(System.Range? modifiedRange) => throw new NotImplementedException();
 }

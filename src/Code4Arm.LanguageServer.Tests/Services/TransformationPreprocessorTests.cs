@@ -14,7 +14,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 namespace Code4Arm.LanguageServer.Tests.Services;
 
 [TestFixture]
-public class PreprocessorTests
+public class TransformationPreprocessorTests
 {
     private static string[] _textNames =
     {
@@ -57,7 +57,7 @@ This is
 This x
 This and text 
 This is 
-*/ 
+* 
 Mock text line 2
 Text ."
         }
@@ -150,7 +150,7 @@ public static List<(Range Source, Range Preprocessed)> InverseEmptyLinesMultiple
         var loggerFactory = new NullLoggerFactory();
         var mockFs = new MockFileSystem(_textNames.ToDictionary(n => n, n => new MockFileData(SourceTexts[n])));
 
-        _store = new FileSourceStore(loggerFactory, mockFs);
+        _store = new FileSourceStore(loggerFactory, mockFs, false);
     }
 
     [TestCaseSource(nameof(_textNames))]

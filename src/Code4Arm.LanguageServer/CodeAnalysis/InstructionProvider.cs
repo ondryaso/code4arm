@@ -64,6 +64,24 @@ internal class InstructionDefinition
 public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvider, IInstructionValidatorProvider,
     IInstructionDocumentationProvider
 {
+    private class SimdValidator : IInstructionValidator
+    {
+        public LineAnalysisState ValidateInstruction(string line, AnalysedLine analysisState, bool hasOperandsPart) =>
+            LineAnalysisState.ValidLine;
+
+        public bool IsVectorDataTypeAllowed(int specifierIndex, VectorDataType type, AnalysedLine analysisState)
+        {
+            // TODO
+            return true;
+        }
+
+        public IEnumerable<VectorDataType> GetPossibleVectorDataTypes(int specifierIndex, AnalysedLine analysisState)
+        {
+            // TODO
+            return Enum.GetValues<VectorDataType>();
+        }
+    }
+    
     private readonly string _definitionPath;
 
     private Dictionary<string, InstructionDefinition>? _definitions;

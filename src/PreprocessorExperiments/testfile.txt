@@ -1,0 +1,62 @@
+01234   8901
+    0123 56789
+
+012345
+  23 56   @ 234
+  23   78 //  345  
+  23@567
+  23/*678*/123
+  23 /*789*/234
+  23/*678*/ 234
+  23 /*789*/ 345
+
+.global main
+.func main
+
+maina:
+  PUSH {LR}    @ use pseudo directive
+  LDR R0, =string    @ R0 points to string
+  MOV/*abc*/R1, #1    @ first value in R1
+  MOV /*def*/R2, #2    @ second value in R2
+  MOV/*ghi*/ R3, #3    @ result in R3 
+  MOV /*jkl*/ R3, #3    @ result in R3
+
+  BL 123 
+
+  LDR R7,=value1    @ get address of param
+  LDR R8, [R7]    @ load value1 into R8
+  PUSH {R8}    @ put on stack
+
+  LDR R7,=value2    @ repeat for value2
+  LDR R9, [R7]
+  PUSH {R9}
+
+  CMP R8, R9
+
+  LDR R7,=value3    @ repeat for value3
+  LDR R8, [R7]
+  PUSH {R8}
+
+  BL printf  @ Call libc
+
+/*
+  MOV R0, 0xff000000
+  ADD R0, 0xc
+  MOV PC, R0 
+  STR R1, [R0]
+  MOV R1, 8 
+  STR R1, [R0]
+*/
+
+  ADD SP, SP, #12  @ balance stack
+  POP {PC}  @ restore PC
+
+__exit:
+  MOV PC, LR  @ simple exit
+
+.data
+   string: 
+       .asciz "Values are: %d, %d, %d and %d\n"
+   value1: .word -4
+   value2: .word 5
+   value3: .word 6
