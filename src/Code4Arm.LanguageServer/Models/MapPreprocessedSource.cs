@@ -10,9 +10,12 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Code4Arm.LanguageServer.Models;
 
-public class MapPreprocessedSource : BufferedSourceBase, IPreprocessedSource
+public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
 {
     public IEnumerable<Range> Regions => Enumerable.Empty<Range>();
+    public record struct SpaceInfo(int Left, int Right);
+
+    private Dictionary<int, SpaceInfo> _spaceInfos = new();
 
     public override string Text
     {
@@ -37,27 +40,28 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessedSource
     private enum State
     {
         Start,
+        Text,
         Space,
-        NewLine,
-        PossibleComment,
+        CommentStart,
         CommentSingle,
         CommentMulti,
         PossibleMultiEnd,
     }
 
-    internal Task Preprocess(Range? modifiedRange)
+    public Task Preprocess(Range? modifiedRange)
     {
         var text = BaseSource.Text;
 
         var sourceToPreprocessed = _arrayPool.Rent(text.Length);
         var preprocessedToSource = _arrayPool.Rent(text.Length + 1);
+        var spaceInfos = new Dictionary<int, SpaceInfo>();
 
         // si: index in source text, pi: index in preprocessed text
 
         var pi = -1;
         var sb = new StringBuilder(text.Length);
         var state = State.Start;
-        var textStarted = false;
+        var commentBeganIn = State.Start;
 
         for (var si = 0; si < text.Length; si++)
         {
@@ -65,89 +69,147 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessedSource
             switch (state)
             {
                 case State.Start:
-                    if (char.IsWhiteSpace(c) && c is not '\n')
+                    if (c == '\n')
                     {
-                        state = State.Space;
-                        textStarted = false;
+                        sb.Append(c);
+                        MapFrom(si, ++pi);
+                        MapTo(si, pi);
+                    }
+                    else if (c == '/')
+                    {
+                        state = State.CommentStart;
+                        MapTo(si, pi == -1 ? 0 : pi);
                     }
                     else if (c == '@')
                     {
                         state = State.CommentSingle;
-                        textStarted = false;
+                        MapTo(si, pi == -1 ? 0 : pi);
                     }
-                    else if (c == '/')
+                    else if (c != ' ')
                     {
-                        state = State.PossibleComment;
-                        textStarted = false;
-                    }
-                    else if (c is not '\n')
-                    {
-                        textStarted = true;
+                        MapFrom(si, ++pi);
+                        MapTo(si, pi);
+
+                        sb.Append(c);
+                        state = State.Text;
                     }
                     else
                     {
-                        state = State.NewLine;
+                        MapTo(si, pi == -1 ? 0 : pi);
                     }
 
-                    if (textStarted)
+                    break;
+
+                case State.Text:
+                    if (c == ' ')
                     {
+                        state = State.Space;
+                        MapSpaceBegin(si, pi + 1);
+                        MapFrom(si, pi + 1);
+                        MapTo(si, pi + 1);
+                    }
+                    else if (c == '/')
+                    {
+                        commentBeganIn = State.Text;
+                        state = State.CommentStart;
+                        MapSpaceBegin(si, pi + 1);
+                        MapFrom(si, pi + 1);
+                        MapTo(si, pi + 1);
+                    }
+                    else if (c == '@')
+                    {
+                        commentBeganIn = State.Text;
+                        state = State.CommentSingle;
+                        MapSpaceBegin(si, pi + 1);
+                        MapFrom(si, pi + 1);
+                        MapTo(si, pi + 1);
+                    }
+                    else
+                    {
+                        MapFrom(si, ++pi);
+                        MapTo(si, pi);
                         sb.Append(c);
-                        pi++;
                     }
 
                     break;
                 case State.Space:
-                    if (c != ' ')
+                    if (c == '/')
                     {
-                        state = State.Start;
-                        si--;
-                        textStarted = false;
+                        commentBeganIn = State.Space;
+                        state = State.CommentStart;
+                        MapTo(si, pi + 1);
+                    }
+                    else if (c == '@')
+                    {
+                        commentBeganIn = State.Space;
+                        state = State.CommentSingle;
+                        MapTo(si, pi + 1);
+                    }
+                    else if (c == '\n')
+                    {
+                        MapSpaceEnd(si, ++pi);
+                        MapTo(si, pi);
+                        sb.Append('\n');
 
-                        if (c != '\n')
-                        {
-                            sb.Append(' ');
-                            pi++;
-                        }
-                        continue;
+                        state = State.Text;
+                    }
+                    else if (c != ' ')
+                    {
+                        MapSpaceEnd(si - 1, ++pi);
+                        MapTo(si - 1, pi);
+                        sb.Append(' ');
+
+                        MapFrom(si, ++pi);
+                        MapTo(si, pi);
+                        sb.Append(c);
+                        state = State.Text;
+                    }
+                    else
+                    {
+                        MapTo(si, pi + 1);
                     }
 
                     break;
-                case State.NewLine:
-                    if (!char.IsWhiteSpace(c))
-                    {
-                        state = State.Start;
-                        si--;
-                        textStarted = false;
-
-                        continue;
-                    }
-
-                    break;
-                case State.PossibleComment:
+                case State.CommentStart:
                     if (c == '/')
                     {
                         state = State.CommentSingle;
+                        MapTo(si, pi + 1);
                     }
                     else if (c == '*')
                     {
                         state = State.CommentMulti;
+                        MapTo(si, pi + 1);
                     }
                     else
                     {
-                        state = State.Start;
-                        si--;
+                        if (commentBeganIn == State.Space)
+                        {
+                            MapSpaceEnd(si - 2, ++pi);
+                            MapTo(si - 2, pi);
+                            sb.Append(' ');
+                        }
 
-                        continue;
+                        MapFrom(si - 1, ++pi);
+                        MapTo(si - 1, pi);
+                        MapFrom(si, ++pi);
+                        MapTo(si, pi);
+
+                        sb.Append('/');
+                        sb.Append(c);
+
+                        state = State.Text;
                     }
 
                     break;
                 case State.CommentSingle:
-                    if (c is '\n')
+                    MapTo(si, pi + 1);
+
+                    if (c == '\n')
                     {
-                        state = State.NewLine;
+                        MapSpaceEnd(si, ++pi);
                         sb.Append(c);
-                        pi++;
-                        textStarted = false;
+                        state = commentBeganIn == State.Start ? State.Start : State.Text;
                     }
 
                     break;
@@ -156,41 +218,25 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessedSource
                     {
                         state = State.PossibleMultiEnd;
                     }
+                    
+                    MapTo(si, pi + 1);
 
                     break;
                 case State.PossibleMultiEnd:
                     if (c == '/')
                     {
-                        state = State.Start;
-                        textStarted = false;
-
-                        if (si != text.Length - 1 && text[si + 1] != '\n')
-                        {
-                            sb.Append(' ');
-                            pi++;
-                        }
+                        state = commentBeganIn == State.Text ? State.Space : commentBeganIn;
                     }
-                    else
+                    else if (c != '*')
                     {
                         state = State.CommentMulti;
-                        si--;
-
-                        continue;
                     }
+                    
+                    MapTo(si, pi + 1);
 
                     break;
                 default:
-                    throw new Exception();
-            }
-
-            if (pi != -1)
-            {
-                sourceToPreprocessed[si] = pi;
-                preprocessedToSource[pi] = si;
-            }
-            else
-            {
-                sourceToPreprocessed[si] = 0;
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -203,8 +249,31 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessedSource
         _lastText = sb.ToString();
         _sourceToPreprocessed = sourceToPreprocessed;
         _preprocessedToSource = preprocessedToSource;
+        _spaceInfos = spaceInfos;
 
         return Task.CompletedTask;
+
+        void MapFrom(int sourceIndex, int preprocessedIndex)
+        {
+            preprocessedToSource![preprocessedIndex] = sourceIndex;
+        }
+
+        void MapTo(int sourceIndex, int preprocessedIndex)
+        {
+            sourceToPreprocessed![sourceIndex] = preprocessedIndex;
+        }
+
+        void MapSpaceBegin(int sourceIndex, int preprocessedIndex)
+        {
+            // if (spaceInfos.ContainsKey(preprocessedIndex)) return;
+            spaceInfos!.Add(preprocessedIndex, new SpaceInfo(sourceIndex, sourceIndex));
+        }
+
+        void MapSpaceEnd(int sourceIndex, int preprocessedIndex)
+        {
+            if (!spaceInfos.TryGetValue(preprocessedIndex, out var current)) return;
+            spaceInfos![preprocessedIndex] = current with { Right = sourceIndex };
+        }
     }
 
     public Range GetOriginalRange(Range preprocessedRange)
@@ -218,10 +287,29 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessedSource
         if (_lastText.Length <= start || _lastText.Length <= end || start == -1 || end == -1)
             throw new InvalidOperationException("Invalid range.");
 
-        var startIndex = _preprocessedToSource[start];
-        var endIndex = _preprocessedToSource[end];
+        if (start == (end - 1) && _spaceInfos.TryGetValue(start, out var startSpace))
+        {
+            return new Range(_lastInputText.GetPositionForIndex(startSpace.Left),
+                _lastInputText.GetPositionForIndex(startSpace.Right + 1));
+        }
 
-        return new Range(_lastInputText.GetPositionForIndex(startIndex), _lastInputText.GetPositionForIndex(endIndex));
+        var startIndex = _spaceInfos.TryGetValue(start, out startSpace)
+            ? startSpace.Right
+            : _preprocessedToSource[start];
+
+        if (start == end)
+        {
+            var s = _lastInputText.GetPositionForIndex(startIndex);
+
+            return new Range(s, s);
+        }
+
+        var endIndex = _spaceInfos.TryGetValue(end - 1, out var endSpace)
+            ? (endSpace.Left + 1)
+            : _preprocessedToSource[end];
+
+        return new Range(_lastInputText.GetPositionForIndex(startIndex),
+            _lastInputText.GetPositionForIndex(endIndex));
     }
 
     public Range GetPreprocessedRange(Range originalRange)

@@ -1,22 +1,22 @@
 // BufferedSource.cs
 // Author: Ondřej Ondryáš
 
-using Microsoft.Extensions.Logging;
+using Code4Arm.LanguageServer.Models.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Code4Arm.LanguageServer.Models;
 
 public class BufferedSource : BufferedSourceBase
 {
-    internal BufferedSource(DocumentUri uri, int? version, ILoggerFactory loggerFactory)
+    internal BufferedSource(DocumentUri uri, int? version, Func<BufferedSource, IPreprocessorSource> makePreprocessor)
     {
         this.Uri = uri;
         VersionInternal = version;
         IsValidRepresentationInternal = true;
-        this.PreprocessedSource = new MapPreprocessedSource(this);
+        this.PreprocessedSource = makePreprocessor(this);
     }
 
-    internal MapPreprocessedSource PreprocessedSource { get; }
+    internal IPreprocessorSource PreprocessedSource { get; }
 
     internal bool IsValidRepresentationInternal;
     public override bool IsValidRepresentation => IsValidRepresentationInternal;

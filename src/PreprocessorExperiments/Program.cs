@@ -27,29 +27,36 @@ while (true)
     if (parts.Length < 3)
         continue;
 
-    if (parts[0] == "o")
+    try
     {
-        var prepRange = GetRange(parts[1], parts[2]);
+        if (parts[0] == "o")
+        {
+            var prepRange = GetRange(parts[1], parts[2]);
 
-        if (prepRange == null) continue;
-        var origRange = prep.GetOriginalRange(prepRange);
+            if (prepRange == null) continue;
+            var origRange = prep.GetOriginalRange(prepRange);
 
-        Console.WriteLine($"Original range: {origRange}");
-        WriteRangedText(orig[origRange], origRange);
+            Console.WriteLine($"Original range: {origRange}");
+            WriteRangedText(orig[origRange], origRange);
+        }
+        else if (parts[0] == "p")
+        {
+            var origRange = GetRange(parts[1], parts[2]);
+
+            if (origRange == null) continue;
+            var prepRange = prep.GetPreprocessedRange(origRange);
+
+            Console.WriteLine($"Preprocessed range: {prepRange}");
+            WriteRangedText(prep[prepRange], prepRange);
+        }
+        else
+        {
+            Console.WriteLine("o - get original from preprocessed / p - get preprocessed from original");
+        }
     }
-    else if (parts[0] == "p")
+    catch (InvalidOperationException)
     {
-        var origRange = GetRange(parts[1], parts[2]);
-
-        if (origRange == null) continue;
-        var prepRange = prep.GetPreprocessedRange(origRange);
-
-        Console.WriteLine($"Preprocessed range: {prepRange}");
-        WriteRangedText(prep[prepRange], prepRange);
-    }
-    else
-    {
-        Console.WriteLine("o - get original from preprocessed / p - get preprocessed from original");
+        Console.WriteLine("Invalid range");
     }
 }
 

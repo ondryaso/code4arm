@@ -1,12 +1,25 @@
+01234   8901
+    0123 56789
+
+012345
+  23 56   @ 234
+  23   78 //  345  
+  23@567
+  23/*678*/123
+  23 /*789*/234
+  23/*678*/ 234
+  23 /*789*/ 345
+
 .global main
 .func main
 
 maina:
   PUSH {LR}    @ use pseudo directive
   LDR R0, =string    @ R0 points to string
-  MOV R1, #1    @ first value in R1
-  MOV R2, #2    @ second value in R2
-  MOV R3, #3    @ result in R3 
+  MOV/*abc*/R1, #1    @ first value in R1
+  MOV /*def*/R2, #2    @ second value in R2
+  MOV/*ghi*/ R3, #3    @ result in R3 
+  MOV /*jkl*/ R3, #3    @ result in R3
 
   BL 123 
 

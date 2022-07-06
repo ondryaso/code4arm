@@ -16,17 +16,17 @@ namespace Code4Arm.LanguageServer.Services;
 public class FileSourceStore : ISourceStore
 {
     private readonly ILogger<FileSourceStore> _logger;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly IFileSystem _fileSystem;
+    private readonly bool _useMapSource;
 
     private readonly ConcurrentDictionary<DocumentUri, BufferedSource> _managedDocs = new();
     private readonly ConcurrentDictionary<DocumentUri, FileSource> _unmanagedDocs = new();
 
-    public FileSourceStore(ILoggerFactory loggerFactory, IFileSystem fileSystem)
+    public FileSourceStore(ILoggerFactory loggerFactory, IFileSystem fileSystem, bool useMapSource = true)
     {
         _logger = loggerFactory.CreateLogger<FileSourceStore>();
-        _loggerFactory = loggerFactory;
         _fileSystem = fileSystem;
+        _useMapSource = useMapSource;
     }
 
     public async Task LoadDocument(TextDocumentItem document)
@@ -39,10 +39,11 @@ public class FileSourceStore : ISourceStore
             throw new InvalidOperationException("The file has already been opened.");
         }
 
-        var source = new BufferedSource(document.Uri, document.Version, _loggerFactory)
-        {
-            Text = document.Text
-        };
+        var source = new BufferedSource(document.Uri, document.Version, _useMapSource
+            ? (s => new MapPreprocessedSource(s))
+            : (s => new TransformationPreprocessedSource(s)));
+        
+        source.Text = document.Text;
 
         await source.PreprocessedSource.Preprocess(null);
 
@@ -173,6 +174,7 @@ public class FileSourceStore : ISourceStore
 
         _logger.LogTrace("Creating unmanaged source for {Uri}.", uri);
         source = new FileSource(uri, _fileSystem);
+
         return _unmanagedDocs.GetOrAdd(uri, source);
     }
 }

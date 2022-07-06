@@ -1,28 +1,55 @@
+01234 8901
+ 0123 56789
+
+012345
+ 23 56
+ 23 78
+ 23
+ 23 123
+ 23 234
+ 23 234
+ 23 345
+
 .global main
 .func main
+
 maina:
-PUSH {LR} 
-LDR R0, =string 
-MOV R1, #1 
-MOV R2, #2 
-MOV R3, #3 
-BL 123LDR R7,=value1 
-LDR R8, [R7] 
-PUSH {R8} 
-LDR R7,=value2 
-LDR R9, [R7]
-PUSH {R9}
-CMP R8, R9
-LDR R7,=value3 
-LDR R8, [R7]
-PUSH {R8}
-BL printf 
-ADD SP, SP, #12 
-POP {PC} 
+ PUSH {LR}
+ LDR R0, =string
+ MOV R1, #1
+ MOV R2, #2
+ MOV R3, #3
+ MOV R3, #3
+
+ BL 123
+
+ LDR R7,=value1
+ LDR R8, [R7]
+ PUSH {R8}
+
+ LDR R7,=value2
+ LDR R9, [R7]
+ PUSH {R9}
+
+ CMP R8, R9
+
+ LDR R7,=value3
+ LDR R8, [R7]
+ PUSH {R8}
+
+ BL printf
+
+
+
+ ADD SP, SP, #12
+ POP {PC}
+
 __exit:
-MOV PC, LR 
+ MOV PC, LR
+
 .data
-string:.asciz "Values are: %d, %d, %d and %d\n"
-value1: .word -4
-value2: .word 5
-value3: .word 6
+ string:
+ .asciz "Values are: %d, %d, %d and %d\n"
+ value1: .word -4
+ value2: .word 5
+ value3: .word 6
