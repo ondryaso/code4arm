@@ -32,6 +32,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         if (!_lsFacade.ClientSettings.Capabilities?.TextDocument?.PublishDiagnostics.IsSupported ?? false)
         {
             _logger.LogTrace("Diagnostics aren't published because the client doesn't support them.");
+
             return;
         }
 
@@ -40,9 +41,14 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         // TODO: prepSource check?
 
         var diags = new List<Diagnostic>();
-
+        var suppressed = prepSource.SuppressedLines;
         foreach (var analysis in analyser.GetLineAnalyses())
         {
+            // TODO: make more effective
+            var originalRange = prepSource.GetOriginalRange(analysis.AnalysedRange);
+            if (((List<int>)suppressed).Contains(originalRange.Start.Line))
+                continue;
+
             // Labels
             foreach (var label in analysis.Labels)
             {
@@ -73,6 +79,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
+
                     break;
                 case LineAnalysisState.SyntaxError:
                     diags.Add(new Diagnostic()
@@ -83,6 +90,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         Severity = DiagnosticSeverity.Error,
                         Source = Constants.ServiceSource
                     });
+
                     break;
                 case LineAnalysisState.InvalidOperands:
                 {
@@ -98,6 +106,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                             Severity = DiagnosticSeverity.Error,
                             Source = Constants.ServiceSource
                         });
+
                         break;
                     }
 
@@ -118,6 +127,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                             Severity = DiagnosticSeverity.Error,
                             Source = Constants.ServiceSource
                         });
+
                         break;
                     }
 
@@ -136,10 +146,12 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                         });
                     }
                 }
+
                     break;
                 case LineAnalysisState.Directive or LineAnalysisState.InvalidDirective:
                 {
                     var directive = analysis.Directive;
+
                     if (directive == null) break;
                     if (directive.State == DirectiveState.Valid) break;
 
@@ -160,12 +172,13 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 }
             }
 
-            if (analysis.Operands is {Count: > 0})
+            if (analysis.Operands is { Count: > 0 })
             {
                 foreach (var token in analysis.Operands
-                             .Where(operand => operand.Tokens != null)
-                             .SelectMany(operand => operand.Tokens!
-                                 .Where(t => t.Result != OperandTokenResult.Valid)))
+                                              .Where(operand => operand.Tokens != null)
+                                              .SelectMany(operand => operand.Tokens!
+                                                                            .Where(t => t.Result !=
+                                                                                OperandTokenResult.Valid)))
                 {
                     var (code, message) = GetOperandTokenDiagnostic(token);
 
@@ -292,6 +305,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         for (var i = 0; i < functions.Count; i++)
         {
             var function = functions[i];
+
             if (function.TargetAnalysedLabel == null)
                 continue;
 
@@ -312,7 +326,8 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 diags.Add(new Diagnostic()
                 {
                     Code = -1,
-                    Message = $"Function '{function.Label}' starts before function '{functions[i - 1].Label}' has ended.",
+                    Message =
+                        $"Function '{function.Label}' starts before function '{functions[i - 1].Label}' has ended.",
                     Range = prepSource.GetOriginalRange(function.TargetAnalysedLabel.Range),
                     Severity = DiagnosticSeverity.Hint,
                     Source = Constants.ServiceSource

@@ -13,6 +13,8 @@ public interface IPreprocessedSource : ISource
     Range GetPreprocessedRange(Range originalRange);
     
     IEnumerable<Range> Regions { get; }
+    IReadOnlyList<int> SuppressedLines { get; }
+    IReadOnlyList<int> IgnoredLines { get; }
 
     int GetOriginalLine(int preprocessedLine)
     {
