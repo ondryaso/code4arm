@@ -80,6 +80,9 @@ public class SourceAnalyser : ISourceAnalyser
             // TODO: check and use async variants
             var enumerable = _source.GetLines();
 
+            var prepSource = _source as IPreprocessedSource;
+            var ignored = (List<int>?)prepSource?.IgnoredLines;
+            
             var capacity = _lastAnalysisLines != null
                 ? _lastAnalysisLines.Count + (_lastAnalysisLines.Count >> 2)
                 : 16;
@@ -95,13 +98,24 @@ public class SourceAnalyser : ISourceAnalyser
                 _ctx.State = LineAnalysisState.Empty;
                 _ctx.CurrentLineIndex++;
 
-                // TODO: handle line endings in a better way
-                _ctx.CurrentLineText = (line.Length == 0 || line[^1] != '\n') ? (line + '\n') : line;
+                if (prepSource != null && ignored!.Contains(prepSource.GetOriginalLine(_ctx.CurrentLineIndex)))
+                {
+                    // Ignore line
+                    _ctx.CurrentLine = new AnalysedLine(_ctx.CurrentLineIndex, line.Length);
+                    this.FinishCurrentLine(line.Length - 1, LineAnalysisState.Blank);
+                }
+                else
+                {
 
-                // Analyse the current line 
-                await this.FindBestCurrentLineAnalysis();
+                    // TODO: handle line endings in a better way
+                    _ctx.CurrentLineText = (line.Length == 0 || line[^1] != '\n') ? (line + '\n') : line;
+
+                    // Analyse the current line 
+                    await this.FindBestCurrentLineAnalysis();
+                }
+                
                 _ctx.AnalysedLines.Add(_ctx.CurrentLineIndex, _ctx.CurrentLine);
-
+                
                 //_logger.LogTrace(
                 //    $"[{_ctx.CurrentLineIndex}]: {_ctx.CurrentLine.Mnemonic?.Mnemonic} ({_ctx.CurrentLine.PreFinishState} -> {_ctx.CurrentLine.State})");
 
@@ -920,7 +934,7 @@ public class SourceAnalyser : ISourceAnalyser
         var analysis = _directiveAnalyser.AnalyseDirective(lineChunk, linePos, this);
         _ctx.CurrentLine.Directive = analysis;
 
-        this.FinishCurrentLine(_ctx.CurrentLineText.Length,
+        this.FinishCurrentLine(_ctx.CurrentLineText.Length - 1,
             (analysis.State == DirectiveState.Valid || analysis.Severity != DiagnosticSeverity.Error)
                 ? LineAnalysisState.Directive
                 : LineAnalysisState.InvalidDirective);

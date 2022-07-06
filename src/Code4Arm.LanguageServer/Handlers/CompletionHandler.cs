@@ -47,6 +47,9 @@ public class CompletionHandler : CompletionHandlerBase
         var analyser = _sourceAnalyserStore.GetAnalyser(source);
         var prepPosition = source.GetPreprocessedPosition(request.Position);
 
+        if (prepPosition.Character == -1 || prepPosition.Line == -1)
+            return new CompletionList();
+        
         await analyser.TriggerLineAnalysis(prepPosition.Line, false);
 
         var lineAnalysis = analyser.GetLineAnalysis(prepPosition.Line);

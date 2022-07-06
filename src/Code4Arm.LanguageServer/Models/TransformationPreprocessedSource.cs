@@ -1,6 +1,7 @@
 // TransformationPreprocessedSource.cs
 // Author: Ondřej Ondryáš
 
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using Code4Arm.LanguageServer.Extensions;
 using Code4Arm.LanguageServer.Models.Abstractions;
@@ -367,5 +368,7 @@ public class TransformationPreprocessedSource : BufferedSourceBase, IPreprocesso
     }
 
     public IEnumerable<Range> Regions => _regions;
+    public IReadOnlyList<int> SuppressedLines => ImmutableList<int>.Empty;
+    public IReadOnlyList<int> IgnoredLines => ImmutableList<int>.Empty;
     public Task Preprocess(System.Range? modifiedRange) => throw new NotImplementedException();
 }

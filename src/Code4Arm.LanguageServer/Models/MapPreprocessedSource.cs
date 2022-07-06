@@ -6,13 +6,18 @@ using System.Text;
 using Code4Arm.LanguageServer.Extensions;
 using Code4Arm.LanguageServer.Models.Abstractions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Code4Arm.LanguageServer.Models;
 
 public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
 {
-    public IEnumerable<Range> Regions => Enumerable.Empty<Range>();
+    public IEnumerable<Range> Regions => _regions;
+
+    public IReadOnlyList<int> SuppressedLines => _suppressedLines;
+    public IReadOnlyList<int> IgnoredLines => _ignoredLines;
+
     public record struct SpaceInfo(int Left, int Right);
 
     private Dictionary<int, SpaceInfo> _spaceInfos = new();
@@ -31,6 +36,16 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
     private int[]? _preprocessedToSource;
     private readonly ArrayPool<int> _arrayPool;
 
+    private enum BoundType
+    {
+        Region, Suppressed, Ignored
+    }
+
+    private readonly List<(Position Position, bool IsStart, BoundType Type)> _regionBounds = new();
+    private readonly List<Range> _regions = new();
+    private List<int> _suppressedLines = new();
+    private List<int> _ignoredLines = new();
+
     public MapPreprocessedSource(ISource baseSource)
     {
         BaseSource = baseSource;
@@ -48,9 +63,130 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         PossibleMultiEnd,
     }
 
+    private void MakeRegions()
+    {
+        _regions.Clear();
+        var started = new List<Position>(4);
+
+        foreach (var (pos, isStart, type) in _regionBounds)
+        {
+            if (type != BoundType.Region)
+                continue;
+            
+            if (isStart)
+            {
+                started.Add(pos);
+            }
+            else
+            {
+                foreach (var s in started)
+                {
+                    _regions.Add(new Range(s, pos));
+                }
+
+                started.Clear();
+            }
+        }
+    }
+    
+    private void MakeSuppressedOrIgnoredLines(BoundType type, ref List<int> target)
+    {
+        if (type == BoundType.Region) return;
+
+        var started = new List<int>(4);
+
+        foreach (var (pos, isStart, regType) in _regionBounds)
+        {
+            if (regType != type)
+                continue;
+            
+            if (isStart)
+            {
+                started.Add(pos.Line);
+            }
+            else
+            {
+                foreach (var s in started)
+                {
+                    for (var i = s; i < pos.Line; i++)
+                    {
+                        target.Add(i);
+                    }
+                }
+
+                started.Clear();
+            }
+        }
+
+        if (started.Count != 0)
+        {
+            var smallest = started.Min();
+            var endLine = _lastInputText!.GetPositionForIndex(_lastInputText!.Length - 1).Line;
+            for (var i = smallest; i <= endLine; i++)
+            {
+                target.Add(i);
+            }
+        }
+
+        target = target.Distinct().ToList();
+        target.Sort();
+    }
+
+    private void CheckMetaKeywords(string text, int commentIndex)
+    {
+        if (commentIndex >= text.Length)
+            return;
+        
+        if (text[commentIndex] != '#')
+            return;
+
+        var position = text.GetPositionForIndex(commentIndex);
+
+        if (text.IndexOf("#region", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            _regionBounds.Add((position, true, BoundType.Region));
+        }
+        else if (text.IndexOf("#endregion", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            _regionBounds.Add((position, false, BoundType.Region));
+        }
+        if (text.IndexOf("#suppress", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            _regionBounds.Add((position, true, BoundType.Suppressed));
+        }
+        else if (text.IndexOf("#endsuppress", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            _regionBounds.Add((position, false, BoundType.Suppressed));
+        }
+        if (text.IndexOf("#ignore", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            _regionBounds.Add((position, true, BoundType.Ignored));
+        }
+        else if (text.IndexOf("#endignore", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            _regionBounds.Add((position, false, BoundType.Ignored));
+        }
+        else if (text.IndexOf("#!", commentIndex, StringComparison.Ordinal) == commentIndex)
+        {
+            if (text.Length > (commentIndex + 2) && text[commentIndex + 2] == '!')
+            {
+                // comment begins with #!!
+                _ignoredLines.Add(position.Line);
+            }
+            else
+            {
+                _suppressedLines.Add(position.Line);
+            }
+        }
+    }
+
     public Task Preprocess(Range? modifiedRange)
     {
         var text = BaseSource.Text;
+
+        _regionBounds.Clear();
+        _suppressedLines.Clear();
+        _ignoredLines.Clear();
 
         var sourceToPreprocessed = _arrayPool.Rent(text.Length);
         var preprocessedToSource = _arrayPool.Rent(text.Length + 1);
@@ -84,6 +220,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
                     {
                         state = State.CommentSingle;
                         MapTo(si, pi == -1 ? 0 : pi);
+                        this.CheckMetaKeywords(text, si + 1);
                     }
                     else if (c != ' ')
                     {
@@ -123,6 +260,8 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
                         MapSpaceBegin(si, pi + 1);
                         MapFrom(si, pi + 1);
                         MapTo(si, pi + 1);
+
+                        this.CheckMetaKeywords(text, si + 1);
                     }
                     else
                     {
@@ -144,6 +283,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
                         commentBeganIn = State.Space;
                         state = State.CommentSingle;
                         MapTo(si, pi + 1);
+                        this.CheckMetaKeywords(text, si + 1);
                     }
                     else if (c == '\n')
                     {
@@ -175,6 +315,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
                     {
                         state = State.CommentSingle;
                         MapTo(si, pi + 1);
+                        this.CheckMetaKeywords(text, si + 1);
                     }
                     else if (c == '*')
                     {
@@ -218,7 +359,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
                     {
                         state = State.PossibleMultiEnd;
                     }
-                    
+
                     MapTo(si, pi + 1);
 
                     break;
@@ -231,7 +372,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
                     {
                         state = State.CommentMulti;
                     }
-                    
+
                     MapTo(si, pi + 1);
 
                     break;
@@ -250,6 +391,9 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         _sourceToPreprocessed = sourceToPreprocessed;
         _preprocessedToSource = preprocessedToSource;
         _spaceInfos = spaceInfos;
+        this.MakeRegions();
+        this.MakeSuppressedOrIgnoredLines(BoundType.Ignored, ref _ignoredLines);
+        this.MakeSuppressedOrIgnoredLines(BoundType.Suppressed, ref _suppressedLines);
 
         return Task.CompletedTask;
 
@@ -284,7 +428,10 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         var start = _lastText.GetIndexForPosition(preprocessedRange.Start);
         var end = _lastText.GetIndexForPosition(preprocessedRange.End);
 
-        if (_lastText.Length <= start || _lastText.Length <= end || start == -1 || end == -1)
+        if (start >= _lastText.Length) start = _lastText.Length - 1;
+        if (end >= _lastText.Length) end = _lastText.Length - 1;
+        
+        if (start == -1 || end == -1)
             throw new InvalidOperationException("Invalid range.");
 
         if (start == (end - 1) && _spaceInfos.TryGetValue(start, out var startSpace))
