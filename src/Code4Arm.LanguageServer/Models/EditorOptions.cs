@@ -2,13 +2,14 @@
 
 namespace Code4Arm.LanguageServer.Models;
 
-public class LanguageServerOptions
+public class EditorOptions
 {
     public bool ShowCodeLens { get; set; } = true;
     public string InstructionFilter { get; set; } = "Basic";
     public string[] InstructionBlacklist { get; set; } = Array.Empty<string>();
     public bool ShowUncommonMnemonicVariants { get; set; } = false;
     public bool ShowSimdInstructions { get; set; } = true;
+    public bool EnableErrors { get; set; } = false;
 
     public InstructionVariantFlag Flag =>
         this.InstructionFilter switch

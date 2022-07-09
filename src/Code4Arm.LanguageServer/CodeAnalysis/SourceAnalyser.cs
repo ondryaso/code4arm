@@ -4,6 +4,7 @@
 using System.Text.RegularExpressions;
 using Code4Arm.LanguageServer.CodeAnalysis.Abstractions;
 using Code4Arm.LanguageServer.CodeAnalysis.Models;
+using Code4Arm.LanguageServer.CodeAnalysis.Models.Abstractions;
 using Code4Arm.LanguageServer.Extensions;
 using Code4Arm.LanguageServer.Models.Abstractions;
 using Code4Arm.LanguageServer.Services.Abstractions;
@@ -28,6 +29,7 @@ public class SourceAnalyser : ISourceAnalyser
     private Dictionary<int, AnalysedLine>? _lastAnalysisLines;
     private Dictionary<string, AnalysedLabel>? _lastAnalysisLabels;
     private List<AnalysedFunction>? _lastFunctions;
+    private readonly List<InstructionVariant> _unsuccessfulVariants = new();
 
     private AnalysisContext _ctx;
 
@@ -53,6 +55,17 @@ public class SourceAnalyser : ISourceAnalyser
         _ctx = null!;
     }
 
+    #region Top-level Analysis
+
+    /// <summary>
+    /// Queries all source lines and performs line analysis for each of them. Processes found labels.
+    /// Invokes the <see cref="IDiagnosticsPublisher"/> to publish the results.
+    ///</summary>
+    /// <remarks>
+    /// Modifies this <see cref="SourceAnalyser"/>'s internal state accordingly.
+    /// The results of the analysis may be retrieved using other methods (e.g. <see cref="GetLineAnalysis"/>).
+    /// Entering the analysis process is synchronised using a semaphore so that it can only run once at a time.
+    /// </remarks>
     public async Task TriggerFullAnalysis()
     {
         if (_analysedVersion >= _source.Version)
@@ -70,6 +83,8 @@ public class SourceAnalyser : ISourceAnalyser
 
         if (_analysedVersion >= _source.Version)
         {
+            _analysisSemaphore.Release();
+
             return;
         }
 
@@ -82,7 +97,7 @@ public class SourceAnalyser : ISourceAnalyser
 
             var prepSource = _source as IPreprocessedSource;
             var ignored = (List<int>?)prepSource?.IgnoredLines;
-            
+
             var capacity = _lastAnalysisLines != null
                 ? _lastAnalysisLines.Count + (_lastAnalysisLines.Count >> 2)
                 : 16;
@@ -106,16 +121,15 @@ public class SourceAnalyser : ISourceAnalyser
                 }
                 else
                 {
-
                     // TODO: handle line endings in a better way
                     _ctx.CurrentLineText = (line.Length == 0 || line[^1] != '\n') ? (line + '\n') : line;
 
                     // Analyse the current line 
                     await this.FindBestCurrentLineAnalysis();
                 }
-                
+
                 _ctx.AnalysedLines.Add(_ctx.CurrentLineIndex, _ctx.CurrentLine);
-                
+
                 //_logger.LogTrace(
                 //    $"[{_ctx.CurrentLineIndex}]: {_ctx.CurrentLine.Mnemonic?.Mnemonic} ({_ctx.CurrentLine.PreFinishState} -> {_ctx.CurrentLine.State})");
 
@@ -182,20 +196,22 @@ public class SourceAnalyser : ISourceAnalyser
         await _diagnosticsPublisher.PublishAnalysisResult(this, _source.Uri, _analysedVersion).ConfigureAwait(false);
     }
 
-    private void MarkGlobalLabels()
+    /// <inheritdoc />
+    public async Task TriggerLineAnalysis(int line, bool added)
     {
-        if (_ctx.GlobalLabels == null)
-            return;
-
-        foreach (var globalLabel in _ctx.GlobalLabels)
+        // TODO
+        if (_analysedVersion < _source.Version)
         {
-            if (_ctx.AnalysedLabels.TryGetValue(globalLabel, out var labelAnalysis))
-            {
-                labelAnalysis.IsGlobal = true;
-            }
+            await this.TriggerFullAnalysis();
         }
     }
 
+    /// <summary>
+    /// Calls <see cref="AnalyseCurrentLine"/>. If the analysis result is not <see cref="LineAnalysisState.ValidLine"/>
+    /// and more instruction variants that may potentially be present on the line were found, re-runs the analysis
+    /// while keeping the previous result. If no fully valid analysis is achieved, the attempt with the largest number
+    /// of matches operands is stored as the final analysis result for the current line.
+    /// </summary>
     private async Task FindBestCurrentLineAnalysis()
     {
         _unsuccessfulVariants.Clear();
@@ -204,7 +220,7 @@ public class SourceAnalyser : ISourceAnalyser
         var bestAttempt = _ctx.CurrentLine;
 
         var attempts = 0;
-        
+
         while (_ctx.CurrentLine.State != LineAnalysisState.ValidLine
                && _ctx.CurrentLine.FullMatches.Count > 1
                && _ctx.CurrentLine.FullMatches.Count > _unsuccessfulVariants.Count)
@@ -221,9 +237,10 @@ public class SourceAnalyser : ISourceAnalyser
 
             _ctx.FirstRunOnCurrentLine = false;
 
+            // A fail-safe
             if (++attempts == 9)
                 break;
-            
+
             await this.AnalyseCurrentLine();
         }
 
@@ -233,323 +250,12 @@ public class SourceAnalyser : ISourceAnalyser
         }
     }
 
-    private readonly Regex _funcTypeRegex =
-        new Regex("^ ?(\\\"[a-zA-Z_.$][a-zA-Z0-9_.$ ]*\\\"|[a-zA-Z_.$][a-zA-Z0-9_.$]*) ?, ?%function ?$",
-            RegexOptions.Compiled);
-
-    private void FindFunctions()
-    {
-        if (_ctx.StubFunctions == null)
-            return;
-
-        var beginLines = new List<AnalysedFunction>();
-        var startedFunctions = new List<AnalysedFunction>();
-
-        foreach (var stubFunction in _ctx.StubFunctions)
-        {
-            if (_ctx.AnalysedLabels.TryGetValue(stubFunction.Label, out var label))
-            {
-                stubFunction.TargetAnalysedLabel = label;
-                stubFunction.StartLine = label.PointsTo?.LineIndex ?? label.DefinedAtLine;
-                label.TargetFunction = stubFunction;
-
-                if (!beginLines.Contains(stubFunction))
-                    beginLines.Add(stubFunction);
-            }
-        }
-
-        beginLines.Sort((a, b) => a.StartLine - b.StartLine);
-        var toEnd = new List<AnalysedFunction>();
-
-        foreach (var pair in _ctx.AnalysedLines)
-        {
-            if (beginLines.Count > 0)
-            {
-                var first = beginLines[0];
-                while (first.StartLine == pair.Key)
-                {
-                    startedFunctions.Add(first);
-                    beginLines.RemoveAt(0);
-
-                    if (beginLines.Count > 0)
-                        first = beginLines[0];
-                    else break;
-                }
-            }
-
-            if (startedFunctions.Count > 0)
-            {
-                var analysedLine = pair.Value;
-
-                foreach (var function in startedFunctions)
-                {
-                    if (EndsFunction(analysedLine, function.Label))
-                    {
-                        function.EndLine = analysedLine.LineIndex;
-                        toEnd.Add(function);
-                    }
-                }
-
-                startedFunctions.RemoveAll(t => toEnd.Contains(t));
-                toEnd.Clear();
-            }
-
-            if (beginLines.Count == 0 && startedFunctions.Count == 0)
-                break;
-        }
-    }
-
-    private static bool EndsFunction(AnalysedLine line, string functionName)
-    {
-        var mnemonic = line.Mnemonic?.Mnemonic;
-
-        if (mnemonic is "B" or "BX" &&
-            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false))
-            return true;
-
-        if (mnemonic is "POP" or "LDM" or "LDR" &&
-            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register.HasFlag(Register.PC)) ?? false) ?? false))
-            return true;
-
-        if (mnemonic is "SVC" or "SWI" && functionName is "main" or "_start")
-            return true;
-
-        if (line.Directive?.Type is DirectiveType.EndFunc && line.Directive.ParametersText == functionName)
-            return true;
-
-        return false;
-    }
-
-    private void FixupLineLabels(int labelsStart)
-    {
-        foreach (var label in _ctx.StubLabels)
-        {
-            var isAlreadyDefined = _ctx.AnalysedLabels.TryGetValue(label.Label, out var alreadyDefined);
-
-            var populatedLabel = label with
-            {
-                PointsTo = _ctx.CurrentLine,
-                Redefines = isAlreadyDefined ? alreadyDefined : null
-            };
-
-            _ctx.CurrentLine.Labels.Add(populatedLabel);
-
-            if (!isAlreadyDefined || alreadyDefined!.CanBeRedefined)
-            {
-                _ctx.AnalysedLabels[label.Label] = label;
-            }
-
-            if (labelsStart != -1)
-            {
-                for (var i = labelsStart; i < _ctx.CurrentLineIndex; i++)
-                {
-                    _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
-                }
-            }
-        }
-
-        _ctx.StubLabels.Clear();
-    }
-
-    private void FillReferencesInLabelOperands()
-    {
-        var allLabels = _ctx.AnalysedLines.Values
-                            .Where(o => o.State == LineAnalysisState.ValidLine && o.Operands is { Count: > 0 })
-                            .SelectMany(o => o.Operands!)
-                            .Where(op => op.Result == OperandResult.Valid && op.Tokens is { Count: > 0 })
-                            .SelectMany(o => o.Tokens!)
-                            .Where(t => t.Type == OperandTokenType.Label);
-
-        foreach (var labelToken in allLabels)
-        {
-            if (_ctx.AnalysedLabels.TryGetValue(labelToken.Text, out var targetLabel))
-            {
-                labelToken.Data = targetLabel;
-                targetLabel.ReferencesCount++;
-            }
-            else
-            {
-                labelToken.Result = OperandTokenResult.UndefinedLabel;
-                labelToken.Severity = DiagnosticSeverity.Information;
-            }
-        }
-    }
-
-    public async Task TriggerLineAnalysis(int line, bool added)
-    {
-        // TODO
-        if (_analysedVersion < _source.Version)
-        {
-            await this.TriggerFullAnalysis();
-        }
-    }
-
-    public AnalysedLine? GetLineAnalysis(int line)
-    {
-        return _lastAnalysisLines?[line];
-    }
-
-    public IEnumerable<AnalysedLine> GetLineAnalyses()
-    {
-        return _lastAnalysisLines?.OrderBy(c => c.Key).Select(c => c.Value)
-            ?? Enumerable.Empty<AnalysedLine>();
-    }
-
-    public IEnumerable<AnalysedLabel> GetLabels()
-    {
-        return _lastAnalysisLabels?.Values ?? Enumerable.Empty<AnalysedLabel>();
-    }
-
-    public AnalysedTokenLookupResult? FindTokenAtPosition(Position position)
-    {
-        if (_lastAnalysisLines == null)
-            return null;
-        if (!_lastAnalysisLines.TryGetValue(position.Line, out var lineAnalysis))
-            return null;
-
-        foreach (var label in lineAnalysis.Labels)
-        {
-            if (label.DefinedAtLine == position.Line && label.Range.Contains(position))
-            {
-                return new AnalysedTokenLookupResult(lineAnalysis, label);
-            }
-        }
-
-        // TODO: directives!
-
-        var mnemonic = lineAnalysis.Mnemonic;
-
-        if (mnemonic == null)
-            // Blank line
-            return new AnalysedTokenLookupResult(lineAnalysis, lineAnalysis.AnalysedRange);
-
-        if (lineAnalysis.SetFlagsRange?.Contains(position) ?? false)
-            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.SetFlagsFlag);
-
-        if (lineAnalysis.ConditionCodeRange?.Contains(position) ?? false)
-            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.ConditionCode);
-
-        if (lineAnalysis.MnemonicRange!.Contains(position))
-            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.Mnemonic);
-
-        if (lineAnalysis.HasSpecifiers)
-        {
-            foreach (var specifier in lineAnalysis.Specifiers)
-            {
-                if (specifier.Range.Contains(position))
-                    return new AnalysedTokenLookupResult(lineAnalysis, specifier);
-            }
-        }
-
-        if (!mnemonic.HasOperands || lineAnalysis.Operands == null)
-            return new AnalysedTokenLookupResult(lineAnalysis, new Range()); // TODO: whitespace at the end?
-
-        AnalysedOperand? cursorIn = null;
-        foreach (var analysedOperand in lineAnalysis.Operands)
-        {
-            if (analysedOperand.Range.Contains(position))
-            {
-                cursorIn = analysedOperand;
-
-                break;
-            }
-        }
-
-        if (cursorIn != null)
-        {
-            if (cursorIn.Descriptor == null || cursorIn.Tokens is null or { Count: 0 })
-                return new AnalysedTokenLookupResult(lineAnalysis, cursorIn);
-
-            foreach (var token in cursorIn.Tokens)
-            {
-                if (token.Range.Contains(position))
-                {
-                    return new AnalysedTokenLookupResult(lineAnalysis, cursorIn, token);
-                }
-            }
-
-            return new AnalysedTokenLookupResult(lineAnalysis, cursorIn);
-        }
-
-        return new AnalysedTokenLookupResult(lineAnalysis,
-            new Range(position.Line, position.Character, position.Line,
-                position.Character)); // TODO: whitespace in the middle
-    }
-
-    public AnalysedLabel? GetLabel(string name)
-    {
-        return (_lastAnalysisLabels?.TryGetValue(name, out var val) ?? false) ? val : null;
-    }
-
-    public IEnumerable<AnalysedTokenLookupResult> FindLabelOccurrences(string label, bool includeDefinition)
-    {
-        if (_lastAnalysisLines == null)
-            yield break;
-
-        foreach (var line in _lastAnalysisLines.Values)
-        {
-            foreach (var analysedLabel in line.Labels)
-            {
-                if (analysedLabel.Label == label && analysedLabel.DefinedAtLine == line.LineIndex &&
-                    (includeDefinition || analysedLabel.Redefines != null))
-                    yield return new AnalysedTokenLookupResult(line, analysedLabel);
-            }
-
-            if (line.Operands is null or { Count: 0 })
-                continue;
-
-            foreach (var operand in line.Operands)
-            {
-                if (operand.Tokens is null or { Count: 0 })
-                    continue;
-
-                foreach (var token in operand.Tokens.Where(t => t.Type == OperandTokenType.Label))
-                {
-                    if (token.Data.TargetLabel != null && token.Data.TargetLabel.Label == label)
-                    {
-                        yield return new AnalysedTokenLookupResult(line, operand, token);
-                    }
-                }
-            }
-        }
-    }
-
-    public IEnumerable<AnalysedTokenLookupResult> FindRegisterOccurrences(Register register)
-    {
-        if (!register.IsSingleRegister())
-            throw new InvalidOperationException("Occurrences may only be found for a single register.");
-
-        if (_lastAnalysisLines == null)
-            yield break;
-
-        foreach (var line in _lastAnalysisLines.Values)
-        {
-            if (line.Operands is null or { Count: 0 })
-                continue;
-
-            foreach (var operand in line.Operands)
-            {
-                if (operand.Tokens is null or { Count: 0 })
-                    continue;
-
-                foreach (var token in operand.Tokens.Where(t => t.Type == OperandTokenType.Register))
-                {
-                    if (token.Data.Register == register)
-                    {
-                        yield return new AnalysedTokenLookupResult(line, operand, token);
-                    }
-                }
-            }
-        }
-    }
-
-    public IEnumerable<AnalysedFunction> GetFunctions()
-    {
-        return _lastFunctions ?? Enumerable.Empty<AnalysedFunction>();
-    }
-
-    private List<InstructionVariant> _unsuccessfulVariants = new();
-
+    /// <summary>
+    /// Implements the FSM for analysing the current line (given by the current context's <see cref="AnalysisContext.CurrentLine"/>).
+    /// This determines the present labels, mnemonic or directive. If a space is consumed after analysing a mnemonic succesfully,
+    /// the analysis is handed over to <see cref="AnalyseOperandsAndFinishLine"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The FSM ended up in an invalid state (shouldn't happen).</exception>
     private async Task AnalyseCurrentLine()
     {
         var line = _ctx.CurrentLineText;
@@ -914,33 +620,38 @@ public class SourceAnalyser : ISourceAnalyser
     }
 
     /// <summary>
-    /// 
+    /// Sets the current line's state and analysis ending position. Resets the FSM.
     /// </summary>
-    /// <param name="linePos"></param>
-    /// <param name="textStart"></param>
-    /// <returns>True if a directive was parsed; false if it turned out to be a label.</returns>
-    private bool HandleDirective(ref int linePos, ref int textStart)
+    /// <param name="linePosition">Index of the character where the analysis has ended.</param>
+    /// <param name="endState">The resulting state of the currently analysed line.</param>
+    private void FinishCurrentLine(int linePosition, LineAnalysisState endState)
     {
-        var lineChunk = _ctx.CurrentLineText[linePos..];
-        var labelTerminatorIndex = lineChunk.IndexOf(':');
-
-        if (labelTerminatorIndex != -1)
-        {
-            this.HandleLabel(labelTerminatorIndex, ref textStart);
-
-            return false;
-        }
-
-        var analysis = _directiveAnalyser.AnalyseDirective(lineChunk, linePos, this);
-        _ctx.CurrentLine.Directive = analysis;
-
-        this.FinishCurrentLine(_ctx.CurrentLineText.Length - 1,
-            (analysis.State == DirectiveState.Valid || analysis.Severity != DiagnosticSeverity.Error)
-                ? LineAnalysisState.Directive
-                : LineAnalysisState.InvalidDirective);
-
-        return true;
+        _ctx.CurrentLine.PreFinishState = _ctx.State;
+        _ctx.State = LineAnalysisState.Empty;
+        _ctx.CurrentLine.State = endState;
+        _ctx.CurrentLine.EndCharacter = linePosition;
     }
+
+    /// <summary>
+    /// Resets all flags, <see cref="AnalysedLine.SetFlagsRange"/> and <see cref="AnalysedLine.ConditionCodeRange"/>
+    /// on the current analysed line. Used to discard those when the presumption about the mnemonic having a flag
+    /// turns out to be invalid when the next character is loaded.
+    /// </summary>
+    private void ResetCurrentLineFlags()
+    {
+        _ctx.CurrentLine.SetsFlags = false;
+        _ctx.CurrentLine.SetFlagsRange = null;
+        _ctx.CurrentLine.CannotSetFlags = false;
+        _ctx.CurrentLine.ConditionCode = null;
+        _ctx.CurrentLine.ConditionCodeRange = null;
+        _ctx.CurrentLine.CannotBeConditional = false;
+        _ctx.CurrentLine.HasInvalidConditionCode = false;
+        _ctx.CurrentLine.HasUnterminatedConditionCode = false;
+    }
+
+    #endregion
+
+    #region Labels, Functions, Directives
 
     private void HandleLabel(int linePos, ref int textStart)
     {
@@ -992,21 +703,386 @@ public class SourceAnalyser : ISourceAnalyser
         _ctx.State = LineAnalysisState.Empty;
     }
 
-    /// <summary>
-    /// Sets the current line's state and analysis ending position. Resets the FSM.
-    /// </summary>
-    /// <param name="linePosition">Index of the character where the analysis has ended.</param>
-    /// <param name="endState">The resulting state of the currently analysed line.</param>
-    private void FinishCurrentLine(int linePosition, LineAnalysisState endState)
+    private void MarkGlobalLabels()
     {
-        _ctx.CurrentLine.PreFinishState = _ctx.State;
-        _ctx.State = LineAnalysisState.Empty;
-        _ctx.CurrentLine.State = endState;
-        _ctx.CurrentLine.EndCharacter = linePosition;
+        if (_ctx.GlobalLabels == null)
+            return;
+
+        foreach (var globalLabel in _ctx.GlobalLabels)
+        {
+            if (_ctx.AnalysedLabels.TryGetValue(globalLabel, out var labelAnalysis))
+            {
+                labelAnalysis.IsGlobal = true;
+            }
+        }
+    }
+
+    private readonly Regex _funcTypeRegex =
+        new Regex("^ ?(\\\"[a-zA-Z_.$][a-zA-Z0-9_.$ ]*\\\"|[a-zA-Z_.$][a-zA-Z0-9_.$]*) ?, ?%function ?$",
+            RegexOptions.Compiled);
+
+    private void FindFunctions()
+    {
+        if (_ctx.StubFunctions == null)
+            return;
+
+        var beginLines = new List<AnalysedFunction>();
+        var startedFunctions = new List<AnalysedFunction>();
+
+        foreach (var stubFunction in _ctx.StubFunctions)
+        {
+            if (_ctx.AnalysedLabels.TryGetValue(stubFunction.Label, out var label))
+            {
+                stubFunction.TargetAnalysedLabel = label;
+                stubFunction.StartLine = label.PointsTo?.LineIndex ?? label.DefinedAtLine;
+                label.TargetFunction = stubFunction;
+
+                if (!beginLines.Contains(stubFunction))
+                    beginLines.Add(stubFunction);
+            }
+        }
+
+        beginLines.Sort((a, b) => a.StartLine - b.StartLine);
+        var toEnd = new List<AnalysedFunction>();
+
+        foreach (var pair in _ctx.AnalysedLines)
+        {
+            if (beginLines.Count > 0)
+            {
+                var first = beginLines[0];
+                while (first.StartLine == pair.Key)
+                {
+                    startedFunctions.Add(first);
+                    beginLines.RemoveAt(0);
+
+                    if (beginLines.Count > 0)
+                        first = beginLines[0];
+                    else break;
+                }
+            }
+
+            if (startedFunctions.Count > 0)
+            {
+                var analysedLine = pair.Value;
+
+                foreach (var function in startedFunctions)
+                {
+                    if (EndsFunction(analysedLine, function.Label))
+                    {
+                        function.EndLine = analysedLine.LineIndex;
+                        toEnd.Add(function);
+                    }
+                }
+
+                startedFunctions.RemoveAll(t => toEnd.Contains(t));
+                toEnd.Clear();
+            }
+
+            if (beginLines.Count == 0 && startedFunctions.Count == 0)
+                break;
+        }
+    }
+
+    private static bool EndsFunction(AnalysedLine line, string functionName)
+    {
+        var mnemonic = line.Mnemonic?.Mnemonic;
+
+        if (mnemonic is "B" or "BX" &&
+            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register == Register.LR) ?? false) ?? false))
+            return true;
+
+        if (mnemonic is "POP" or "LDM" or "LDR" &&
+            (line.Operands?.Any(o => o.Tokens?.Any(t => t.Data.Register.HasFlag(Register.PC)) ?? false) ?? false))
+            return true;
+
+        if (mnemonic is "SVC" or "SWI" && functionName is "main" or "_start")
+            return true;
+
+        if (line.Directive?.Type is DirectiveType.EndFunc && line.Directive.ParametersText == functionName)
+            return true;
+
+        return false;
+    }
+
+    private void FixupLineLabels(int labelsStart)
+    {
+        foreach (var label in _ctx.StubLabels)
+        {
+            var isAlreadyDefined = _ctx.AnalysedLabels.TryGetValue(label.Label, out var alreadyDefined);
+
+            var populatedLabel = label with
+            {
+                PointsTo = _ctx.CurrentLine,
+                Redefines = isAlreadyDefined ? alreadyDefined : null
+            };
+
+            _ctx.CurrentLine.Labels.Add(populatedLabel);
+
+            if (!isAlreadyDefined || alreadyDefined!.CanBeRedefined)
+            {
+                _ctx.AnalysedLabels[label.Label] = label;
+            }
+
+            if (labelsStart != -1)
+            {
+                for (var i = labelsStart; i < _ctx.CurrentLineIndex; i++)
+                {
+                    _ctx.AnalysedLines[i].Labels.Add(populatedLabel);
+                }
+            }
+        }
+
+        _ctx.StubLabels.Clear();
+    }
+
+    private void FillReferencesInLabelOperands()
+    {
+        var allLabels = _ctx.AnalysedLines.Values
+                            .Where(o => o.State == LineAnalysisState.ValidLine && o.Operands is { Count: > 0 })
+                            .SelectMany(o => o.Operands!)
+                            .Where(op => op.Result == OperandResult.Valid && op.Tokens is { Count: > 0 })
+                            .SelectMany(o => o.Tokens!)
+                            .Where(t => t.Type == OperandTokenType.Label);
+
+        foreach (var labelToken in allLabels)
+        {
+            if (_ctx.AnalysedLabels.TryGetValue(labelToken.Text, out var targetLabel))
+            {
+                labelToken.Data = targetLabel;
+                targetLabel.ReferencesCount++;
+            }
+            else
+            {
+                labelToken.Result = OperandTokenResult.UndefinedLabel;
+                labelToken.Severity = DiagnosticSeverity.Information;
+            }
+        }
     }
 
     /// <summary>
-    /// Checks a part of a line 
+    /// 
+    /// </summary>
+    /// <param name="linePos"></param>
+    /// <param name="textStart"></param>
+    /// <returns>True if a directive was parsed; false if it turned out to be a label.</returns>
+    private bool HandleDirective(ref int linePos, ref int textStart)
+    {
+        var lineChunk = _ctx.CurrentLineText[linePos..];
+
+        // Find labels starting in this directive but ignore : inside strings
+        var inString = false;
+
+        for (var i = 0; i < lineChunk.Length; i++)
+        {
+            var c = lineChunk[i];
+            if (c == '"')
+            {
+                inString = !inString;
+            }
+            else if (c == ':' && !inString)
+            {
+                this.HandleLabel(i, ref textStart);
+
+                return false;
+            }
+        }
+
+        var analysis = _directiveAnalyser.AnalyseDirective(lineChunk, linePos, this);
+        _ctx.CurrentLine.Directive = analysis;
+
+        this.FinishCurrentLine(_ctx.CurrentLineText.Length - 1,
+            (analysis.State == DirectiveState.Valid || analysis.Severity != DiagnosticSeverity.Error)
+                ? LineAnalysisState.Directive
+                : LineAnalysisState.InvalidDirective);
+
+        return true;
+    }
+
+    #endregion
+
+    #region Analysis results reporting
+
+    /// <inheritdoc />
+    public AnalysedLine? GetLineAnalysis(int line)
+    {
+        return _lastAnalysisLines?[line];
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<AnalysedLine> GetLineAnalyses()
+    {
+        return _lastAnalysisLines?.OrderBy(c => c.Key).Select(c => c.Value)
+            ?? Enumerable.Empty<AnalysedLine>();
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<AnalysedLabel> GetLabels()
+    {
+        return _lastAnalysisLabels?.Values ?? Enumerable.Empty<AnalysedLabel>();
+    }
+
+    /// <inheritdoc />
+    public AnalysedTokenLookupResult? FindTokenAtPosition(Position position)
+    {
+        if (_lastAnalysisLines == null)
+            return null;
+        if (!_lastAnalysisLines.TryGetValue(position.Line, out var lineAnalysis))
+            return null;
+
+        foreach (var label in lineAnalysis.Labels)
+        {
+            if (label.DefinedAtLine == position.Line && label.Range.Contains(position))
+            {
+                return new AnalysedTokenLookupResult(lineAnalysis, label);
+            }
+        }
+
+        // TODO: directives!
+
+        var mnemonic = lineAnalysis.Mnemonic;
+
+        if (mnemonic == null)
+            // Blank line
+            return new AnalysedTokenLookupResult(lineAnalysis, lineAnalysis.AnalysedRange);
+
+        if (lineAnalysis.SetFlagsRange?.Contains(position) ?? false)
+            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.SetFlagsFlag);
+
+        if (lineAnalysis.ConditionCodeRange?.Contains(position) ?? false)
+            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.ConditionCode);
+
+        if (lineAnalysis.MnemonicRange!.Contains(position))
+            return new AnalysedTokenLookupResult(lineAnalysis, AnalysedTokenType.Mnemonic);
+
+        if (lineAnalysis.HasSpecifiers)
+        {
+            foreach (var specifier in lineAnalysis.Specifiers)
+            {
+                if (specifier.Range.Contains(position))
+                    return new AnalysedTokenLookupResult(lineAnalysis, specifier);
+            }
+        }
+
+        if (!mnemonic.HasOperands || lineAnalysis.Operands == null)
+            return new AnalysedTokenLookupResult(lineAnalysis, new Range()); // TODO: whitespace at the end?
+
+        AnalysedOperand? cursorIn = null;
+        foreach (var analysedOperand in lineAnalysis.Operands)
+        {
+            if (analysedOperand.Range.Contains(position))
+            {
+                cursorIn = analysedOperand;
+
+                break;
+            }
+        }
+
+        if (cursorIn != null)
+        {
+            if (cursorIn.Descriptor == null || cursorIn.Tokens is null or { Count: 0 })
+                return new AnalysedTokenLookupResult(lineAnalysis, cursorIn);
+
+            foreach (var token in cursorIn.Tokens)
+            {
+                if (token.Range.Contains(position))
+                {
+                    return new AnalysedTokenLookupResult(lineAnalysis, cursorIn, token);
+                }
+            }
+
+            return new AnalysedTokenLookupResult(lineAnalysis, cursorIn);
+        }
+
+        return new AnalysedTokenLookupResult(lineAnalysis,
+            new Range(position.Line, position.Character, position.Line,
+                position.Character)); // TODO: whitespace in the middle
+    }
+
+    /// <inheritdoc />
+    public AnalysedLabel? GetLabel(string name)
+    {
+        return (_lastAnalysisLabels?.TryGetValue(name, out var val) ?? false) ? val : null;
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<AnalysedTokenLookupResult> FindLabelOccurrences(string label, bool includeDefinition)
+    {
+        if (_lastAnalysisLines == null)
+            yield break;
+
+        foreach (var line in _lastAnalysisLines.Values)
+        {
+            foreach (var analysedLabel in line.Labels)
+            {
+                if (analysedLabel.Label == label && analysedLabel.DefinedAtLine == line.LineIndex &&
+                    (includeDefinition || analysedLabel.Redefines != null))
+                    yield return new AnalysedTokenLookupResult(line, analysedLabel);
+            }
+
+            if (line.Operands is null or { Count: 0 })
+                continue;
+
+            foreach (var operand in line.Operands)
+            {
+                if (operand.Tokens is null or { Count: 0 })
+                    continue;
+
+                foreach (var token in operand.Tokens.Where(t => t.Type == OperandTokenType.Label))
+                {
+                    if (token.Data.TargetLabel != null && token.Data.TargetLabel.Label == label)
+                    {
+                        yield return new AnalysedTokenLookupResult(line, operand, token);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<AnalysedTokenLookupResult> FindRegisterOccurrences(Register register)
+    {
+        if (!register.IsSingleRegister())
+            throw new InvalidOperationException("Occurrences may only be found for a single register.");
+
+        if (_lastAnalysisLines == null)
+            yield break;
+
+        foreach (var line in _lastAnalysisLines.Values)
+        {
+            if (line.Operands is null or { Count: 0 })
+                continue;
+
+            foreach (var operand in line.Operands)
+            {
+                if (operand.Tokens is null or { Count: 0 })
+                    continue;
+
+                foreach (var token in operand.Tokens.Where(t => t.Type == OperandTokenType.Register))
+                {
+                    if (token.Data.Register == register)
+                    {
+                        yield return new AnalysedTokenLookupResult(line, operand, token);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<AnalysedFunction> GetFunctions()
+    {
+        return _lastFunctions ?? Enumerable.Empty<AnalysedFunction>();
+    }
+
+    #endregion
+
+    #region Mnemonics and Specifiers
+
+    /// <summary>
+    /// Checks whether a given range in the current line contains one or more known mnemonics.
+    /// Fills <see cref="AnalysedLine.MatchingMnemonics"/>, <see cref="AnalysedLine.FullMatches"/>
+    /// and <see cref="AnalysedLine.Mnemonic"/>. Variants that have already been used unsuccessfully (put into the
+    /// 'unsuccessful' list by <see cref="FindBestCurrentLineAnalysis"/>) are skipped.
     /// </summary>
     /// <returns><see cref="LineAnalysisState.InvalidMnemonic"/> (no matches),
     /// <see cref="LineAnalysisState.HasMatches"/> (possible mnemonics but no full match), or
@@ -1081,9 +1157,13 @@ public class SourceAnalyser : ISourceAnalyser
     }
 
     /// <summary>
-    /// TODO
+    /// Checks whether a given range in the current line contains a valid specifier (vector data type specifier
+    /// or instruction length specifier). Returns the next state for the FSM. Fills <see cref="AnalysedLine.Specifiers"/>.
     /// </summary>
-    /// <returns>LoadingSpecifier, InvalidSpecifier, SpecifierSyntaxError or HasFullMatch.</returns>
+    /// <returns>One of <see cref="LineAnalysisState.LoadingSpecifier"/> (a possible specifier, more characters are needed),
+    /// <see cref="LineAnalysisState.InvalidSpecifier"/> (specifier recognised but cannot be used here),
+    /// <see cref="LineAnalysisState.SpecifierSyntaxError"/> (specifier not recognised), or
+    /// <see cref="LineAnalysisState.HasFullMatch"/> (specifier recognised, valid and fully consumed).</returns>
     private LineAnalysisState DetermineSpecifierSyntaxValidity(System.Range consumedRange)
     {
         var specifier = _ctx.CurrentLineText[consumedRange];
@@ -1156,6 +1236,10 @@ public class SourceAnalyser : ISourceAnalyser
 
         return LineAnalysisState.SpecifierSyntaxError;
     }
+
+    #endregion
+
+    #region Operand Analysis
 
     private readonly Regex _commaRegex = new("\\G ?, ?", RegexOptions.Compiled);
     private readonly Regex _endLineRegex = new("\\G ?$", RegexOptions.Compiled | RegexOptions.Multiline);
@@ -1296,7 +1380,7 @@ public class SourceAnalyser : ISourceAnalyser
     }
 
     /// <summary>
-    /// Attempts to match a certain type of operand, described by <see cref="OperandDescriptor"/>, on a given position
+    /// Attempts to match a certain type of operand, described by <see cref="IOperandDescriptor"/>, on a given position
     /// in a line. If successful, calls itself to match the next operand. This way, an <see cref="OperandAnalysisChain"/>
     /// is created that holds information about the whole analysis process, up to its termination by a valid line, or by
     /// an error.
@@ -1305,7 +1389,7 @@ public class SourceAnalyser : ISourceAnalyser
     /// <param name="opPartLinePos">Index of the first character of the first operand on the line (relative to the original line).</param>
     /// <param name="currentPos">Position to start consuming the operand on (relative to the operand part of the line).
     /// This is the index of a character following the end character of the previous consumed operand.</param>
-    /// <param name="descriptorIndex">Index of the <see cref="OperandDescriptor"/> object that the line is being matched against,
+    /// <param name="descriptorIndex">Index of the <see cref="IOperandDescriptor"/> object that the line is being matched against,
     /// in the <see cref="InstructionVariant.Operands"/> list of the current line's <see cref="InstructionVariant"/>.</param>
     /// <param name="actualOperandIndex">Position of the currently analysed operand as used in the source text
     /// (taking skipped optional operands into consideration).</param>
@@ -1520,22 +1604,9 @@ public class SourceAnalyser : ISourceAnalyser
             ref chain);
     }
 
-    /// <summary>
-    /// Resets all flags, <see cref="AnalysedLine.SetFlagsRange"/> and <see cref="AnalysedLine.ConditionCodeRange"/>
-    /// on the current analysed line. Used to discard those when the presumption about the mnemonic having a flag
-    /// turns out to be invalid when the next character is loaded.
-    /// </summary>
-    private void ResetCurrentLineFlags()
-    {
-        _ctx.CurrentLine.SetsFlags = false;
-        _ctx.CurrentLine.SetFlagsRange = null;
-        _ctx.CurrentLine.CannotSetFlags = false;
-        _ctx.CurrentLine.ConditionCode = null;
-        _ctx.CurrentLine.ConditionCodeRange = null;
-        _ctx.CurrentLine.CannotBeConditional = false;
-        _ctx.CurrentLine.HasInvalidConditionCode = false;
-        _ctx.CurrentLine.HasUnterminatedConditionCode = false;
-    }
+    #endregion
+
+    #region Utils
 
     /// Characters that may start a condition code.
     private static readonly char[] ConditionCodeStarts =
@@ -1551,4 +1622,6 @@ public class SourceAnalyser : ISourceAnalyser
 
     private static bool IsValidSymbolChar(char c, bool firstChar = false) =>
         (firstChar ? char.IsLetter(c) : char.IsLetterOrDigit(c)) || c is '_' or '.' or '$';
+
+    #endregion
 }

@@ -20,5 +20,5 @@ public static class Constants
 
     public const string ArmUalLanguageName = "Arm UAL";
 
-    public const string ConfigurationSectionRoot = "code4arm";
+    public const string ConfigurationSectionRoot = "code4arm.editor";
 }

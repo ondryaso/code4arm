@@ -59,6 +59,7 @@ public class CompletionHandler : CompletionHandlerBase
         }
 
         var config = await _configurationContainer.GetServerOptions(request);
+        var isInvoked = request.Context?.TriggerKind == CompletionTriggerKind.Invoked;
 
         // Kdy ukázat nápovědu instrukcí?
         // Automaticky při psaní instrukce – PODLE STAVU ANALÝZY:
@@ -72,7 +73,10 @@ public class CompletionHandler : CompletionHandlerBase
         var ret = new List<CompletionItem>();
 
         // CC/S completions
-        if (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch && lineAnalysis.Specifiers.Count == 0)
+        if ((lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch && lineAnalysis.Specifiers.Count == 0)
+            || (isInvoked && 
+                (lineAnalysis.MnemonicRange?.End.Character == request.Position.Character - 1
+                || lineAnalysis.SetFlagsRange?.End.Character == request.Position.Character - 1)))
         {
             if (!lineAnalysis.SetsFlags && lineAnalysis.Mnemonic!.HasSetFlagsVariant &&
                 lineAnalysis.ConditionCodeRange == null)
@@ -116,7 +120,12 @@ public class CompletionHandler : CompletionHandlerBase
             else if (lineAnalysis.Mnemonic!.CanBeConditional && lineAnalysis.ConditionCodeRange == null)
             {
                 var ccValues = Enum.GetValues<ConditionCode>();
-                var range = lineAnalysis.AnalysedRange.Trail(2);
+                var range =
+                    (lineAnalysis.SetFlagsRange?.End.Character == request.Position.Character - 1)
+                    ? new Range(request.Position, request.Position)
+                    : lineAnalysis.MnemonicRange ?? lineAnalysis.AnalysedRange;
+                
+                range = new Range(range.End, range.End);
 
                 foreach (var ccValue in ccValues)
                 {
@@ -130,8 +139,8 @@ public class CompletionHandler : CompletionHandlerBase
         }
 
         // Vector data types completions
-        if (lineAnalysis.PreFinishState is LineAnalysisState.HasFullMatch or LineAnalysisState.LoadingSpecifier &&
-            lineAnalysis.Mnemonic!.IsVector)
+        if ((lineAnalysis.PreFinishState is LineAnalysisState.HasFullMatch or LineAnalysisState.LoadingSpecifier || isInvoked)
+            && (lineAnalysis.Mnemonic?.IsVector ?? false))
         {
             var currentSpecifierIndex = lineAnalysis.Specifiers.Count;
             if (lineAnalysis.Specifiers.FirstOrDefault()?.IsInstructionSizeQualifier ?? false)
@@ -189,7 +198,7 @@ public class CompletionHandler : CompletionHandlerBase
         if (lineAnalysis.PreFinishState == LineAnalysisState.HasMatches
             || (lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch &&
                 lineAnalysis.MatchingMnemonics.Count > 1)
-            || lineAnalysis.State == LineAnalysisState.Blank)
+            || lineAnalysis.State == LineAnalysisState.Blank || isInvoked)
         {
             var target = (lineAnalysis.State == LineAnalysisState.Blank
                 ? (await _instructionProvider.GetAllInstructions())
