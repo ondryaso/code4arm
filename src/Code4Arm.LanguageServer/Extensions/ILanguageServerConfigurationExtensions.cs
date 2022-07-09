@@ -9,16 +9,16 @@ namespace Code4Arm.LanguageServer.Extensions;
 // ReSharper disable once InconsistentNaming
 public static class ILanguageServerConfigurationExtensions
 {
-    public static Task<LanguageServerOptions> GetServerOptions(
+    public static Task<EditorOptions> GetServerOptions(
         this ILanguageServerConfiguration configurationContainer, ITextDocumentIdentifierParams document)
     {
         return GetServerOptions(configurationContainer, document.TextDocument.Uri);
     }
 
-    public static async Task<LanguageServerOptions> GetServerOptions(
+    public static async Task<EditorOptions> GetServerOptions(
         this ILanguageServerConfiguration configurationContainer, DocumentUri documentUri)
     {
-        var options = new LanguageServerOptions();
+        var options = new EditorOptions();
         var configuration = await configurationContainer.GetScopedConfiguration(documentUri, CancellationToken.None);
 
         configuration.GetSection(Constants.ConfigurationSectionRoot).Bind(options);
@@ -27,11 +27,12 @@ public static class ILanguageServerConfigurationExtensions
         return options;
     }
 
-    public static async Task<LanguageServerOptions> GetServerOptions(
+    public static async Task<EditorOptions> GetServerOptions(
         this ILanguageServerConfiguration configurationContainer)
     {
-        var options = new LanguageServerOptions();
-        var configuration = await configurationContainer.GetConfiguration();
+        var options = new EditorOptions();
+        var configuration = await configurationContainer.GetConfiguration(new ConfigurationItem()
+            { Section = Constants.ConfigurationSectionRoot });
 
         configuration.GetSection(Constants.ConfigurationSectionRoot).Bind(options);
 

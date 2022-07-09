@@ -14,20 +14,22 @@ using Moq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Serilog;
 using Serilog.Events;
+using Constants = Code4Arm.LanguageServer.Constants;
 
 Log.Logger = new LoggerConfiguration()
-    .Enrich.FromLogContext()
+             .Enrich.FromLogContext()
 #if USE_SOCKETS
-    .WriteTo.Console()
+             .WriteTo.Console()
 #else
     .WriteTo.Debug()
 #endif
-    .MinimumLevel.Verbose()
-    .MinimumLevel.Override("OmniSharp", LogEventLevel.Warning)
-    .CreateLogger();
+             .MinimumLevel.Verbose()
+             .MinimumLevel.Override("OmniSharp", LogEventLevel.Debug)
+             .CreateLogger();
 
 #if USE_SOCKETS
 Log.Information("Accepting client");
@@ -48,10 +50,13 @@ var languageServer = await LanguageServer.From(options =>
         .WithOutput(Console.OpenStandardOutput());
 #endif
 
+
     options.ConfigureLogging(logBuilder => logBuilder
             .AddSerilog(Log.Logger)
             .AddLanguageProtocolLogging()
             .SetMinimumLevel(LogLevel.Trace))
+        .WithConfigurationSection("code4arm")
+        .WithConfigurationSection(Constants.ConfigurationSectionRoot)
         .WithServices(ConfigureServices)
         .WithHandler<TextDocumentSyncHandler>()
         .WithHandler<SemanticTokensHandler>()
@@ -75,7 +80,8 @@ static void ConfigureServices(IServiceCollection services)
 {
     services.AddLogging();
 
-    services.AddSingleton(new ConfigurationItem() {Section = "code4arm"});
+    services.AddSingleton(new ConfigurationItem() {Section = "code4arm.editor"});
+    services.Configure<LanguageServerOptions>("code4arm.editor");
 
     services.AddSingleton(Mock.Of<ITokenizer>());
     services.AddSingleton<IFileSystem, FileSystem>();

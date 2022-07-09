@@ -173,16 +173,8 @@
     ]
   },
   "ADD": {
-    "Name": "Add to PC",
+    "Name": "Add",
     "variants": [
-      {
-        "asm": [
-          "ADD<CQ>"
-        ],
-        "doc": "add_adr",
-        "desc": 0,
-        "prio": 0
-      },
       {
         "asm": [
           "ADD<SCQ>",

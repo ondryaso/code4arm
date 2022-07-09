@@ -3,12 +3,16 @@
 
 using Code4Arm.LanguageServer.CodeAnalysis.Abstractions;
 using Code4Arm.LanguageServer.CodeAnalysis.Models;
+using Code4Arm.LanguageServer.Extensions;
+using Code4Arm.LanguageServer.Models;
 using Code4Arm.LanguageServer.Services.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Server;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Code4Arm.LanguageServer.Services;
@@ -17,13 +21,16 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
 {
     private readonly ILanguageServerFacade _lsFacade;
     private readonly ISourceStore _sourceStore;
+    private readonly ILanguageServerConfiguration _configuration;
     private readonly ILogger<DiagnosticsPublisher> _logger;
 
     public DiagnosticsPublisher(ILanguageServerFacade lsFacade, ISourceStore sourceStore,
+        ILanguageServerConfiguration configuration,
         ILogger<DiagnosticsPublisher> logger)
     {
         _lsFacade = lsFacade;
         _sourceStore = sourceStore;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -114,8 +121,8 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                     {
                         var range = analysis.ErroneousOperandIndex == 0
                             ? analysis.MnemonicRange!
-                            : new Range(analysis.LineIndex, analysis.Operands!.Last().Range.End.Character + 1,
-                                analysis.LineIndex, analysis.LineLength);
+                            : new Range(analysis.LineIndex, Math.Min(analysis.Operands!.Last().Range.End.Character + 1, analysis.LineLength - 1),
+                                analysis.LineIndex, analysis.LineLength - 1);
 
                         diags.Add(new Diagnostic()
                         {
@@ -335,13 +342,16 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
             }
         }
 
+        if (!(await _configuration.GetServerOptions()).EnableErrors)
+            diags.RemoveAll(d => d.Severity == DiagnosticSeverity.Error);
+
         var par = new PublishDiagnosticsParams()
         {
             Uri = documentUri,
             Version = documentVersion,
             Diagnostics = diags
         };
-
+        
         _lsFacade.TextDocument.PublishDiagnostics(par);
     }
 

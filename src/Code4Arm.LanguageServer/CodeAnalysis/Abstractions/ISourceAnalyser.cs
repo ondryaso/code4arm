@@ -16,7 +16,7 @@ public interface ISourceAnalyser
     Task TriggerLineAnalysis(int line, bool added);
 
     /// <summary>
-    /// Start a full analysis.
+    /// Starts a full analysis.
     /// </summary>
     Task TriggerFullAnalysis();
 
@@ -28,7 +28,7 @@ public interface ISourceAnalyser
     AnalysedLine? GetLineAnalysis(int line);
 
     /// <summary>
-    /// Returns the last analysis results for all lines.
+    /// Returns the last analysis results for all lines, in order of their occurence in the code.
     /// </summary>
     /// <returns>An enumerable of analysis results.</returns>
     IEnumerable<AnalysedLine> GetLineAnalyses();
@@ -53,9 +53,27 @@ public interface ISourceAnalyser
     /// <returns>An <see cref="AnalysedLabel"/> or null if such label does not exist.</returns>
     AnalysedLabel? GetLabel(string name);
 
+    /// <summary>
+    /// Returns an enumerable of all tokens that reference a given label (e.g. usages in operands). 
+    /// </summary>
+    /// <param name="label">The label.</param>
+    /// <param name="includeDefinition">If true, the place where the label is defined will be represented in the result.</param>
+    /// <returns>An enumerable of <see cref="AnalysedTokenLookupResult"/> objects that describe a token used in the code
+    /// and its context.</returns>
     IEnumerable<AnalysedTokenLookupResult> FindLabelOccurrences(string label, bool includeDefinition);
 
+    /// <summary>
+    /// Returns an enumerable of all tokens that reference a given <see cref="Register"/>.
+    /// </summary>
+    /// <param name="register">The register. Even though <see cref="Register"/> is a 'flags' enum, only a single value
+    /// is allowed here.</param>
+    /// <returns>An enumerable of <see cref="AnalysedTokenLookupResult"/> objects that describe a token used in the code
+    /// and its context.</returns>
     IEnumerable<AnalysedTokenLookupResult> FindRegisterOccurrences(Register register);
 
+    /// <summary>
+    /// Returns an enumerable of detected functions.
+    /// </summary>
+    /// <returns>An enumerable of <see cref="AnalysedFunction"/> objects that describe a function found in the code.</returns>
     IEnumerable<AnalysedFunction> GetFunctions();
 }

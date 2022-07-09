@@ -38,7 +38,9 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
 
     private enum BoundType
     {
-        Region, Suppressed, Ignored
+        Region,
+        Suppressed,
+        Ignored
     }
 
     private readonly List<(Position Position, bool IsStart, BoundType Type)> _regionBounds = new();
@@ -72,7 +74,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         {
             if (type != BoundType.Region)
                 continue;
-            
+
             if (isStart)
             {
                 started.Add(pos);
@@ -88,7 +90,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
             }
         }
     }
-    
+
     private void MakeSuppressedOrIgnoredLines(BoundType type, ref List<int> target)
     {
         if (type == BoundType.Region) return;
@@ -99,7 +101,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         {
             if (regType != type)
                 continue;
-            
+
             if (isStart)
             {
                 started.Add(pos.Line);
@@ -136,7 +138,19 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
     {
         if (commentIndex >= text.Length)
             return;
-        
+
+        // Ignore whitespaces
+        while (char.IsWhiteSpace(text[commentIndex]))
+        {
+            if (text[commentIndex] == '\n')
+                return;
+
+            commentIndex++;
+
+            if (commentIndex == text.Length)
+                return;
+        }
+
         if (text[commentIndex] != '#')
             return;
 
@@ -150,6 +164,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         {
             _regionBounds.Add((position, false, BoundType.Region));
         }
+
         if (text.IndexOf("#suppress", commentIndex, StringComparison.Ordinal) == commentIndex)
         {
             _regionBounds.Add((position, true, BoundType.Suppressed));
@@ -158,6 +173,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         {
             _regionBounds.Add((position, false, BoundType.Suppressed));
         }
+
         if (text.IndexOf("#ignore", commentIndex, StringComparison.Ordinal) == commentIndex)
         {
             _regionBounds.Add((position, true, BoundType.Ignored));
@@ -427,13 +443,19 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
 
         var start = _lastText.GetIndexForPosition(preprocessedRange.Start);
         var end = _lastText.GetIndexForPosition(preprocessedRange.End);
+        var isExpectedEnd = false;
+        if (end == -1)
+        {
+            end = start;
+            isExpectedEnd = true;
+        } 
 
         if (start >= _lastText.Length) start = _lastText.Length - 1;
         if (end >= _lastText.Length) end = _lastText.Length - 1;
-        
+
         if (start == -1 || end == -1)
             throw new InvalidOperationException("Invalid range.");
-
+        
         if (start == (end - 1) && _spaceInfos.TryGetValue(start, out var startSpace))
         {
             return new Range(_lastInputText.GetPositionForIndex(startSpace.Left),
@@ -448,7 +470,14 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
         {
             var s = _lastInputText.GetPositionForIndex(startIndex);
 
-            return new Range(s, s);
+            if (isExpectedEnd)
+            {
+                return new Range(s, new Position(s.Line, s.Character + (preprocessedRange.End.Character - preprocessedRange.Start.Character)));
+            }
+            else
+            {
+                return new Range(s, s);
+            }
         }
 
         var endIndex = _spaceInfos.TryGetValue(end - 1, out var endSpace)
