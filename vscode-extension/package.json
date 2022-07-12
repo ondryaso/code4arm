@@ -60,7 +60,7 @@
             },
             {
                 "command": "code4arm.configureRuntime",
-                "title": "Configure runtime/debugger connection"
+                "title": "Configure Arm simulator service"
             },
             {
                 "command": "code4arm.findMnemonicDocumentation",
@@ -204,6 +204,11 @@
             {
                 "title": "Editor",
                 "properties": {
+                    "code4arm.editor.enableLanguageServer": {
+                        "description": "Enable Code4Leg Language Server providing additional editor features.",
+                        "type": "boolean",
+                        "default": true
+                    },
                     "code4arm.editor.showCodeLens": {
                         "description": "Show CodeLens over function labels.",
                         "type": "boolean",
@@ -665,6 +670,12 @@
                             "iso-8859-1"
                         ],
                         "default": "utf-8"
+                    },
+                    "code4arm.debugger.showRunningAtMessage": {
+                        "order": 60,
+                        "type": "boolean",
+                        "description": "Send a 'Running at 0x[address]' message every time the execution service starts a new emulation cycle (e.g. after breakpoint or interrupt).",
+                        "default": true
                     }
                 }
             },
@@ -992,6 +1003,10 @@
                                             "utf-32BE",
                                             "iso-8859-1"
                                         ]
+                                    },
+                                    "showRunningAtMessage": {
+                                        "type": "boolean",
+                                        "description": "Send a 'Running at 0x[address]' message every time the execution service starts a new emulation cycle (e.g. after breakpoint or interrupt)."
                                     }
                                 }
                             },
@@ -1161,7 +1176,7 @@
                             "type": "code4arm-runtime",
                             "request": "launch",
                             "name": "Code4Arm: Build and Debug in simulator",
-                            "sourceDirectory": []
+                            "sourceFiles": []
                         }
                     },
                     {
@@ -1255,12 +1270,12 @@
         "menus": {
             "view/title": [
                 {
-                    "group": "arm-instructions",
-                    "command": "code4arm.showInstructionPseudocodes"
+                    "command": "code4arm.showInstructionPseudocodes",
+                    "when": "view == arm-instructions.base || view == arm-instructions.simd"
                 },
                 {
-                    "group": "arm-instructions",
-                    "command": "code4arm.findMnemonicDocumentation"
+                    "command": "code4arm.findMnemonicDocumentation",
+                    "when": "view == arm-instructions.base || view == arm-instructions.simd"
                 }
             ]
         }

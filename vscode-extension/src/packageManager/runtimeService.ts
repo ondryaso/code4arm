@@ -60,6 +60,7 @@ export class RuntimeService implements Disposable {
         } else {
             this._dotnetPath = undefined;
 
+            await this.setLanguageSupport(state.enableLanguageServices);
             if (state.enableDebuggerServices && !state.useLocalRuntimeInstallation) {
                 await this.setDebuggerSupport(true);
             }

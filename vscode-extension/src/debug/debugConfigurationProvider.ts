@@ -4,12 +4,12 @@ import { workspace, window, WorkspaceFolder, DebugConfiguration, CancellationTok
 export class Code4ArmDebugConfigurationProvider implements DebugConfigurationProvider {
     /**
      * Provides a launch configuration when no launch.json exists.
+     * If it does, it doesn't modify it.
      * If the launch is triggered when an editor with an asm file is active, only that file is used.
      * Otherwise, provideDebugConfigurations is used to create a configuration with all .s files in the workspace.
      */
     public async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: DebugConfiguration, token?: CancellationToken):
         Promise<DebugConfiguration | undefined> {
-
         if (!config.type && !config.request && !config.name) {
             const editor = window.activeTextEditor;
             if (editor && editor.document.languageId === 'arm-ual') {
@@ -25,6 +25,8 @@ export class Code4ArmDebugConfigurationProvider implements DebugConfigurationPro
                     return r[0];
             }
         }
+
+        return config;
     }
 
     /**
