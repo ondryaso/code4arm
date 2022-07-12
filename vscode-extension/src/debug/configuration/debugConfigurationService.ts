@@ -31,7 +31,7 @@ export class DebugConfigurationService implements Disposable {
             return;
 
         if (!config.remoteRuntimeAddress)
-            throw new Error();
+            throw new Error('No remote runtime address found.');
 
         return appendToAddress(config.remoteRuntimeAddress, 'toolSession');
     }
