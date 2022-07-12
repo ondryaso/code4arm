@@ -108,4 +108,7 @@ public class DebuggerOptions
     /// C-strings.
     /// </summary>
     public Encoding CStringEncoding { get; set; } = Encoding.UTF8;
+
+    // If true, a 'Running at 0x...' message will be sent to the Debug Console every time an emulation cycle starts.
+    public bool ShowRunningAtMessage { get; set; } = true;
 }

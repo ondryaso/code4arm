@@ -27,4 +27,5 @@ public class DebuggerOptionsOverlay
     public ArmSimdRegisterVariableOptionsOverlay? SimdRegistersOptions { get; set; }
     public int? CStringMaxLength { get; set; }
     public string? CStringEncoding { get; set; }
+    public bool? ShowRunningAtMessage { get; set; }
 }

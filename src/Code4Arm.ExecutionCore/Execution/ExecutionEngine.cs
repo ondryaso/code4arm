@@ -287,6 +287,31 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Emulated input
 
+    private CancellationTokenSource SendWaitingForInputReminder()
+    {
+        var cts = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // ReSharper disable once AccessToDisposedClosure
+                await Task.Delay(5000, cts.Token);
+            }
+            catch
+            {
+                return;
+            }
+
+            var helpSent = Interlocked.Exchange(ref _inputHelpSent, 1);
+
+            await this.LogDebugConsole(helpSent == 0
+                ? "The program is waiting for input. You can pass input to it by sending a value starting with > to the Debug Console."
+                : "Waiting for input.");
+        });
+
+        return cts;
+    }
+
     private string? ReadCharsFromBuffer(int? numberOfChars)
     {
         if (numberOfChars.HasValue && _emulatedInputBuffer.Length >= numberOfChars.Value)
@@ -308,6 +333,23 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return null;
     }
 
+    private string? ReadLineFromBuffer()
+    {
+        if (_emulatedInputBuffer.Length == 0)
+            return null;
+
+        var str = _emulatedInputBuffer.ToString();
+        var nl = str.IndexOf('\n');
+
+        if (nl == -1)
+            return null;
+
+        var ret = str[0..nl];
+        _emulatedInputBuffer.Remove(0, nl);
+
+        return ret;
+    }
+
     private int _inputHelpSent = 0;
 
     public string WaitForEmulatedInput(int? numberOfChars)
@@ -323,25 +365,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 return existing;
         }
 
-        var cts = new CancellationTokenSource();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                // ReSharper disable once AccessToDisposedClosure
-                await Task.Delay(5000, cts.Token);
-            }
-            catch
-            {
-                return;
-            }
-
-            var helpSent = Interlocked.Exchange(ref _inputHelpSent, 1);
-
-            await this.LogDebugConsole(helpSent == 0
-                ? "The program is waiting for input. You can pass input to it by sending a value starting with > to the Debug Console."
-                : "Waiting for input.");
-        });
+        var cts = this.SendWaitingForInputReminder();
 
         _currentCts?.Dispose();
         _waitForInputEvent.Wait();
@@ -373,7 +397,40 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public string WaitForEmulatedInputLine()
     {
-        throw new NotImplementedException();
+        lock (_emulatedInputLocker)
+        {
+            var existing = this.ReadLineFromBuffer();
+
+            if (existing != null)
+                return existing;
+        }
+
+        var cts = this.SendWaitingForInputReminder();
+
+        _currentCts?.Dispose();
+        _waitForInputEvent.Wait();
+
+        cts.Cancel();
+        cts.Dispose();
+
+        if (LastStopCause == StopCause.ExternalTermination)
+            throw new TerminatedException();
+
+        string? ret = null;
+        lock (_emulatedInputLocker)
+        {
+            if (_emulatedInputBuffer.Length >= 0)
+                ret = this.ReadLineFromBuffer();
+        }
+
+        _waitForInputEvent.Reset();
+
+        if (ret == null)
+            return this.WaitForEmulatedInputLine();
+
+        this.InitTimeout();
+
+        return ret;
     }
 
     public void UngetEmulatedInputChar(char c)
@@ -384,11 +441,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
     }
 
-    public void AcceptEmulatedInput(string input)
+    public void AcceptEmulatedInput(string input, bool appendNewline)
     {
         lock (_emulatedInputLocker)
         {
             _emulatedInputBuffer.Append(input);
+            if (appendNewline)
+                _emulatedInputBuffer.AppendLine();
         }
 
         _waitForInputEvent.Set();
@@ -1270,7 +1329,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             pc -= 4; // The PC is moved after an interrupt
 
         var lineInfo = LineResolver!.GetSourceLine(pc, out var displacement);
-        if (displacement != 0 && lineInfo.File == null)
+        if (displacement != 0 || lineInfo.File == null)
         {
             CurrentStopLine = -1;
             CurrentStopSourceIndex = this.DetermineSourceIndexForAddress(pc);
@@ -1362,7 +1421,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 break;
             case StopCause.DataBreakpoint:
                 if (!DebuggingEnabled)
-                    await this.StartEmulation(CurrentPc);
+                    await this.StartEmulation(CurrentPc, release: false);
                 else
                     await this.HandleDataBreakpoint();
 
@@ -1412,7 +1471,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         await this.LogDebugConsole($"Execution finished after reaching {FormattingUtils.FormatAddress(CurrentPc)}.",
             true);
 
-        if (_exe!.DataSequencesStarts.Contains(CurrentPc))
+        if (_exe!.DataSequencesStarts.Contains(CurrentPc) && LastStopCause != StopCause.Interrupt)
         {
             await this.LogDebugConsole(
                 "The execution ended after reaching a block of data in the text section.\nThis is probably not a correct behaviour.");
@@ -1571,6 +1630,45 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     private async Task HandleInterrupt()
     {
+        // TODO: This is a highly temporary and experimental solution for handling a few syscalls.
+        // Implement a generic way to handle various syscalls.
+        if (LastStopData.InterruptNumber == 2)
+        {
+            // Software interrupt
+            if (LastStopData.InterruptR7 == 1)
+            {
+                // exit syscall
+                await this.EmulationEnded();
+
+                return;
+            }
+            else if (LastStopData.InterruptR7 == 3)
+            {
+                // read syscall; r0 = fd, r1 = buf, r2 = count
+                var addr = Engine.RegRead<uint>(Arm.Register.R1);
+                var size = Engine.RegRead<uint>(Arm.Register.R2);
+                var input = this.WaitForEmulatedInput((int)size);
+                var bytes = _debugProvider.Options.CStringEncoding.GetBytes(input);
+                Engine.MemWrite(addr, bytes, size);
+                await this.StartEmulation(CurrentPc, release: false);
+
+                return;
+            }
+            else if (LastStopData.InterruptR7 == 4)
+            {
+                // write syscall; r0 = fd, r1 = buf, r2 = count
+                var addr = Engine.RegRead<uint>(Arm.Register.R1);
+                var size = Engine.RegRead<uint>(Arm.Register.R2);
+                var bytes = Engine.MemRead(addr, size);
+                var str = _debugProvider.Options.CStringEncoding.GetString(bytes);
+                EmulatedOutput.Write(str);
+                await this.HandleEmulatedOutputBuffer();
+                await this.StartEmulation(CurrentPc, release: false);
+
+                return;
+            }
+        }
+
         State = ExecutionState.PausedException;
 
         await this.SendEvent(new StoppedEvent()
@@ -1600,13 +1698,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Main execution flow logic
 
-    private async Task StartEmulation(uint startAddress, ulong count = 0ul)
+    private async Task StartEmulation(uint startAddress, ulong count = 0ul, bool release = true)
     {
         try
         {
             _resetEvent.Reset();
             _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
-            await this.LogDebugConsole($"Running at {FormattingUtils.FormatAddress(startAddress)}.", true);
+            if (_debugProvider.Options.ShowRunningAtMessage)
+                await this.LogDebugConsole($"Running at {FormattingUtils.FormatAddress(startAddress)}.", true);
 
             LastStopCause = StopCause.Normal;
             State = ExecutionState.Running;
@@ -1678,8 +1777,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
         finally
         {
-            _runSemaphore.Release();
-            _resetEvent.Set();
+            if (release)
+            {
+                _runSemaphore.Release();
+                _resetEvent.Set();
+            }
         }
     }
 

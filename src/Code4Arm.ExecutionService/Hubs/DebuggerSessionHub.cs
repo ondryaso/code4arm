@@ -85,7 +85,7 @@ public class DebuggerSessionHub<TSession> : Hub<IDebuggerSession> where TSession
         await base.OnDisconnectedAsync(exception);
         await _sessionManager.RemoveConnection(Context.ConnectionId);
 
-#if !REMOTE
+#if !REMOTE && !DEBUG
         Environment.Exit(0);
 #endif
     }

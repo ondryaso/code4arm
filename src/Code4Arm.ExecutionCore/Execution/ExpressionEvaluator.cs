@@ -135,8 +135,15 @@ internal partial class DebugProvider
         {
             if (expression[0] == '>')
             {
-                _engine.AcceptEmulatedInput(expression[1..]);
-
+                if (expression.StartsWith(">>>>"))
+                    _engine.AcceptEmulatedInput(expression[3..], false);
+                else if (expression.StartsWith(">>>"))
+                    _engine.AcceptEmulatedInput(expression[2..], true);
+                else if (expression.StartsWith(">>"))
+                    _engine.AcceptEmulatedInput(expression[2..], false);
+                else
+                    _engine.AcceptEmulatedInput(expression[1..], true);
+                
                 return new EvaluateResponse()
                 {
                     Result = string.Empty
@@ -149,7 +156,7 @@ internal partial class DebugProvider
                 var b = this.SetDataBreakpoint(new DataBreakpoint() { DataId = "!" + expression[1..] });
                 _ = Task.Run(async () => await _engine.SendEvent(new BreakpointEvent() { Breakpoint = b }));
 
-                return new EvaluateResponse() { Result = "data breakpoint set" };
+                return new EvaluateResponse() { Result = "Data breakpoint set" };
             }
         }
 
