@@ -246,6 +246,11 @@
                         "markdownDescription": "Suggest SIMD/FP instructions in code completions.",
                         "type": "boolean",
                         "default": true
+                    },
+                    "code4arm.editor.enableErrors": {
+                        "description": "Enables error squiggles and reporting errors in the Problems window. This is a highly experimental feature.",
+                        "type": "boolean",
+                        "default": false
                     }
                 }
             },
@@ -747,12 +752,11 @@
             "editor.semanticTokenColorCustomizations": {
                 "enabled": true,
                 "rules": {
-                    "directive": "#be5d82",
                     "condition_code": "#1886e0",
                     "sets_flags_flag": "#0ac77ec2",
                     "vector_data_type": "#5236f1",
                     "instruction_size_qualifier": "#5a5a5a",
-                    "label": "#e2a129"
+                    "label": "#f17800"
                 }
             }
         },
