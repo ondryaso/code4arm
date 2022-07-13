@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as fs from 'fs';
-import { ExtensionContext, OutputChannel, workspace } from "vscode";
+import { commands, ExtensionContext, OutputChannel, workspace } from "vscode";
 import { AcquisitionInvoker } from '../vscode-dotnet-runtime-library/src/Acquisition/AcquisitionInvoker';
 import { DotnetCoreAcquisitionWorker } from '../vscode-dotnet-runtime-library/src/Acquisition/DotnetCoreAcquisitionWorker';
 import { ExistingPathResolver } from "../vscode-dotnet-runtime-library/src/Acquisition/ExistingPathResolver";
@@ -12,11 +12,12 @@ import { InstallationValidator } from '../vscode-dotnet-runtime-library/src/Acqu
 import { RuntimeInstallationDirectoryProvider } from '../vscode-dotnet-runtime-library/src/Acquisition/RuntimeInstallationDirectoryProvider';
 import { VersionResolver } from "../vscode-dotnet-runtime-library/src/Acquisition/VersionResolver";
 import { EventStream } from "../vscode-dotnet-runtime-library/src/EventStream/EventStream";
-import { DotnetRuntimeAcquisitionStarted, DotnetAcquisitionRequested, DotnetExistingPathResolutionCompleted } from "../vscode-dotnet-runtime-library/src/EventStream/EventStreamEvents";
+import { DotnetRuntimeAcquisitionStarted, DotnetAcquisitionRequested, DotnetExistingPathResolutionCompleted, DotnetAcquisitionStatusRequested } from "../vscode-dotnet-runtime-library/src/EventStream/EventStreamEvents";
 import { IEventStreamContext, registerEventStream } from "../vscode-dotnet-runtime-library/src/EventStream/EventStreamRegistration";
 import { IEventStreamObserver } from "../vscode-dotnet-runtime-library/src/EventStream/IEventStreamObserver";
 import { LoggingObserver } from "../vscode-dotnet-runtime-library/src/EventStream/LoggingObserver";
 import { WindowDisplayWorker } from "../vscode-dotnet-runtime-library/src/EventStream/WindowDisplayWorker";
+import { IDotnetAcquireContext } from '../vscode-dotnet-runtime-library/src/IDotnetAcquireContext';
 import { IDotnetAcquireResult } from "../vscode-dotnet-runtime-library/src/IDotnetAcquireResult";
 import { IExtensionConfiguration } from "../vscode-dotnet-runtime-library/src/IExtensionContext";
 import { AcquireErrorConfiguration, callWithErrorHandling, ErrorConfiguration } from "../vscode-dotnet-runtime-library/src/Utils/ErrorHandler";
@@ -54,14 +55,12 @@ export async function activateDotnetAcquire(context: ExtensionContext) {
     } as IEventStreamContext;
 
     [_eventStream, _outputChannel, _loggingObserver, _eventStreamObservers] = registerEventStream(eventStreamContext);
+    _eventStreamObservers.forEach(o => context.subscriptions.push(o));
+
     _versionResolver = new VersionResolver(context.globalState, _eventStream);
 
     const extensionConfiguration: IExtensionConfiguration = workspace.getConfiguration('code4arm.dotnet');
     _extensionConfigWorker = new ExtensionConfigurationWorker(extensionConfiguration, configKeys.existingPath);
-
-    const issueContext = (errorConfiguration: ErrorConfiguration | undefined, commandName: string, version?: string) => {
-        return;
-    };
 
     const timeoutValue = extensionConfiguration.get<number>(configKeys.installTimeoutValue);
     if (!fs.existsSync(context.globalStorageUri.fsPath)) {
@@ -77,6 +76,8 @@ export async function activateDotnetAcquire(context: ExtensionContext) {
         timeoutValue: timeoutValue === undefined ? _defaultTimeoutValue : timeoutValue,
         installDirectoryProvider: new RuntimeInstallationDirectoryProvider(context.globalStorageUri.fsPath),
     });
+
+    context.subscriptions.push(commands.registerCommand('code4arm.dotnet.showAcquisitionLog', () => _outputChannel.show(false)));
 }
 
 export async function getDotnetPath(requestingExtensionId: string): Promise<string | undefined> {
