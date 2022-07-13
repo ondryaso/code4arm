@@ -23,6 +23,7 @@ else
 fi
 
 cd "$EXTENSION_SRC_DIR"
+npm install
 mkdir -p ./servers/language ./servers/debug
 cp -r $LS_DIR/* ./servers/language/
 
@@ -67,6 +68,8 @@ prepare_execution_service() {
     if [[ "$uni_platform" == *"windows"* ]];
     then
         patch "./servers/debug/appsettings.json" "$SCRIPT_DIR/res/appsettings.windows.json.patch"
+    else
+        patch "./servers/debug/appsettings.json" "$SCRIPT_DIR/res/appsettings.unix.json.patch"
     fi
 
     tc_target="./servers/debug/toolchain"
@@ -108,11 +111,11 @@ publish_platform() {
 # alpine-x64, alpine-arm64,
 # darwin-x64 and darwin-arm64.
 
-#publish_platform "linux-x86_64" "linux-x64" "$@"
-#publish_platform "linux-arm64" "linux-arm64" "$@"
+publish_platform "linux-x86_64" "linux-x64" "$@"
+publish_platform "linux-arm64" "linux-arm64" "$@"
 #publish_platform "linux-arm" "linux-armhf" "$@"
 
-#publish_platform "windows-x86_64" "win32-x64" "$@"
+publish_platform "windows-x86_64" "win32-x64" "$@"
 publish_platform "windows-i386" "win32-ia32" "$@"
 #publish_platform "windows-arm64" "win32-arm64" "$@"
 

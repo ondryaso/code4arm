@@ -1,8 +1,8 @@
 11c11
 <       "GasPath": "as",
 ---
->       "GasPath": "as.exe",
+>       "GasPath": "toolchain\\as.exe",
 16c16
 <       "LdPath": "ld",
 ---
->       "LdPath": "ld.exe",
+>       "LdPath": "toolchain\\ld.exe",

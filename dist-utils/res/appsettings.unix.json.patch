@@ -1,0 +1,8 @@
+11c11
+<       "GasPath": "as",
+---
+>       "GasPath": "toolchain/as",
+16c16
+<       "LdPath": "ld",
+---
+>       "LdPath": "toolchain/ld",
