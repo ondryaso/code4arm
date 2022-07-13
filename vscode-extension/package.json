@@ -1261,7 +1261,7 @@
                     "type": "webview",
                     "id": "code4arm.apsr",
                     "name": "CPU status flags",
-                    "when": "debugConfigurationType == code4arm-runtime && inDebugMode"
+                    "when": "debugType == 'code4arm-runtime' && inDebugMode"
                 }
             ],
             "arm-instructions": [
