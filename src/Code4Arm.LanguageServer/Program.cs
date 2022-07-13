@@ -1,4 +1,4 @@
-﻿#define USE_SOCKETS
+﻿#define __USE_SOCKETS
 
 using System.IO.Abstractions;
 using System.Net;

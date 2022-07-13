@@ -18,12 +18,13 @@ if [[ "$1" == "--publish" ]];
 then
     PUBLISH=0
     shift
+else
+    PUBLISH=1
 fi
 
 cd "$EXTENSION_SRC_DIR"
 mkdir -p ./servers/language ./servers/debug
 cp -r $LS_DIR/* ./servers/language/
-cp -r $ES_DIR/* ./servers/debug/
 
 prepare_execution_service() {
     uni_platform="$1"
@@ -31,26 +32,41 @@ prepare_execution_service() {
 
     cd "$EXTENSION_SRC_DIR"
 
-    if [[ "$uni_platform" == "windows"* ]];
+    if [[ "$uni_platform" == *"windows"* ]];
     then
-        uni="$PUB_DIR/unicorn/build-$uni_platform/libunicorn.so.2"
-        uni_target="./servers/debug/unicorn.so"
-    else
         uni="$PUB_DIR/unicorn/build-$uni_platform/unicorn.dll"
         uni_target="./servers/debug/unicorn.dll"
+    else
+        uni="$PUB_DIR/unicorn/build-$uni_platform/libunicorn.so.2"
+        uni_target="./servers/debug/unicorn.so"
     fi
 
     tc="$SCRIPT_DIR/toolchains/$uni_platform"
     if [ ! -d "$tc" ];
     then
         echo "Toolchain (as+ld) not available for $uni_platform; publishing $vsc_platform without local runtime support."
+        rm -rf "./servers/debug/"
         return 1
     fi
 
     if [ ! -f "$uni" ];
     then
         echo "Unicorn build $uni_platform not found; publishing $vsc_platform without local runtime support."
+        rm -rf "./servers/debug/"
         return 1
+    fi
+
+    if [ ! -f "./servers/debug/Code4Arm.LanguageServer.dll" ];
+    then
+        mkdir -p ./servers/debug
+        cp -r $ES_DIR/* ./servers/debug/
+    fi
+
+    cp -f $ES_DIR/appsettings.json ./servers/debug/appsettings.json
+
+    if [[ "$uni_platform" == *"windows"* ]];
+    then
+        patch "./servers/debug/appsettings.json" "$SCRIPT_DIR/res/appsettings.windows.json.patch"
     fi
 
     tc_target="./servers/debug/toolchain"
@@ -92,13 +108,13 @@ publish_platform() {
 # alpine-x64, alpine-arm64,
 # darwin-x64 and darwin-arm64.
 
-publish_platform "linux-x86_64" "linux-x64" "$@"
-publish_platform "linux-arm64" "linux-arm64" "$@"
-publish_platform "linux-arm" "linux-armhf" "$@"
+#publish_platform "linux-x86_64" "linux-x64" "$@"
+#publish_platform "linux-arm64" "linux-arm64" "$@"
+#publish_platform "linux-arm" "linux-armhf" "$@"
 
-publish_platform "windows-x86_64" "win32-x64" "$@"
+#publish_platform "windows-x86_64" "win32-x64" "$@"
 publish_platform "windows-i386" "win32-ia32" "$@"
-publish_platform "windows-arm64" "win32-arm64" "$@"
+#publish_platform "windows-arm64" "win32-arm64" "$@"
 
-publish_platform "darwin-x86_64" "darwin-x64" "$@"
-publish_platform "darwin-arm64" "darwin-arm64" "$@"
+#publish_platform "darwin-x86_64" "darwin-x64" "$@"
+#publish_platform "darwin-arm64" "darwin-arm64" "$@"

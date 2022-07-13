@@ -5,7 +5,7 @@
     "description": "Arm® AArch32 Unified Assembly Language Simulator & Language support",
     "repository": "github:ondryaso/bp-code",
     "license": "GPL-3.0+",
-    "version": "0.0.2",
+    "version": "0.0.4",
     "engines": {
         "vscode": "^1.63.0"
     },
@@ -32,8 +32,9 @@
         "shelljs": "0.8.4"
     },
     "scripts": {
-        "vscode:prepublish": "npm run esbuild-base -- --minify",
-        "esbuild-base": "esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+        "__vscode:prepublish": "npm run esbuild-base -- --minify",
+        "vscode:prepublish": "npm run compile",
+        "esbuild-base": "esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --external:ws --format=cjs --platform=node",
         "esbuild": "npm run esbuild-base -- --sourcemap",
         "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
         "test-compile": "tsc -p ./",

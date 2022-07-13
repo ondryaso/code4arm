@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PATH="$PATH:/home/ondryaso/Projects/bp/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu/bin/:/home/ondryaso/Projects/bp/gcc-arm-11.2-2022.02-x86_64-arm-none-linux-gnueabihf/bin/"
+export PATH="$PATH:/home/ondryaso/bp/toolchains/gcc-arm-11.2-2022.02-x86_64-arm-none-linux-gnueabihf/bin/:/home/ondryaso/bp/toolchains/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu/bin/"
 
 . common.sh
 
@@ -127,12 +127,12 @@ then
         build_unicorn
         build_unicorn "darwin-arm64"
     else
-        # build_unicorn
-        # build_unicorn "linux-arm64"
-        # build_unicorn "linux-arm"
+        build_unicorn
+        build_unicorn "linux-arm64"
+         build_unicorn "linux-arm"
         # build_unicorn "linux-i386"
         build_unicorn "windows-x86_64"
-        # build_unicorn "windows-i386"
+        build_unicorn "windows-i386"
         # build_unicorn "windows-arm64" # TODO
     fi
 else
