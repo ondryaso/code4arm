@@ -9,36 +9,14 @@ import { MainConfigurationService } from '../configuration/mainConfigurationServ
 import { activateDebugAdapter, deactivateDebugAdapter } from '../debug/debugActivator';
 import { activateLanguageSupport, deactivateLanguageSupport } from '../lang/langSupportActivator';
 import * as dev from '../dev_consts';
-
-interface IDotnetAcquireResult {
-    dotnetPath: string;
-}
-
-export async function getDotnetPath(requestingExtensionId: string): Promise<string | undefined> {
-    const dotnetExtension = vscode.extensions.getExtension('ms-dotnettools.vscode-dotnet-runtime');
-    if (!dotnetExtension) {
-        throw new Error('The .NET Install Tool for Extension Authors is not installed.');
-    }
-
-    try {
-        const result: IDotnetAcquireResult = await vscode.commands.executeCommand('dotnet.acquire', {
-            version: "6.0",
-            requestingExtensionId: requestingExtensionId,
-            errorConfiguration: 0 // DisplayAllErrorPopups
-        });
-
-        return result.dotnetPath;
-    } catch (e) {
-        vscode.window.showErrorMessage('Cannot acquire a .NET runtime installation: ' + (<Error>e).toString());
-        return;
-    }
-}
+import { getDotnetPath } from './dotnetAcquire';
 
 export class RuntimeService implements Disposable {
     private _dotnetPath?: string;
     private _languageServicesInitialized: boolean = false;
     private _debuggerServicesInitialized: boolean = false;
     private _currentProcess?: ChildProcess;
+    private _debuggerOutputChannel?: vscode.OutputChannel;
 
     constructor(private _configService: MainConfigurationService, private _extensionContext: vscode.ExtensionContext) {
         _configService.onDidUpdateDebuggerServices(this.initRuntime, this);
@@ -52,7 +30,7 @@ export class RuntimeService implements Disposable {
 
         if (state.enableLanguageServices || (state.enableDebuggerServices && state.useLocalRuntimeInstallation)) {
             this._dotnetPath = await getDotnetPath(this._extensionContext.extension.id);
-            if (this._dotnetPath === null)
+            if (!this._dotnetPath)
                 return;
 
             await this.setLanguageSupport(state.enableLanguageServices);
@@ -164,7 +142,14 @@ export class RuntimeService implements Disposable {
             const url = `http://127.0.0.1:${freePort}`;
             const env = { ASPNETCORE_URLS: url };
 
+            if (!this._debuggerOutputChannel)
+                this._debuggerOutputChannel = vscode.window.createOutputChannel("Arm Simulator Service");
+
             this._currentProcess = spawn(this._dotnetPath, exeArgs, { env: env, detached: false, cwd: serverDirUri.fsPath });
+            this._currentProcess.stdout?.on('data', data => {
+                this._debuggerOutputChannel?.append(data.toString());
+            });
+
             await new Promise(r => setTimeout(r, 3000)); // TODO: figure out a better mechanism for waiting for the service initialization
             return url;
         } else {
