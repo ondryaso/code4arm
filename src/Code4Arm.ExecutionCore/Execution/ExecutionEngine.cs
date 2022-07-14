@@ -178,7 +178,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly Dictionary<uint, AddressBreakpoint> _currentBreakpoints = new();
     private readonly Dictionary<uint, AddressBreakpoint> _currentInstructionBreakpoints = new();
     private readonly Dictionary<uint, AddressBreakpoint> _currentBasicBreakpoints = new();
-    private readonly Dictionary<uint, UnicornHookRegistration> _currentLogPoints = new();
+    private readonly Dictionary<uint, (UnicornHookRegistration Hook, Source Source)> _currentLogPoints = new();
 
     private readonly List<UnicornHookRegistration> _strictAccessHooks = new();
     private readonly Stack<IUnicornContext>? _stepBackContexts;
@@ -194,15 +194,59 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private ExecutionOptions _options;
     private CancellationTokenSource? _currentCts;
     private UnicornHookRegistration _trampolineHookRegistration;
+    
+    /// <summary>
+    /// A flag signalising if this instance has been loaded with an executable for the first time. Used to control
+    /// certain registers & memory initialization modes.
+    /// </summary>
     private bool _firstRun = true;
+    
+    /// <summary>
+    /// A flag controlling if <see cref="MakeExits"/> should include breakpoint addresses. Used mainly in
+    /// <see cref="Continue"/> to execute the first instruction without exiting.
+    /// </summary>
     private bool _breakpointExitsDisabled;
+    
+    /// <summary>
+    /// A flag used in <see cref="Restart"/> to notify <see cref="StartEmulation"/> that it shouldn't trigger emulation
+    /// result handling when restarting while an execution cycle is running.
+    /// </summary>
     private bool _restarting;
 
+    /// <summary>
+    /// A flag used in <see cref="Continue"/> when executing the first instruction to notify <see cref="StepDone"/>
+    /// that no <see cref="StoppedEvent"/> should be emitted.
+    /// </summary>
+    private bool _handlingContinue;
+
+    /// <summary>
+    /// Used to wait in the execution thread started in <see cref="InitLaunch"/> for <see cref="Launch"/> to be called.
+    /// </summary>
     private readonly ManualResetEventSlim _configurationDoneEvent = new(false);
+    
+    /// <summary>
+    /// Used to wait for an execution cycle (running on a different thread) to stop when <see cref="Restart"/> is called.
+    /// </summary>
     private readonly ManualResetEventSlim _resetEvent = new(false);
+    
+    /// <summary>
+    /// Used to wait inside an execution cycle thread for some user input to be received.
+    /// </summary>
     private readonly ManualResetEventSlim _waitForInputEvent = new(false);
+    
+    /// <summary>
+    /// Used to wait for the output buffer to be sent to the client (when invoking it from a hook).
+    /// </summary>
     private readonly ManualResetEventSlim _waitForOutputEvent = new(false);
+    
+    /// <summary>
+    /// Used to synchronize a single run of the emulation cycle.
+    /// </summary>
     private readonly SemaphoreSlim _runSemaphore = new(1, 1);
+    
+    /// <summary>
+    /// Used to synchronize logpoint messages sending.
+    /// </summary>
     private readonly SemaphoreSlim _logPointSemaphore = new(1, 1);
 
     public ExecutionState State { get; private set; }
@@ -1086,6 +1130,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return successful ? (tryingLine, address) : (-1, 0);
     }
 
+    private static bool SourceEquals(Source a, Source target)
+    {
+        return (target.SourceReference.HasValue && target.SourceReference == a.SourceReference)
+            || (target.Path != null && target.Path == a.Path);
+    }
+
     private void MergeBreakpoints()
     {
         _currentBreakpoints.Clear();
@@ -1097,6 +1147,34 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         foreach (var (address, breakpoint) in _currentInstructionBreakpoints)
         {
             _currentBreakpoints.TryAdd(address, breakpoint);
+        }
+    }
+
+    private void RemoveBreakpointsForSource(Source file)
+    {
+        var keys = _currentBasicBreakpoints.Keys.ToArray();
+        foreach (var key in keys)
+        {
+            var bkptSource = _currentBreakpoints[key].Source;
+            if (bkptSource != null && SourceEquals(bkptSource, file))
+            {
+                _currentBreakpoints.Remove(key);
+            }
+        }
+    }
+
+    private void RemoveLogpointsForSource(Source file)
+    {
+        var keys = _currentLogPoints.Keys.ToArray();
+        foreach (var key in keys)
+        {
+            var logPoint = _currentLogPoints[key];
+
+            if (!SourceEquals(logPoint.Source, file))
+                continue;
+
+            logPoint.Hook.RemoveHook();
+            _currentLogPoints.Remove(key);
         }
     }
 
@@ -1114,16 +1192,16 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var sourceObject = _debugProvider.GetObjectForSource(file);
 
         if (sourceCompilationPath == null || sourceObject == null)
-            throw new InvalidSourceException($"Cannot set breakpoints in file {file.Name ?? file.Path}.");
-
-        _currentBasicBreakpoints.Clear();
-
-        foreach (var (_, hook) in _currentLogPoints)
         {
-            hook.RemoveHook();
+            return breakpoints.Select(b => new Breakpoint()
+            {
+                Verified = false,
+                Message = "The source file is not present in the current executable."
+            });
         }
 
-        _currentLogPoints.Clear();
+        this.RemoveBreakpointsForSource(file);
+        this.RemoveLogpointsForSource(file);
 
         var ret = new List<Breakpoint>();
 
@@ -1168,7 +1246,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                     },
                     targetAddress, targetAddress + 3);
 
-                _currentLogPoints.Add(targetAddress, hook);
+                _currentLogPoints.Add(targetAddress, (hook, file));
                 var addedBreakpoint = new Breakpoint()
                 {
                     Line = _debugProvider.LineToClient(targetLine),
@@ -1237,7 +1315,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public IEnumerable<Breakpoint> SetFunctionBreakpoints(IEnumerable<FunctionBreakpoint> functionBreakpoints)
     {
-        throw new NotImplementedException();
+        this.CheckLoaded();
+
+        _debugProvider.ClearExpressionTraceables();
+        foreach (var dataBreakpoint in functionBreakpoints)
+        {
+            yield return _debugProvider.SetDataBreakpoint(new DataBreakpoint() { DataId = "!" + dataBreakpoint.Name });
+        }
     }
 
     public async Task<IEnumerable<Breakpoint>> SetInstructionBreakpoints(
@@ -1371,6 +1455,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     {
         State = ExecutionState.Paused;
 
+        if (_handlingContinue)
+            return;
+
         await this.SendEvent(new StoppedEvent()
         {
             Reason = StoppedEventReason.Step,
@@ -1447,6 +1534,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             // Used in data hooks which stop the emulation from a memory hook -> before PC is incremented
             Engine.RegWrite(Arm.Register.PC, CurrentPc + 4);
             this.DetermineCurrentStopPositions();
+            LastStopData.MovePcAfterDataBreakpoint = false;
         }
 
         await _debugProvider.LogTraceInfo();
@@ -2019,15 +2107,24 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 _breakpointExitsDisabled = true;
                 this.MakeExits();
 
-                Engine.EmuStart(CurrentPc, 0, 0, 1);
-                // Passing an instruction count enables Unicorn's internal PC tracking code hook
-                // so this is fine even if _options.EnableAccurateExecutionTracking is false.
-                CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
+                _handlingContinue = true; // So that we don't emit the Stopped event in StepDone
+                await this.StartEmulation(CurrentPc, 1, false);
+                _handlingContinue = false;
 
                 if (DebuggingEnabled)
                 {
                     _breakpointExitsDisabled = false;
                     this.MakeExits();
+                }
+
+                if (State != ExecutionState.Paused)
+                {
+                    // Running the instruction resulted in something else than just a 'step done'
+                    // and it has been handled by StartEmulation so just don't continue here
+                    _runSemaphore.Release();
+                    _resetEvent.Set();
+
+                    return;
                 }
             }
             else if (DebuggingEnabled && _breakpointExitsDisabled)

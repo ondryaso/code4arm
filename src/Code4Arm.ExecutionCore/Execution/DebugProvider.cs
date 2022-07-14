@@ -40,6 +40,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     private readonly Dictionary<long, ITraceable> _steppedTraceables = new();
     private readonly Dictionary<long, ITraceable> _hookTraceables = new();
+    private readonly List<ITraceable> _expressionTraceables = new();
     private long _nextTraceableId = long.MinValue;
 
     private Executable Executable => (_engine.ExecutableInfo as Executable) ?? throw new ExecutableNotLoadedException();
@@ -86,7 +87,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             SupportsDataBreakpoints = true,
             SupportsDisassembleRequest = true,
             SupportsExceptionOptions = false,
-            SupportsFunctionBreakpoints = false,
+            SupportsFunctionBreakpoints = true,
             SupportsInstructionBreakpoints = true,
             SupportsLogPoints = true,
             SupportsModulesRequest = false, // TODO?
@@ -431,7 +432,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     public DataBreakpointInfoResponse GetDataBreakpointInfo(string expression)
     {
         this.CheckInitialized();
-        
+
         var expr = this.GetExpressionTarget(expression, null, null);
 
         if (expr.Variable is ITraceable traceable)
@@ -458,18 +459,46 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
     internal void ClearDataBreakpoints()
     {
-        foreach (var (_, traceable) in _steppedTraceables)
+        foreach (var (k, traceable) in _steppedTraceables)
         {
+            if (_expressionTraceables.Contains(traceable))
+                continue;
+            
             traceable.StopTrace(_engine, this);
+            _steppedTraceables.Remove(k);
         }
 
-        foreach (var (_, traceable) in _hookTraceables)
+        foreach (var (k, traceable) in _hookTraceables)
         {
+            if (_expressionTraceables.Contains(traceable))
+                continue;
+            
             traceable.StopTrace(_engine, this);
+            _hookTraceables.Remove(k);
+        }
+    }
+
+    internal void ClearExpressionTraceables()
+    {
+        foreach (var (k, traceable) in _steppedTraceables)
+        {
+            if (!_expressionTraceables.Contains(traceable))
+                continue;
+            
+            traceable.StopTrace(_engine, this);
+            _steppedTraceables.Remove(k);
         }
 
-        _steppedTraceables.Clear();
-        _hookTraceables.Clear();
+        foreach (var (k, traceable) in _hookTraceables)
+        {
+            if (!_expressionTraceables.Contains(traceable))
+                continue;
+            
+            traceable.StopTrace(_engine, this);
+            _hookTraceables.Remove(k);
+        }
+        
+        _expressionTraceables.Clear();
     }
 
     private string? _oldTraceVal, _newTraceVal;
@@ -529,7 +558,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
     internal Breakpoint SetDataBreakpoint(DataBreakpoint breakpoint)
     {
         ITraceable traceable;
-        
+
         if (breakpoint.DataId.StartsWith("!"))
         {
             // This is an expression data breakpoint
@@ -539,6 +568,7 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
                 return new Breakpoint() { Verified = false };
 
             traceable = t;
+            _expressionTraceables.Add(t);
         }
         else
         {
@@ -1475,6 +1505,9 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
         if (count is < 0 or > int.MaxValue)
             throw new InvalidMemoryOperationException(ExceptionMessages.InvalidMemorySize);
 
+        if (count == 0)
+            return new ReadMemoryResponse() { Address = string.Empty, Data = string.Empty, };
+
         var mappedRegion = this.DetermineMappedMemoryRegion(address, (int)count);
         var actualCount = (int)(mappedRegion.EndAddress - mappedRegion.StartAddress);
 
@@ -1490,14 +1523,14 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
 
         try
         {
-            if (count < ExecutionEngine.MaxStackAllocatedSize)
+            if (actualCount < ExecutionEngine.MaxStackAllocatedSize)
             {
                 Span<byte> bytes = stackalloc byte[bufferSize];
                 _engine.Engine.MemRead(address, bytes, (nuint)actualCount);
 
                 return this.ReadMemory(address, bytes, count, actualCount);
             }
-            else if (count < ExecutionEngine.MaxArrayPoolSize)
+            else if (actualCount < ExecutionEngine.MaxArrayPoolSize)
             {
                 var bytes = _engine.ArrayPool.Rent(bufferSize);
                 rentedBytes = bytes;

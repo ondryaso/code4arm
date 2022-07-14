@@ -150,7 +150,6 @@ internal partial class DebugProvider
                 };
             }
 
-            // This is experimental and undocumented
             if (expression[0] == '*')
             {
                 var b = this.SetDataBreakpoint(new DataBreakpoint() { DataId = "!" + expression[1..] });
@@ -389,13 +388,13 @@ internal partial class DebugProvider
 
         if (valueType == ExpressionValueType.String)
         {
-            var variable = new StringVariable($"_expr.{address}", address);
+            var variable = new StringVariable($"Expr:{addressingExpression}", address);
 
             return (variable, ctx);
         }
         else
         {
-            var variable = new MemoryVariable($"_expr.{address}", (DebuggerVariableType)valueType,
+            var variable = new MemoryVariable($"Expr:{addressingExpression}", (DebuggerVariableType)valueType,
                 address);
 
             if (format != ExpressionValueFormat.Ieee ||
