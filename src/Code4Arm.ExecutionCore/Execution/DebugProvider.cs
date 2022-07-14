@@ -318,14 +318,14 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             ExecutionEngine.StopCause.Normal => throw new NoExceptionDataException(),
             ExecutionEngine.StopCause.Interrupt =>
                 "The CPU has issued an interrupt.\n" +
-                $"  Interrupt number: {_engine.LastStopData.InterruptNumber}.\n" +
-                $"  R7 value: {_engine.LastStopData.InterruptR7:x}.",
+                $"  Interrupt number: {_engine.LastStopData.InterruptNumber}\n" +
+                $"  R7 value: {_engine.LastStopData.InterruptR7:x}",
 
             ExecutionEngine.StopCause.InvalidInstruction => "Invalid instruction/opcode.",
             ExecutionEngine.StopCause.InvalidMemoryAccess =>
-                "Invalid memory access." +
-                $"  Interrupt number: {_engine.LastStopData.InterruptNumber}.\n" +
-                $"  R7 value: {_engine.LastStopData.InterruptR7:x}.",
+                "Invalid memory access.\n" +
+                $"  Address: {FormattingUtils.FormatAddress(_engine.LastStopData.InvalidAddress)}\n" +
+                $"  Access type: {_engine.LastStopData.AccessType}",
             ExecutionEngine.StopCause.TrampolineUnbound =>
                 "Invalid attempt to jump into the simulated functions memory segment.",
             ExecutionEngine.StopCause.TimeoutOrExternalCancellation =>
