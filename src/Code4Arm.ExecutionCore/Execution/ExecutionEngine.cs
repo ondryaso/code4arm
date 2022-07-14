@@ -345,7 +345,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             return null;
 
         var ret = str[0..nl];
-        _emulatedInputBuffer.Remove(0, nl);
+        _emulatedInputBuffer.Remove(0, nl + 1);
 
         return ret;
     }
@@ -1327,7 +1327,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (LastStopCause == StopCause.Interrupt && LastStopData.InterruptNumber == 7)
             pc += 4; // Move line to the instruction after BKPT
-        
+
         var lineInfo = LineResolver!.GetSourceLine(pc, out var displacement);
         if (displacement != 0 || lineInfo.File == null)
         {
@@ -1675,9 +1675,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             LastStopCause = StopCause.Normal;
             await this.BreakpointHit(null);
             CurrentPc += 4; // BKPT keeps PC on the BKPT instruction, move it one instruction forward
+
             return;
         }
-        
+
         State = ExecutionState.PausedException;
 
         await this.SendEvent(new StoppedEvent()
@@ -2193,7 +2194,17 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw;
         }
 
-        await this.StartEmulation(CurrentPc, 1);
+        // Stepping used to be invoked on the callers thread as it cannot block the thread
+        // for too long. However, when stepping into a simulated TEXT INPUT function, this causes deadlock,
+        // because the call comes from the SignalR connection thread - so it cannot receive the 'user input'
+        // request that would resume the execution. However, I think it is quite wasteful to run a new Task
+        // on every step.
+        // TODO: Find a way to only transfer execution to another thread if waiting for input should occur.
+        var startAddress = CurrentPc;
+        CurrentExecutionTask = Task.Run(async () =>
+        {
+            await this.StartEmulation(startAddress, 1); // StartEmulation must release the semaphore
+        });
     }
 
     public async Task StepBack(int enterTimeout = Timeout.Infinite)
