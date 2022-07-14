@@ -49,7 +49,7 @@ public class CompletionHandler : CompletionHandlerBase
 
         if (prepPosition.Character == -1 || prepPosition.Line == -1)
             return new CompletionList();
-        
+
         await analyser.TriggerLineAnalysis(prepPosition.Line, false);
 
         var lineAnalysis = analyser.GetLineAnalysis(prepPosition.Line);
@@ -74,9 +74,9 @@ public class CompletionHandler : CompletionHandlerBase
 
         // CC/S completions
         if ((lineAnalysis.PreFinishState == LineAnalysisState.HasFullMatch && lineAnalysis.Specifiers.Count == 0)
-            || (isInvoked && 
-                (lineAnalysis.MnemonicRange?.End.Character == request.Position.Character - 1
-                || lineAnalysis.SetFlagsRange?.End.Character == request.Position.Character - 1)))
+            || (lineAnalysis.MnemonicRange?.End.Character == prepPosition.Character
+                || (lineAnalysis.ConditionCodeRange?.Contains(prepPosition) ?? false)
+                || lineAnalysis.SetFlagsRange?.End.Character == prepPosition.Character))
         {
             if (!lineAnalysis.SetsFlags && lineAnalysis.Mnemonic!.HasSetFlagsVariant &&
                 lineAnalysis.ConditionCodeRange == null)
@@ -109,7 +109,7 @@ public class CompletionHandler : CompletionHandlerBase
                 });
 
                 var ccValues = Enum.GetValues<ConditionCode>()
-                    .Where(n => n.ToString().StartsWith(ccPart.ToUpperInvariant()));
+                                   .Where(n => n.ToString().StartsWith(ccPart.ToUpperInvariant()));
 
                 foreach (var ccValue in ccValues)
                 {
@@ -121,10 +121,10 @@ public class CompletionHandler : CompletionHandlerBase
             {
                 var ccValues = Enum.GetValues<ConditionCode>();
                 var range =
-                    (lineAnalysis.SetFlagsRange?.End.Character == request.Position.Character - 1)
-                    ? new Range(request.Position, request.Position)
-                    : lineAnalysis.MnemonicRange ?? lineAnalysis.AnalysedRange;
-                
+                    (lineAnalysis.SetFlagsRange?.End.Character == prepPosition.Character)
+                        ? new Range(prepPosition, prepPosition)
+                        : lineAnalysis.MnemonicRange ?? lineAnalysis.AnalysedRange;
+
                 range = new Range(range.End, range.End);
 
                 foreach (var ccValue in ccValues)
@@ -139,7 +139,8 @@ public class CompletionHandler : CompletionHandlerBase
         }
 
         // Vector data types completions
-        if ((lineAnalysis.PreFinishState is LineAnalysisState.HasFullMatch or LineAnalysisState.LoadingSpecifier || isInvoked)
+        if ((lineAnalysis.PreFinishState is LineAnalysisState.HasFullMatch or LineAnalysisState.LoadingSpecifier ||
+                isInvoked)
             && (lineAnalysis.Mnemonic?.IsVector ?? false))
         {
             var currentSpecifierIndex = lineAnalysis.Specifiers.Count;
@@ -209,8 +210,8 @@ public class CompletionHandler : CompletionHandlerBase
 
             foreach (var match in target)
             {
-                if (match.Mnemonic == lineAnalysis.Mnemonic?.Mnemonic)
-                    continue;
+                /*if (match.Mnemonic == lineAnalysis.Mnemonic?.Mnemonic)
+                    continue;*/
                 if ((match.VariantFlags & config.Flag) != 0)
                     continue;
 
@@ -277,6 +278,7 @@ public class CompletionHandler : CompletionHandlerBase
         Position position)
     {
         var mnemonic = lineAnalysis.Mnemonic;
+
         if (mnemonic == null)
             return (null, null);
 
@@ -301,6 +303,7 @@ public class CompletionHandler : CompletionHandlerBase
             if (analysedOperand.Range.Contains(position) || (analysedOperand.ErrorRange?.Contains(position) ?? false))
             {
                 cursorIn = analysedOperand;
+
                 break;
             }
         }
@@ -411,7 +414,7 @@ public class CompletionHandler : CompletionHandlerBase
     private IEnumerable<CompletionItem> MakeCompletionItemsForLabel(Range range, string data, ISourceAnalyser analyser)
     {
         var values = analyser.GetLabels()
-            .Where(l => l.Label.StartsWith(data, StringComparison.InvariantCulture));
+                             .Where(l => l.Label.StartsWith(data, StringComparison.InvariantCulture));
 
         foreach (var label in values)
         {
