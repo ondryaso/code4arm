@@ -1325,9 +1325,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
         var pc = CurrentPc;
 
-        if (LastStopCause == StopCause.Interrupt)
-            pc -= 4; // The PC is moved after an interrupt
-
+        if (LastStopCause == StopCause.Interrupt && LastStopData.InterruptNumber == 7)
+            pc += 4; // Move line to the instruction after BKPT
+        
         var lineInfo = LineResolver!.GetSourceLine(pc, out var displacement);
         if (displacement != 0 || lineInfo.File == null)
         {
@@ -1350,7 +1350,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
     }
 
-    private async Task BreakpointHit(AddressBreakpoint breakpoint)
+    private async Task BreakpointHit(AddressBreakpoint? breakpoint)
     {
         await this.LogDebugConsole("Hit breakpoint.", true);
 
@@ -1361,7 +1361,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             Reason = StoppedEventReason.Breakpoint,
             Description = "Breakpoint hit",
-            HitBreakpointIds = new Container<long>(breakpoint.Id ?? 0),
+            HitBreakpointIds = breakpoint?.Id == null ? null : new Container<long>(breakpoint.Id.Value),
             ThreadId = ThreadId,
             AllThreadsStopped = true
         });
@@ -1669,6 +1669,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
         }
 
+        // Handle BKPT
+        if (LastStopData.InterruptNumber == 7)
+        {
+            LastStopCause = StopCause.Normal;
+            await this.BreakpointHit(null);
+            CurrentPc += 4; // BKPT keeps PC on the BKPT instruction, move it one instruction forward
+            return;
+        }
+        
         State = ExecutionState.PausedException;
 
         await this.SendEvent(new StoppedEvent()
