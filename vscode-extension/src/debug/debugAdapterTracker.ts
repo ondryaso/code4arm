@@ -95,10 +95,15 @@ export class Code4ArmDebugAdapterTracker implements vscode.DebugAdapterTracker {
     }
 
     private emitApsrAvailableIfChanged(available: boolean) {
-        if (this._lastApsrAvailableValue != available) {
-            this._lastApsrAvailableValue = available;
-            this._onDidChangeApsrAvailableEmitter.fire(available);
-        }
+        // This was supposed to only emit the 'APSR available' event when the value changed
+        // but sometimes the webview would get stuck in the 'unavailable' state.
+        // FIXME: Fix the flow so that the webview can determine the actual availability state
+        //        when it's (first?) opened.
+
+        // if (this._lastApsrAvailableValue != available) {
+        //     this._lastApsrAvailableValue = available;
+        this._onDidChangeApsrAvailableEmitter.fire(available);
+        // }
     }
 }
 
