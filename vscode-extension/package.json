@@ -84,7 +84,8 @@
                 "title": "Find instruction/mnemonic documentation",
                 "shortTitle": "Find instruction",
                 "enablement": "!code4arm.noDocs",
-                "category": "Instructions"
+                "category": "Instructions",
+                "icon": "$(search-view-icon)"
             },
             {
                 "command": "code4arm.showInstructionPseudocodes",
@@ -296,7 +297,7 @@
                             "integer",
                             "null"
                         ],
-                        "markdownDescription": "Sets a specific address the stack memory will be placed at. Only used when `#code4arm.runtime.stackPlacementOptions` contains the `FixedAddress` option.",
+                        "markdownDescription": "Sets a specific address the stack memory will be placed at. Only used when `#code4arm.runtime.stackPlacementOptions#` contains the `FixedAddress` option.",
                         "minimum": 0,
                         "default": null
                     },
@@ -1269,13 +1270,13 @@
                     "id": "arm-instructions.base",
                     "name": "Base Instructions",
                     "visibility": "visible",
-                    "when": "resourceLangId == arm-ual && !code4arm.noDocs"
+                    "when": "!code4arm.noDocs"
                 },
                 {
                     "id": "arm-instructions.simd",
                     "name": "SIMD&FP Instructions",
                     "visibility": "collapsed",
-                    "when": "resourceLangId == arm-ual && !code4arm.noDocs"
+                    "when": "!code4arm.noDocs"
                 }
             ]
         },
@@ -1296,7 +1297,8 @@
                 },
                 {
                     "command": "code4arm.findMnemonicDocumentation",
-                    "when": "view == arm-instructions.base || view == arm-instructions.simd"
+                    "when": "view == arm-instructions.base || view == arm-instructions.simd",
+                    "group": "navigation"
                 }
             ]
         }
