@@ -18,6 +18,6 @@ Windows:
 
 macOS:
 
-* todo: darwin-x86\_64
-* todo: darwin-arm64
+* unicorn.darwin-x86\_64.dylib: macOS x86\_64 - pulled from Homebrew (Big Sur build)
+* unicorn.darwin-arm64.dylib: macOS AArch64 - pulled from Homebrew (Big Sur build)
 
