@@ -91,12 +91,7 @@ export async function getDotnetPath(requestingExtensionId: string): Promise<stri
     };
 
     const dotnetPath = await callWithErrorHandling<Promise<IDotnetAcquireResult>>(async () => {
-        _eventStream.post(new DotnetRuntimeAcquisitionStarted());
         _eventStream.post(new DotnetAcquisitionRequested(commandContext.version, commandContext.requestingExtensionId));
-
-        if (!commandContext.version || commandContext.version === 'latest') {
-            throw new Error(`Cannot acquire .NET version "${commandContext.version}". Please provide a valid version.`);
-        }
 
         const existingPath = _existingPathResolver.resolveExistingPath(_extensionConfigWorker.getPathConfigurationValue(),
             commandContext.requestingExtensionId, _displayWorker);
@@ -108,6 +103,7 @@ export async function getDotnetPath(requestingExtensionId: string): Promise<stri
             });
         }
 
+        _eventStream.post(new DotnetRuntimeAcquisitionStarted());
         const version = await _versionResolver.getFullRuntimeVersion(commandContext.version);
         return _acquisitionWorker.acquireRuntime(version);
     }, {
