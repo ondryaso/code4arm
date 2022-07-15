@@ -129,7 +129,7 @@ export class RuntimeService implements Disposable {
             this._currentProcess.kill();
 
         if (config.useLocalRuntimeInstallation) {
-            if (dev.DevMode)
+            if (dev.DevMode && dev.ExecutionServiceAddress != null)
                 return dev.ExecutionServiceAddress;
 
             if (!this._dotnetPath)
