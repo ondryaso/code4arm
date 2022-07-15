@@ -5,7 +5,7 @@
     "description": "Arm® AArch32 Unified Assembly Language Simulator & Language support",
     "repository": "github:ondryaso/bp-code",
     "license": "GPL-3.0+",
-    "version": "0.0.4",
+    "version": "0.0.7",
     "engines": {
         "vscode": "^1.63.0"
     },
