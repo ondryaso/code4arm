@@ -1,6 +1,4 @@
-﻿#define __USE_SOCKETS
-
-using System.IO.Abstractions;
+﻿using System.IO.Abstractions;
 using System.Net;
 using System.Net.Sockets;
 using Code4Arm.LanguageServer.CodeAnalysis;
