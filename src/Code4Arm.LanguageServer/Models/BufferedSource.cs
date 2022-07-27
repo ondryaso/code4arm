@@ -31,6 +31,6 @@ public class BufferedSource : BufferedSourceBase
     public override string Text
     {
         get => _text;
-        internal set => _text = value.Replace("\r\n", "\n").Replace('\r', '\n');
+        internal set => _text = value.Replace("\r\n", "\n").Replace('\r', '\n') + '\n';
     }
 }
