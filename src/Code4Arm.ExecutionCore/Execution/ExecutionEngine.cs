@@ -181,8 +181,22 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly Dictionary<uint, (UnicornHookRegistration Hook, Source Source)> _currentLogPoints = new();
 
     private readonly List<UnicornHookRegistration> _strictAccessHooks = new();
-    private readonly Stack<IUnicornContext>? _stepBackContexts;
 
+    /// <summary>
+    /// A stack of currently captured step back contexts.
+    /// </summary>
+    private readonly Stack<StepBackStep>? _stepBackContexts;
+
+    /// <summary>
+    /// A descriptor of a captured step back context.
+    /// </summary>
+    /// <param name="Context">The actual Unicorn context object carrying the captured CPU state.</param>
+    /// <param name="Address">The value the Program Counter had when this context was captured.</param>
+    private record struct StepBackStep(IUnicornContext Context, uint Address);
+
+    /// <summary>
+    /// A buffer used fo the emulated input.
+    /// </summary>
     private readonly StringBuilder _emulatedInputBuffer = new();
     private readonly object _emulatedInputLocker = new();
 
@@ -300,12 +314,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _heapFeature = new HeapFeature(this);
         _errnoFeature = new ErrnoFeature(this);
-        
+
         _debugProvider = new DebugProvider(this, debuggerOptions);
 
         if (options.StepBackMode != StepBackMode.None)
         {
-            _stepBackContexts = new Stack<IUnicornContext>();
+            _stepBackContexts = new Stack<StepBackStep>();
         }
 
         _logger.LogInformation("Execution {Id}: Created.", _executionId);
@@ -397,100 +411,96 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return ret;
     }
 
-    private int _inputHelpSent = 0;
-
-    public string WaitForEmulatedInput(int? numberOfChars)
+    /// <summary>
+    /// A common handler for <see cref="WaitForEmulatedInput(System.Nullable{int})"/> and <see cref="WaitForEmulatedInputLine"/>.
+    /// </summary>
+    /// <param name="readLine">If <see langword="true"/>, a line terminated by '\n' will be read. Otherwise, the character mode is used.</param>
+    /// <param name="numberOfChars">Number of characters to return in character mode. If null, the whole contents of the input buffer will be returned.</param>
+    /// <returns>The requested input characters or line.</returns>
+    /// <exception cref="ArgumentException">Character mode and <paramref name="numberOfChars"/> is not null and not greater than zero.</exception>
+    /// <exception cref="TerminatedException">The emulated program was terminated while waiting for input.</exception>
+    private string WaitForEmulatedInput(bool readLine, int? numberOfChars)
     {
-        if (numberOfChars is < 1)
+        if (!readLine && numberOfChars is < 1)
             throw new ArgumentException("Argument must be either null or greater than zero.", nameof(numberOfChars));
 
         if (_restarting)
             return string.Empty;
-        
+
+        // There may be enough data in the buffer already
         lock (_emulatedInputLocker)
         {
-            var existing = this.ReadCharsFromBuffer(numberOfChars);
+            var existing = readLine
+                ? this.ReadLineFromBuffer()
+                : this.ReadCharsFromBuffer(numberOfChars);
 
             if (existing != null)
                 return existing;
         }
 
+        // Prepare the reminder
         var cts = this.SendWaitingForInputReminder();
 
+        // Cancel the current timeout for program execution
         _currentCts?.Dispose();
+
+        // Wait for some input to come
+        // IMPROV: Add a (long) timeout to this wait? It would probably have to terminate the whole program altogether.
         _waitForInputEvent.Wait();
 
+        // Cancel the reminder after the input comes
         cts.Cancel();
         cts.Dispose();
-        
+
+        // The program might've been terminated or restarted while we waited. If so, just exception-out
+        // of this (emulation step) thread.
         if (_restarting || LastStopCause == StopCause.ExternalTermination)
             throw new TerminatedException();
 
         string? ret = null;
         lock (_emulatedInputLocker)
         {
-            var requiredChars = numberOfChars ?? 0;
+            if (readLine)
+            {
+                if (_emulatedInputBuffer.Length >= 0)
+                    ret = this.ReadLineFromBuffer();
+            }
+            else
+            {
+                var requiredChars = numberOfChars ?? 0;
 
-            if (_emulatedInputBuffer.Length >= requiredChars)
-                ret = this.ReadCharsFromBuffer(numberOfChars);
+                if (_emulatedInputBuffer.Length >= requiredChars)
+                    ret = this.ReadCharsFromBuffer(numberOfChars);
+            }
         }
 
         _waitForInputEvent.Reset();
 
+        // There were not enough chars in the buffer, repeat this method
         if (ret == null)
-            return this.WaitForEmulatedInput(numberOfChars);
+            return this.WaitForEmulatedInput(readLine, numberOfChars);
 
+        // Reinitialise the execution timeout
         this.InitTimeout();
 
         return ret;
     }
 
+    public string WaitForEmulatedInput(int? numberOfChars)
+    {
+        return this.WaitForEmulatedInput(false, numberOfChars);
+    }
+
     public string WaitForEmulatedInputLine()
     {
-        if (_restarting)
-            return string.Empty;
-        
-        lock (_emulatedInputLocker)
-        {
-            var existing = this.ReadLineFromBuffer();
-
-            if (existing != null)
-                return existing;
-        }
-
-        var cts = this.SendWaitingForInputReminder();
-
-        _currentCts?.Dispose();
-        _waitForInputEvent.Wait();
-
-        cts.Cancel();
-        cts.Dispose();
-
-        if (_restarting || LastStopCause == StopCause.ExternalTermination)
-            throw new TerminatedException();
-
-        string? ret = null;
-        lock (_emulatedInputLocker)
-        {
-            if (_emulatedInputBuffer.Length >= 0)
-                ret = this.ReadLineFromBuffer();
-        }
-
-        _waitForInputEvent.Reset();
-
-        if (ret == null)
-            return this.WaitForEmulatedInputLine();
-
-        this.InitTimeout();
-
-        return ret;
+        return this.WaitForEmulatedInput(true, null);
     }
 
     public void UngetEmulatedInputChar(char c)
     {
         lock (_emulatedInputLocker)
         {
-            _emulatedInputBuffer.Insert(0, c);
+            _emulatedInputBuffer.Append(c);
         }
     }
 
@@ -500,7 +510,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             _emulatedInputBuffer.Append(input);
             if (appendNewline)
-                _emulatedInputBuffer.AppendLine();
+                _emulatedInputBuffer.Append('\n');
         }
 
         _waitForInputEvent.Set();
@@ -1495,10 +1505,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
                 break;
             case StopCause.Interrupt:
-                if (LastStopData.InterruptR7 == 0xFF000000u)
-                    await this.EmulationEnded();
-                else
-                    await this.HandleInterrupt();
+                await this.HandleInterrupt();
 
                 break;
             case StopCause.InvalidInstruction:
@@ -1625,7 +1632,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             foreach (var stepBackContext in _stepBackContexts)
             {
-                stepBackContext.Dispose();
+                stepBackContext.Context.Dispose();
             }
 
             _stepBackContexts.Clear();
@@ -1734,7 +1741,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (LastStopData.InterruptNumber == 2)
         {
             // Software interrupt
-            if (LastStopData.InterruptR7 == 1)
+            // 0xff000000 is the special value used in out init.s starting stub
+            if (LastStopData.InterruptR7 is 1 or 0xFF000000u)
             {
                 // exit syscall
                 await this.EmulationEnded();
@@ -2151,7 +2159,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 // Dispose of all saved stepback contexts 
                 foreach (var stepBackContext in _stepBackContexts!)
                 {
-                    stepBackContext.Dispose();
+                    stepBackContext.Context.Dispose();
                 }
 
                 _stepBackContexts.Clear();
@@ -2218,9 +2226,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (_options.StepBackMode == StepBackMode.None)
             throw new StepBackNotEnabledException();
 
-        if (_stepBackContexts == null || _stepBackContexts.Count == 0)
-            throw new StepBackNotEnabledException();
-
         var entered = IsPaused && await _runSemaphore.WaitAsync(enterTimeout);
 
         if (!entered || !IsPaused)
@@ -2236,15 +2241,21 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         try
         {
-            var context = _stepBackContexts.Last();
-            Engine.RestoreContext(context);
+            if (_stepBackContexts == null || _stepBackContexts.Count == 0)
+                throw new StepBackNotEnabledException();
 
-            foreach (var stepBackContext in _stepBackContexts)
+            var top = _stepBackContexts.Pop();
+            while (_stepBackContexts.Count != 0)
             {
-                stepBackContext.Dispose();
+                if (_currentBreakpoints.ContainsKey(top.Address))
+                    break;
+
+                top.Context.Dispose();
+                top = _stepBackContexts.Pop();
             }
 
-            _stepBackContexts.Clear();
+            Engine.RestoreContext(top.Context);
+            top.Context.Dispose();
 
             this.DetermineCurrentStopPositions();
         }
@@ -2285,7 +2296,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             if (_options.StepBackMode == StepBackMode.CaptureOnStep)
             {
                 var context = Engine.SaveContext();
-                _stepBackContexts!.Push(context);
+                _stepBackContexts!.Push(new StepBackStep(context, CurrentPc));
             }
 
             if (!_breakpointExitsDisabled)
@@ -2323,9 +2334,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (_options.StepBackMode == StepBackMode.None)
             throw new StepBackNotEnabledException();
 
-        if (_stepBackContexts == null || _stepBackContexts.Count == 0)
-            throw new StepBackNotEnabledException();
-
         var entered = IsPaused && await _runSemaphore.WaitAsync(enterTimeout);
 
         if (!entered || !IsPaused)
@@ -2340,9 +2348,12 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         try
         {
+            if (_stepBackContexts == null || _stepBackContexts.Count == 0)
+                throw new StepBackNotEnabledException();
+
             var context = _stepBackContexts.Pop();
-            Engine.RestoreContext(context);
-            context.Dispose();
+            Engine.RestoreContext(context.Context);
+            context.Context.Dispose();
 
             this.DetermineCurrentStopPositions();
         }
