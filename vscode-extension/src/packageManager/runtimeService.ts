@@ -10,6 +10,7 @@ import { activateDebugAdapter, deactivateDebugAdapter } from '../debug/debugActi
 import { activateLanguageSupport, deactivateLanguageSupport } from '../lang/langSupportActivator';
 import * as dev from '../dev_consts';
 import { getDotnetPath } from './dotnetAcquire';
+import { ensureDocs } from '../instructionReference/activator';
 
 export class RuntimeService implements Disposable {
     private _dotnetPath?: string;
@@ -87,9 +88,9 @@ export class RuntimeService implements Disposable {
     }
 
     public async makeLanguageServerOptions(): Promise<ServerOptions> {
-        if (dev.DevMode) {
+        if (dev.DevMode && dev.LanguageServerHost != null) {
             const serverOptions = () => {
-                const stream = net.connect({ host: dev.LanguageServerHost, port: dev.LanguageServerPort });
+                const stream = net.connect({ host: dev.LanguageServerHost!, port: dev.LanguageServerPort });
 
                 let result: StreamInfo = {
                     writer: stream,
@@ -106,7 +107,13 @@ export class RuntimeService implements Disposable {
 
             const serverDirUri = vscode.Uri.joinPath(this._extensionContext.extensionUri, 'servers', 'language');
             const dllUri = vscode.Uri.joinPath(this._extensionContext.extensionUri, 'servers', 'language', 'Code4Arm.LanguageServer.dll');
-            const exeArgs = [dllUri.fsPath];
+            let exeArgs = [dllUri.fsPath];
+
+            const docsPath = await ensureDocs(this._extensionContext, false);
+            if (docsPath) {
+                exeArgs.push("--");
+                exeArgs.push(docsPath);
+            }
 
             return {
                 run: {

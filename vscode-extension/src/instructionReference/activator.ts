@@ -59,7 +59,7 @@ async function pickInstruction(provider: MnemonicProvider) {
     quickPick.show();
 }
 
-async function ensureDocs(context: vscode.ExtensionContext, cont: boolean = true): Promise<string | undefined> {
+export async function ensureDocs(context: vscode.ExtensionContext, cont: boolean = true): Promise<string | undefined> {
     const path = Uri.joinPath(context.globalStorageUri, 'docs');
     let exists = true;
     try {
