@@ -187,6 +187,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly object _emulatedInputLocker = new();
 
     private readonly HeapFeature _heapFeature;
+    private readonly ErrnoFeature _errnoFeature;
 
     private Executable? _exe;
     private List<MemorySegment>? _segments;
@@ -265,7 +266,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         set
         {
             if (State == ExecutionState.Running || IsPaused)
-                throw new InvalidOperationException("Cannot change options while an execution is in progress.");
+                throw new ConfigurationException("Cannot change options while an execution is in progress.");
 
             _options = value;
         }
@@ -296,8 +297,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         _logger = systemLogger;
         _executionId = Guid.NewGuid();
-        _heapFeature = new HeapFeature(this);
 
+        _heapFeature = new HeapFeature(this);
+        _errnoFeature = new ErrnoFeature(this);
+        
         _debugProvider = new DebugProvider(this, debuggerOptions);
 
         if (options.StepBackMode != StepBackMode.None)
@@ -401,6 +404,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (numberOfChars is < 1)
             throw new ArgumentException("Argument must be either null or greater than zero.", nameof(numberOfChars));
 
+        if (_restarting)
+            return string.Empty;
+        
         lock (_emulatedInputLocker)
         {
             var existing = this.ReadCharsFromBuffer(numberOfChars);
@@ -416,8 +422,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         cts.Cancel();
         cts.Dispose();
-
-        if (LastStopCause == StopCause.ExternalTermination)
+        
+        if (_restarting || LastStopCause == StopCause.ExternalTermination)
             throw new TerminatedException();
 
         string? ret = null;
@@ -441,6 +447,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     public string WaitForEmulatedInputLine()
     {
+        if (_restarting)
+            return string.Empty;
+        
         lock (_emulatedInputLocker)
         {
             var existing = this.ReadLineFromBuffer();
@@ -457,7 +466,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         cts.Cancel();
         cts.Dispose();
 
-        if (LastStopCause == StopCause.ExternalTermination)
+        if (_restarting || LastStopCause == StopCause.ExternalTermination)
             throw new TerminatedException();
 
         string? ret = null;
@@ -522,7 +531,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             StackPlacementOptions.RandomizeAddress | StackPlacementOptions.AlwaysKeepFirstAddress));
 
         if ((addressOpts & (addressOpts - 1)) != 0) // Has more than one set bit (~ is power of 2)
-            throw new InvalidOperationException(
+            throw new ConfigurationException(
                 $"Invalid stack placement options: only one of {StackPlacementOptions.FixedAddress}, {StackPlacementOptions.RandomizeAddress} and {StackPlacementOptions.AlwaysKeepFirstAddress} can be used.");
 
         uint stackSegmentBegin;
@@ -698,7 +707,9 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
         if (type == typeof(HeapFeature))
             return _heapFeature as TFeature;
-
+        if (type == typeof(ErrnoFeature))
+            return _errnoFeature as TFeature;
+        
         /*
         if (_features.TryGetValue(type, out var feature))
             return (TFeature)feature;*/
@@ -1155,10 +1166,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var keys = _currentBasicBreakpoints.Keys.ToArray();
         foreach (var key in keys)
         {
-            var bkptSource = _currentBreakpoints[key].Source;
+            var bkptSource = _currentBasicBreakpoints[key].Source;
             if (bkptSource != null && SourceEquals(bkptSource, file))
             {
-                _currentBreakpoints.Remove(key);
+                _currentBasicBreakpoints.Remove(key);
             }
         }
     }
@@ -2025,6 +2036,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         if (State == ExecutionState.Running)
         {
             LastStopCause = StopCause.ExternalPause;
+            _waitForInputEvent.Set();
             Engine.EmuStop();
 
             if (!_resetEvent.Wait(enterTimeout))
