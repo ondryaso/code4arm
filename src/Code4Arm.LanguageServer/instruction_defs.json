@@ -1244,7 +1244,7 @@
           "LSL<SCQ>",
           "<?Rd>",
           "<Rm>",
-          "<Ic>"
+          "<I5>"
         ],
         "doc": "lsl_mov_r",
         "desc": 0,
@@ -1271,7 +1271,7 @@
           "LSR<SCQ>",
           "<?Rd>",
           "<Rm>",
-          "<Ic>"
+          "<I5>"
         ],
         "doc": "lsr_mov_r",
         "desc": 0,
@@ -2151,7 +2151,7 @@
           "ROR<SCQ>",
           "<?Rd>",
           "<Rm>",
-          "<?SHI>"
+          "<I5>"
         ],
         "doc": "ror_mov_r",
         "desc": 0,
