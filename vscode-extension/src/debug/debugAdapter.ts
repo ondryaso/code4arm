@@ -87,7 +87,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
     }
 
     private handleRemoteEvent(eventName: string, body: any | null) {
-        if (dev.DebugAdapterTracking)
+        if (dev.DebugRequestLogging)
             console.info(`-> EVENT ${eventName}`);
 
         const protoEvent: DebugProtocol.Event = {
@@ -187,7 +187,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
 
         try {
             const remoteMethodName = request.command.charAt(0).toUpperCase() + request.command.slice(1);
-            if (dev.DebugAdapterTracking)
+            if (dev.DebugRequestLogging)
                 console.info(`<- REQ ${remoteMethodName}`);
 
             let remoteResponse: IDebuggerResponse;
@@ -207,7 +207,7 @@ export class Code4ArmDebugSession extends ProtocolServer {
                 response.message = remoteResponse.message;
             }
 
-            if (dev.DebugAdapterTracking)
+            if (dev.DebugRequestLogging)
                 console.info(`   | RESP ${response.success ? "Success" : (`Error ${response.message}`)} (${remoteMethodName})`);
 
             this.sendResponse(response);
