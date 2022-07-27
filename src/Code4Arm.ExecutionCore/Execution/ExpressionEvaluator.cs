@@ -736,7 +736,8 @@ internal partial class DebugProvider
 
         return new EvaluateResponse()
         {
-            Result = FormattingUtils.FormatAddress(address),
+            Result = format == ExpressionValueFormat.Hex ? FormattingUtils.FormatAddress(address)
+                : FormattingUtils.FormatVariable(address, new VariableContext(_engine, _clientCulture, Options, format)),
             Type = "address",
             MemoryReference = FormattingUtils.FormatAddress(address)
         };
