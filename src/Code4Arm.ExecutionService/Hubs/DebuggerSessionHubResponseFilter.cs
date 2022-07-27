@@ -68,14 +68,24 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
         {
             var logger = _loggerFactory.CreateLogger(invocationContext.Hub.GetType());
             var correlationId = Guid.NewGuid();
+
+#if REMOTE
             logger.LogWarning(e,
                 "Unhandled execution/debugger exception. Connection ID: {Id}. Correlation ID: {Correlation}.",
                 invocationContext.Context.ConnectionId, correlationId);
-            
+#else
+            logger.LogWarning(e, "Unhandled execution/debugger exception.");
+#endif
+
             var outputEvent = new OutputEvent()
             {
                 Category = OutputEventCategory.Console,
-                Output = $"Unexpected execution service error ({e.GetType().Name}). Connection ID: {invocationContext.Context.ConnectionId}. Correlation ID: {correlationId}.",
+#if REMOTE
+                Output =
+                    $"Unexpected execution service error ({e.GetType().Name}). Connection ID: {invocationContext.Context.ConnectionId}. Correlation ID: {correlationId}."
+#else
+                Output = $"Unexpected execution service error ({e.GetType().Name})."
+#endif
             };
 
             await invocationContext.Hub.Clients.Caller.SendCoreAsync("HandleEvent",
@@ -89,16 +99,20 @@ public class DebuggerSessionHubResponseFilter : IHubFilter
                 {
                     error = new Message()
                     {
+#if REMOTE
                         Format =
                             "Unexpected execution service error. Connection ID: {connId}. Correlation ID: {corrId}.",
-                        Id = ExecutionCore.Execution.Exceptions.ExceptionCodes.UnexpectedErrorId,
-                        ShowUser = false,
-                        SendTelemetry = true,
                         Variables = new Dictionary<string, string>()
                         {
                             { "connId", invocationContext.Context.ConnectionId },
                             { "corrId", correlationId.ToString() }
-                        }
+                        },
+#else
+                        Format = "Unexpected execution service error.",
+#endif
+                        Id = ExecutionCore.Execution.Exceptions.ExceptionCodes.UnexpectedErrorId,
+                        ShowUser = false,
+                        SendTelemetry = true
                     }
                 }
             };
