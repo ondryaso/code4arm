@@ -78,11 +78,14 @@ public class CompletionHandler : CompletionHandlerBase
                 || (lineAnalysis.ConditionCodeRange?.Contains(prepPosition) ?? false)
                 || lineAnalysis.SetFlagsRange?.End.Character == prepPosition.Character))
         {
+            if (source.BaseSource.Text[source.BaseSource.Text.GetIndexForPosition(request.Position) - 1] == ' ')
+                return new CompletionList();
+            
             if (!lineAnalysis.SetsFlags && lineAnalysis.Mnemonic!.HasSetFlagsVariant &&
                 lineAnalysis.ConditionCodeRange == null)
             {
                 var originalRangeForSetFlags = source.GetOriginalRange(new Range(lineAnalysis.LineIndex,
-                    prepPosition.Character, lineAnalysis.LineIndex, prepPosition.Character));
+                    lineAnalysis.MnemonicRange!.End.Character, lineAnalysis.LineIndex, lineAnalysis.MnemonicRange!.End.Character));
 
                 ret.Add(new CompletionItem()
                 {

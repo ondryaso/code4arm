@@ -51,6 +51,945 @@
       }
     ]
   },
+  "ADD": {
+    "Name": "Add",
+    "variants": [
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "add_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "add_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "add_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ADD<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "add_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ADR": {
+    "Name": "Form PC-relative address",
+    "variants": [
+      {
+        "asm": [
+          "ADR<CQ>",
+          "<Rd>",
+          "<L>"
+        ],
+        "doc": "adr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "AND": {
+    "Name": "Bitwise AND",
+    "variants": [
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "and_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "and_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "and_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "AND<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "and_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ASR": {
+    "Name": "Arithmetic Shift Right",
+    "variants": [
+      {
+        "asm": [
+          "ASR<SCQ>",
+          "<?Rd>",
+          "<Rm>",
+          "<I5>"
+        ],
+        "doc": "asr_mov_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "ASR<SCQ>",
+          "<?Rd>",
+          "<Rm>",
+          "<Rs>"
+        ],
+        "doc": "asr_mov_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "B": {
+    "name": "Branch",
+    "variants": [
+      {
+        "asm": [
+          "B",
+          "<L>"
+        ],
+        "doc": "b"
+      }
+    ]
+  },
+  "BFC": {
+    "Name": "Bit Field Clear",
+    "variants": [
+      {
+        "asm": [
+          "BFC<CQ>",
+          "<Rd>",
+          "<I5>",
+          "<I5>"
+        ],
+        "doc": "bfc",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BFI": {
+    "Name": "Bit Field Insert",
+    "variants": [
+      {
+        "asm": [
+          "BFI<CQ>",
+          "<Rd>",
+          "<Rn>",
+          "<I5>",
+          "<I5>"
+        ],
+        "doc": "bfi",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BIC": {
+    "Name": "Bitwise Bit Clear",
+    "variants": [
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "bic_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "bic_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "bic_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BIC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "bic_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BKPT": {
+    "Name": "Breakpoint",
+    "variants": [
+      {
+        "asm": [
+          "BKPT<Q>",
+          "<I16>"
+        ],
+        "doc": "bkpt",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BL": {
+    "Name": "Branch with Link and optional Exchange",
+    "variants": [
+      {
+        "asm": [
+          "BL<CQ>",
+          "<L>"
+        ],
+        "doc": "bl_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "BLX<CQ>",
+          "<L>"
+        ],
+        "doc": "bl_i",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BLX": {
+    "Name": "Branch with Link and Exchange",
+    "variants": [
+      {
+        "asm": [
+          "BLX<CQ>",
+          "<Rm>"
+        ],
+        "doc": "blx_r",
+        "desc": 0,
+        "prio": 0,
+        "flags": 2
+      }
+    ]
+  },
+  "BX": {
+    "name": "Branch and Exchange",
+    "variants": [
+      {
+        "asm": [
+          "BX<CQ>",
+          "<Rm>"
+        ],
+        "doc": "bx",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "BXJ": {
+    "Name": "Branch and Exchange, previously Branch and Exchange Jazelle",
+    "variants": [
+      {
+        "asm": [
+          "BXJ<CQ>",
+          "<Rm>"
+        ],
+        "doc": "bxj",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "CB": {
+    "Name": "Compare and Branch on Nonzero or Zero",
+    "variants": [
+      {
+        "asm": [
+          "CBNZ<Q>",
+          "<Rn>",
+          "<L>"
+        ],
+        "doc": "cbnz",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CBZ<Q>",
+          "<Rn>",
+          "<L>"
+        ],
+        "doc": "cbnz",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CLREX": {
+    "Name": "Clear-Exclusive",
+    "variants": [
+      {
+        "asm": [
+          "CLREX<CQ>"
+        ],
+        "doc": "clrex",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "CLZ": {
+    "Name": "Count Leading Zeros",
+    "variants": [
+      {
+        "asm": [
+          "CLZ<CQ>",
+          "<Rd>",
+          "<Rm>"
+        ],
+        "doc": "clz",
+        "desc": 0,
+        "prio": 0,
+        "flags": 2
+      }
+    ]
+  },
+  "CMN": {
+    "Name": "Compare Negative",
+    "variants": [
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "cmn_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "cmn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "cmn_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMN<CQ>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "cmn_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CMP": {
+    "Name": "Compare",
+    "variants": [
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "cmp_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "cmp_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "cmp_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "CMP<CQ>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "cmp_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "CPS": {
+    "Name": "Change PE State",
+    "variants": [
+      {
+        "asm": [
+          "CPS<Q>"
+        ],
+        "doc": "cps",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      },
+      {
+        "asm": [
+          "CPSID<Q>"
+        ],
+        "doc": "cps",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      },
+      {
+        "asm": [
+          "CPSIE<Q>"
+        ],
+        "doc": "cps",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "CRC32": {
+    "Name": "CRC32",
+    "variants": [
+      {
+        "asm": [
+          "CRC32<O:B|H|W><Q>",
+          "<Rd>",
+          "<Rn>",
+          "<Rm>"
+        ],
+        "doc": "crc32",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      },
+      {
+        "asm": [
+          "CRC32C<O:B|H|W><Q>",
+          "<Rd>",
+          "<Rn>",
+          "<Rm>"
+        ],
+        "doc": "crc32c",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "CSDB": {
+    "Name": "Consumption of Speculative Data Barrier",
+    "variants": [
+      {
+        "asm": [
+          "CSDB<CQ>"
+        ],
+        "doc": "csdb",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "DBG": {
+    "Name": "Debug hint",
+    "variants": [
+      {
+        "asm": [
+          "DBG<CQ>"
+        ],
+        "doc": "dbg",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "DCPS1": {
+    "Name": "Debug Change PE State to EL1",
+    "variants": [
+      {
+        "asm": [
+          "DCPS1<CQ>"
+        ],
+        "doc": "dcps1",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "DCPS2": {
+    "Name": "Debug Change PE State to EL2",
+    "variants": [
+      {
+        "asm": [
+          "DCPS2<CQ>"
+        ],
+        "doc": "dcps2",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "DCPS3": {
+    "Name": "Debug Change PE State to EL3",
+    "variants": [
+      {
+        "asm": [
+          "DCPS3<CQ>"
+        ],
+        "doc": "dcps3",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "DMB": {
+    "Name": "Data Memory Barrier",
+    "variants": [
+      {
+        "asm": [
+          "DMB<CQ>"
+        ],
+        "doc": "dmb",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "DSB": {
+    "Name": "Data Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "DSB<CQ>"
+        ],
+        "doc": "dsb",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "EOR": {
+    "Name": "Bitwise Exclusive OR",
+    "variants": [
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "eor_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<?SHI>"
+        ],
+        "doc": "eor_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<RRX>"
+        ],
+        "doc": "eor_r",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "EOR<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "eor_rr",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
+  "ERET": {
+    "Name": "Exception Return",
+    "variants": [
+      {
+        "asm": [
+          "ERET<CQ>"
+        ],
+        "doc": "eret",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "ESB": {
+    "Name": "Error Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "ESB<CQ>"
+        ],
+        "doc": "esb",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "HLT": {
+    "Name": "Halting Breakpoint",
+    "variants": [
+      {
+        "asm": [
+          "HLT<CQ>"
+        ],
+        "doc": "hlt",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "HVC": {
+    "Name": "Hypervisor Call",
+    "variants": [
+      {
+        "asm": [
+          "HVC<CQ>"
+        ],
+        "doc": "hvc",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "ISB": {
+    "Name": "Instruction Synchronization Barrier",
+    "variants": [
+      {
+        "asm": [
+          "ISB<CQ>"
+        ],
+        "doc": "isb",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "IT": {
+    "Name": "If-Then",
+    "variants": [
+      {
+        "asm": [
+          "IT<CQ>"
+        ],
+        "doc": "it",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDA": {
+    "Name": "Load-Acquire Word",
+    "variants": [
+      {
+        "asm": [
+          "LDA<CQ>"
+        ],
+        "doc": "lda",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDAB": {
+    "Name": "Load-Acquire Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDAB<CQ>"
+        ],
+        "doc": "ldab",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDAEX": {
+    "Name": "Load-Acquire Exclusive Word",
+    "variants": [
+      {
+        "asm": [
+          "LDAEX<CQ>"
+        ],
+        "doc": "ldaex",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDAEXB": {
+    "Name": "Load-Acquire Exclusive Byte",
+    "variants": [
+      {
+        "asm": [
+          "LDAEXB<CQ>"
+        ],
+        "doc": "ldaexb",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDAEXD": {
+    "Name": "Load-Acquire Exclusive Doubleword",
+    "variants": [
+      {
+        "asm": [
+          "LDAEXD<CQ>"
+        ],
+        "doc": "ldaexd",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDAEXH": {
+    "Name": "Load-Acquire Exclusive Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDAEXH<CQ>"
+        ],
+        "doc": "ldaexh",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDAH": {
+    "Name": "Load-Acquire Halfword",
+    "variants": [
+      {
+        "asm": [
+          "LDAH<CQ>"
+        ],
+        "doc": "ldah",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDC": {
+    "Name": "Load data to System register",
+    "variants": [
+      {
+        "asm": [
+          "LDC<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Ic>"
+        ],
+        "doc": "ldc_i",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      },
+      {
+        "asm": [
+          "LDC<CQ>"
+        ],
+        "doc": "ldc_l",
+        "desc": 0,
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "LDM": {
+    "Name": "Load Multiple",
+    "variants": [
+      {
+        "asm": [
+          "LDM<O:IA|FD|x><CQ>",
+          "<Rn!>",
+          "<r>"
+        ],
+        "doc": "ldm",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDM<O:DA|FA><CQ>",
+          "<Rn!>",
+          "<r>"
+        ],
+        "doc": "ldmda",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDM<O:DB|EA><CQ>",
+          "<Rn!>",
+          "<r>"
+        ],
+        "doc": "ldmdb",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
+          "LDM<O:IB|ED><CQ>",
+          "<Rn!>",
+          "<r>"
+        ],
+        "doc": "ldmib",
+        "desc": 0,
+        "prio": 0
+      }
+    ]
+  },
   "LDR": {
     "name": "Load Register",
     "variants": [
@@ -123,1132 +1062,6 @@
       }
     ]
   },
-  "BX": {
-    "name": "Branch and exchange",
-    "variants": [
-      {
-        "asm": [
-          "BX",
-          "<Rm>"
-        ],
-        "doc": "bx",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "B": {
-    "name": "Branch",
-    "variants": [
-      {
-        "asm": [
-          "B",
-          "<L>"
-        ],
-        "doc": "b"
-      }
-    ]
-  },
-  "SWI": {
-    "name": "Interrupt",
-    "variants": [
-      {
-        "asm": [
-          "SWI",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "swi"
-      },
-      {
-        "asm": [
-          "SVC",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "swi"
-      }
-    ]
-  },
-  "ADD": {
-    "Name": "Add",
-    "variants": [
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "add_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "add_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "add_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "add_rr",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "add_sp_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "add_sp_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ADD<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "add_sp_r",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "ADR": {
-    "Name": "Form PC-relative address",
-    "variants": [
-      {
-        "asm": [
-          "ADR<CQ>"
-        ],
-        "doc": "adr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "AND": {
-    "Name": "Bitwise AND",
-    "variants": [
-      {
-        "asm": [
-          "AND<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "and_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "AND<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "and_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "AND<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "and_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "AND<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "and_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "ASR": {
-    "Name": "Arithmetic Shift Right",
-    "variants": [
-      {
-        "asm": [
-          "ASR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "asr_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ASR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "asr_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ASR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "asr_mov_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "ASRS": {
-    "Name": "Arithmetic Shift Right, setting flags",
-    "variants": [
-      {
-        "asm": [
-          "ASRS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "asrs_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ASRS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "asrs_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ASRS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "asrs_mov_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BFC": {
-    "Name": "Bit Field Clear",
-    "variants": [
-      {
-        "asm": [
-          "BFC<CQ>"
-        ],
-        "doc": "bfc",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BFI": {
-    "Name": "Bit Field Insert",
-    "variants": [
-      {
-        "asm": [
-          "BFI<CQ>"
-        ],
-        "doc": "bfi",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BIC": {
-    "Name": "Bitwise Bit Clear",
-    "variants": [
-      {
-        "asm": [
-          "BIC<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "bic_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "BIC<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "bic_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "BIC<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "bic_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "BIC<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "bic_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BKPT": {
-    "Name": "Breakpoint",
-    "variants": [
-      {
-        "asm": [
-          "BKPT<CQ>"
-        ],
-        "doc": "bkpt",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BL": {
-    "Name": "Branch with Link and optional Exchange",
-    "variants": [
-      {
-        "asm": [
-          "BL<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "bl_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "BLX<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "bl_i",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BLX": {
-    "Name": "Branch with Link and Exchange",
-    "variants": [
-      {
-        "asm": [
-          "BLX<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "blx_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "BLX<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "blx_r",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "BXJ": {
-    "Name": "Branch and Exchange, previously Branch and Exchange Jazelle",
-    "variants": [
-      {
-        "asm": [
-          "BXJ<CQ>"
-        ],
-        "doc": "bxj",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CB": {
-    "Name": "Compare and Branch on Nonzero or Zero",
-    "variants": [
-      {
-        "asm": [
-          "CBNZ<CQ>"
-        ],
-        "doc": "cbnz",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CBZ<CQ>"
-        ],
-        "doc": "cbnz",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CLREX": {
-    "Name": "Clear-Exclusive",
-    "variants": [
-      {
-        "asm": [
-          "CLREX<CQ>"
-        ],
-        "doc": "clrex",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CLZ": {
-    "Name": "Count Leading Zeros",
-    "variants": [
-      {
-        "asm": [
-          "CLZ<CQ>"
-        ],
-        "doc": "clz",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CMN": {
-    "Name": "Compare Negative",
-    "variants": [
-      {
-        "asm": [
-          "CMN<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "cmn_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CMN<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "cmn_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CMN<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "cmn_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CMN<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "cmn_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CMP": {
-    "Name": "Compare",
-    "variants": [
-      {
-        "asm": [
-          "CMP<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "cmp_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CMP<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "cmp_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CMP<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "cmp_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CMP<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "cmp_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CPS": {
-    "Name": "Change PE State",
-    "variants": [
-      {
-        "asm": [
-          "CPS<CQ>"
-        ],
-        "doc": "cps",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CPSID<CQ>"
-        ],
-        "doc": "cps",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "CPSIE<CQ>"
-        ],
-        "doc": "cps",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CRC32": {
-    "Name": "CRC32",
-    "variants": [
-      {
-        "asm": [
-          "CRC32<CQ>"
-        ],
-        "doc": "crc32",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CRC32C": {
-    "Name": "CRC32C",
-    "variants": [
-      {
-        "asm": [
-          "CRC32C<CQ>"
-        ],
-        "doc": "crc32c",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "CSDB": {
-    "Name": "Consumption of Speculative Data Barrier",
-    "variants": [
-      {
-        "asm": [
-          "CSDB<CQ>"
-        ],
-        "doc": "csdb",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "DBG": {
-    "Name": "Debug hint",
-    "variants": [
-      {
-        "asm": [
-          "DBG<CQ>"
-        ],
-        "doc": "dbg",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "DCPS1": {
-    "Name": "Debug Change PE State to EL1",
-    "variants": [
-      {
-        "asm": [
-          "DCPS1<CQ>"
-        ],
-        "doc": "dcps1",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "DCPS2": {
-    "Name": "Debug Change PE State to EL2",
-    "variants": [
-      {
-        "asm": [
-          "DCPS2<CQ>"
-        ],
-        "doc": "dcps2",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "DCPS3": {
-    "Name": "Debug Change PE State to EL3",
-    "variants": [
-      {
-        "asm": [
-          "DCPS3<CQ>"
-        ],
-        "doc": "dcps3",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "DMB": {
-    "Name": "Data Memory Barrier",
-    "variants": [
-      {
-        "asm": [
-          "DMB<CQ>"
-        ],
-        "doc": "dmb",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "DSB": {
-    "Name": "Data Synchronization Barrier",
-    "variants": [
-      {
-        "asm": [
-          "DSB<CQ>"
-        ],
-        "doc": "dsb",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "EOR": {
-    "Name": "Bitwise Exclusive OR",
-    "variants": [
-      {
-        "asm": [
-          "EOR<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "eor_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "EOR<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "eor_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "EOR<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "eor_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "EOR<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "eor_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "ERET": {
-    "Name": "Exception Return",
-    "variants": [
-      {
-        "asm": [
-          "ERET<CQ>"
-        ],
-        "doc": "eret",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "ESB": {
-    "Name": "Error Synchronization Barrier",
-    "variants": [
-      {
-        "asm": [
-          "ESB<CQ>"
-        ],
-        "doc": "esb",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "HLT": {
-    "Name": "Halting Breakpoint",
-    "variants": [
-      {
-        "asm": [
-          "HLT<CQ>"
-        ],
-        "doc": "hlt",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "HVC": {
-    "Name": "Hypervisor Call",
-    "variants": [
-      {
-        "asm": [
-          "HVC<CQ>"
-        ],
-        "doc": "hvc",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "ISB": {
-    "Name": "Instruction Synchronization Barrier",
-    "variants": [
-      {
-        "asm": [
-          "ISB<CQ>"
-        ],
-        "doc": "isb",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "IT": {
-    "Name": "If-Then",
-    "variants": [
-      {
-        "asm": [
-          "IT<CQ>"
-        ],
-        "doc": "it",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDA": {
-    "Name": "Load-Acquire Word",
-    "variants": [
-      {
-        "asm": [
-          "LDA<CQ>"
-        ],
-        "doc": "lda",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDAB": {
-    "Name": "Load-Acquire Byte",
-    "variants": [
-      {
-        "asm": [
-          "LDAB<CQ>"
-        ],
-        "doc": "ldab",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDAEX": {
-    "Name": "Load-Acquire Exclusive Word",
-    "variants": [
-      {
-        "asm": [
-          "LDAEX<CQ>"
-        ],
-        "doc": "ldaex",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDAEXB": {
-    "Name": "Load-Acquire Exclusive Byte",
-    "variants": [
-      {
-        "asm": [
-          "LDAEXB<CQ>"
-        ],
-        "doc": "ldaexb",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDAEXD": {
-    "Name": "Load-Acquire Exclusive Doubleword",
-    "variants": [
-      {
-        "asm": [
-          "LDAEXD<CQ>"
-        ],
-        "doc": "ldaexd",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDAEXH": {
-    "Name": "Load-Acquire Exclusive Halfword",
-    "variants": [
-      {
-        "asm": [
-          "LDAEXH<CQ>"
-        ],
-        "doc": "ldaexh",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDAH": {
-    "Name": "Load-Acquire Halfword",
-    "variants": [
-      {
-        "asm": [
-          "LDAH<CQ>"
-        ],
-        "doc": "ldah",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDC": {
-    "Name": "Load data to System register",
-    "variants": [
-      {
-        "asm": [
-          "LDC<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "ldc_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDC<CQ>"
-        ],
-        "doc": "ldc_l",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDM": {
-    "Name": "Load Multiple",
-    "variants": [
-      {
-        "asm": [
-          "LDM<CQ>"
-        ],
-        "doc": "ldm_e",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDM<CQ>"
-        ],
-        "doc": "ldm_u",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDM<CQ>"
-        ],
-        "doc": "ldm",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMIA<CQ>"
-        ],
-        "doc": "ldm",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMFD<CQ>"
-        ],
-        "doc": "ldm",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMDA<CQ>"
-        ],
-        "doc": "ldmda",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMFA<CQ>"
-        ],
-        "doc": "ldmda",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMDB<CQ>"
-        ],
-        "doc": "ldmdb",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMEA<CQ>"
-        ],
-        "doc": "ldmdb",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMIB<CQ>"
-        ],
-        "doc": "ldmib",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDMED<CQ>"
-        ],
-        "doc": "ldmib",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDRB": {
-    "Name": "Load Register Byte",
-    "variants": [
-      {
-        "asm": [
-          "LDRB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "ldrb_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRB<CQ>"
-        ],
-        "doc": "ldrb_l",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "ldrb_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "ldrb_r",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
   "LDRBT": {
     "Name": "Load Register Byte Unprivileged",
     "variants": [
@@ -1258,7 +1071,8 @@
         ],
         "doc": "ldrbt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1319,7 +1133,8 @@
         ],
         "doc": "ldrex",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1332,7 +1147,8 @@
         ],
         "doc": "ldrexb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1345,7 +1161,8 @@
         ],
         "doc": "ldrexd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1358,55 +1175,8 @@
         ],
         "doc": "ldrexh",
         "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDRH": {
-    "Name": "Load Register Halfword",
-    "variants": [
-      {
-        "asm": [
-          "LDRH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "ldrh_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRH<CQ>"
-        ],
-        "doc": "ldrh_l",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "ldrh_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "ldrh_r",
-        "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1419,55 +1189,8 @@
         ],
         "doc": "ldrht",
         "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDRSB": {
-    "Name": "Load Register Signed Byte",
-    "variants": [
-      {
-        "asm": [
-          "LDRSB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "ldrsb_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRSB<CQ>"
-        ],
-        "doc": "ldrsb_l",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRSB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "ldrsb_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRSB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "ldrsb_r",
-        "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1480,55 +1203,8 @@
         ],
         "doc": "ldrsbt",
         "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LDRSH": {
-    "Name": "Load Register Signed Halfword",
-    "variants": [
-      {
-        "asm": [
-          "LDRSH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "ldrsh_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRSH<CQ>"
-        ],
-        "doc": "ldrsh_l",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRSH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "ldrsh_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LDRSH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "ldrsh_r",
-        "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1541,7 +1217,8 @@
         ],
         "doc": "ldrsht",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1554,7 +1231,8 @@
         ],
         "doc": "ldrt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1563,11 +1241,10 @@
     "variants": [
       {
         "asm": [
-          "LSL<CQ>",
+          "LSL<SCQ>",
           "<?Rd>",
-          "<Rn>",
           "<Rm>",
-          "<?SHI>"
+          "<Ic>"
         ],
         "doc": "lsl_mov_r",
         "desc": 0,
@@ -1575,66 +1252,12 @@
       },
       {
         "asm": [
-          "LSL<CQ>",
+          "LSL<SCQ>",
           "<?Rd>",
-          "<Rn>",
           "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "lsl_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LSL<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
+          "<Rs>"
         ],
         "doc": "lsl_mov_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LSLS": {
-    "Name": "Logical Shift Left, setting flags",
-    "variants": [
-      {
-        "asm": [
-          "LSLS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "lsls_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LSLS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "lsls_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LSLS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "lsls_mov_rr",
         "desc": 0,
         "prio": 0
       }
@@ -1645,11 +1268,10 @@
     "variants": [
       {
         "asm": [
-          "LSR<CQ>",
+          "LSR<SCQ>",
           "<?Rd>",
-          "<Rn>",
           "<Rm>",
-          "<?SHI>"
+          "<Ic>"
         ],
         "doc": "lsr_mov_r",
         "desc": 0,
@@ -1657,66 +1279,12 @@
       },
       {
         "asm": [
-          "LSR<CQ>",
+          "LSR<SCQ>",
           "<?Rd>",
-          "<Rn>",
           "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "lsr_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LSR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
+          "<Rs>"
         ],
         "doc": "lsr_mov_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "LSRS": {
-    "Name": "Logical Shift Right, setting flags",
-    "variants": [
-      {
-        "asm": [
-          "LSRS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "lsrs_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LSRS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "lsrs_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "LSRS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "lsrs_mov_rr",
         "desc": 0,
         "prio": 0
       }
@@ -1731,7 +1299,8 @@
         ],
         "doc": "mcr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1744,7 +1313,8 @@
         ],
         "doc": "mcrr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1753,7 +1323,11 @@
     "variants": [
       {
         "asm": [
-          "MLA<SCQ>"
+          "MLA<SCQ>",
+          "<Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<Ra>"
         ],
         "doc": "mla",
         "desc": 0,
@@ -1766,7 +1340,11 @@
     "variants": [
       {
         "asm": [
-          "MLS<CQ>"
+          "MLS<CQ>",
+          "<Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<Ra>"
         ],
         "doc": "mls",
         "desc": 0,
@@ -1780,8 +1358,7 @@
       {
         "asm": [
           "MOV<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Ic>"
         ],
         "doc": "mov_i",
@@ -1790,9 +1367,18 @@
       },
       {
         "asm": [
+          "MOVW<CQ>",
+          "<Rd>",
+          "<I16>"
+        ],
+        "doc": "mov_i",
+        "desc": 0,
+        "prio": 0
+      },
+      {
+        "asm": [
           "MOV<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Rm>",
           "<?SHI>"
         ],
@@ -1803,8 +1389,7 @@
       {
         "asm": [
           "MOV<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Rm>",
           "<RRX>"
         ],
@@ -1815,8 +1400,7 @@
       {
         "asm": [
           "MOV<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Rm>",
           "<SHR>"
         ],
@@ -1831,11 +1415,14 @@
     "variants": [
       {
         "asm": [
-          "MOVT<CQ>"
+          "MOVT<CQ>",
+          "<Rd>",
+          "<I16>"
         ],
         "doc": "movt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -1848,7 +1435,8 @@
         ],
         "doc": "mrc",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1861,7 +1449,8 @@
         ],
         "doc": "mrrc",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -1874,7 +1463,8 @@
         ],
         "doc": "mrs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -1882,7 +1472,8 @@
         ],
         "doc": "mrs_br",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 10
       }
     ]
   },
@@ -1895,7 +1486,8 @@
         ],
         "doc": "msr_br",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 10
       },
       {
         "asm": [
@@ -1906,7 +1498,8 @@
         ],
         "doc": "msr_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -1918,7 +1511,8 @@
         ],
         "doc": "msr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -1930,7 +1524,8 @@
         ],
         "doc": "msr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -1939,7 +1534,10 @@
     "variants": [
       {
         "asm": [
-          "MUL<SCQ>"
+          "MUL<SCQ>",
+          "<Rd>",
+          "<Rn>",
+          "<?Rm>"
         ],
         "doc": "mul",
         "desc": 0,
@@ -1953,8 +1551,7 @@
       {
         "asm": [
           "MVN<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Ic>"
         ],
         "doc": "mvn_i",
@@ -1964,8 +1561,7 @@
       {
         "asm": [
           "MVN<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Rm>",
           "<?SHI>"
         ],
@@ -1976,8 +1572,7 @@
       {
         "asm": [
           "MVN<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Rm>",
           "<RRX>"
         ],
@@ -1988,8 +1583,7 @@
       {
         "asm": [
           "MVN<SCQ>",
-          "<?Rd>",
-          "<Rn>",
+          "<Rd>",
           "<Rm>",
           "<SHR>"
         ],
@@ -2113,7 +1707,8 @@
         ],
         "doc": "pkh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -2121,7 +1716,8 @@
         ],
         "doc": "pkh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2134,7 +1730,8 @@
         ],
         "doc": "pld_l",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2145,7 +1742,8 @@
         ],
         "doc": "pld_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2156,7 +1754,8 @@
         ],
         "doc": "pld_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2168,7 +1767,8 @@
         ],
         "doc": "pld_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2180,7 +1780,8 @@
         ],
         "doc": "pld_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2192,7 +1793,8 @@
         ],
         "doc": "pld_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2204,7 +1806,8 @@
         ],
         "doc": "pld_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2220,7 +1823,8 @@
         ],
         "doc": "pli_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2232,7 +1836,8 @@
         ],
         "doc": "pli_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2244,7 +1849,8 @@
         ],
         "doc": "pli_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2253,28 +1859,10 @@
     "variants": [
       {
         "asm": [
-          "POP<CQ>"
-        ],
-        "doc": "pop",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "POP<CQ>"
+          "POP<CQ>",
+          "<r>"
         ],
         "doc": "pop_ldm",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "POP<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "pop_ldr_i",
         "desc": 0,
         "prio": 0
       }
@@ -2289,7 +1877,8 @@
         ],
         "doc": "pssbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2298,28 +1887,10 @@
     "variants": [
       {
         "asm": [
-          "PUSH<CQ>"
-        ],
-        "doc": "push",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "PUSH<CQ>"
+          "PUSH<CQ>",
+          "<r>"
         ],
         "doc": "push_stmdb",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "PUSH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "push_str_i",
         "desc": 0,
         "prio": 0
       }
@@ -2334,7 +1905,8 @@
         ],
         "doc": "qadd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2347,7 +1919,8 @@
         ],
         "doc": "qadd16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2360,7 +1933,8 @@
         ],
         "doc": "qadd8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2373,7 +1947,8 @@
         ],
         "doc": "qasx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2386,7 +1961,8 @@
         ],
         "doc": "qdadd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2399,7 +1975,8 @@
         ],
         "doc": "qdsub",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2412,7 +1989,8 @@
         ],
         "doc": "qsax",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2425,7 +2003,8 @@
         ],
         "doc": "qsub",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2438,7 +2017,8 @@
         ],
         "doc": "qsub16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2451,7 +2031,8 @@
         ],
         "doc": "qsub8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2460,7 +2041,9 @@
     "variants": [
       {
         "asm": [
-          "RBIT<CQ>"
+          "RBIT<CQ>",
+          "<Rd>",
+          "<Rm>"
         ],
         "doc": "rbit",
         "desc": 0,
@@ -2477,7 +2060,8 @@
         ],
         "doc": "rev",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2490,7 +2074,8 @@
         ],
         "doc": "rev16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2503,7 +2088,8 @@
         ],
         "doc": "revsh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2516,7 +2102,8 @@
         ],
         "doc": "rfe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2524,7 +2111,8 @@
         ],
         "doc": "rfe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2532,7 +2120,8 @@
         ],
         "doc": "rfe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2540,7 +2129,8 @@
         ],
         "doc": "rfe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -2548,7 +2138,8 @@
         ],
         "doc": "rfe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2557,9 +2148,8 @@
     "variants": [
       {
         "asm": [
-          "ROR<CQ>",
+          "ROR<SCQ>",
           "<?Rd>",
-          "<Rn>",
           "<Rm>",
           "<?SHI>"
         ],
@@ -2569,66 +2159,12 @@
       },
       {
         "asm": [
-          "ROR<CQ>",
+          "ROR<SCQ>",
           "<?Rd>",
-          "<Rn>",
           "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "ror_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "ROR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
+          "<Rs>"
         ],
         "doc": "ror_mov_rr",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "RORS": {
-    "Name": "Rotate Right, setting flags",
-    "variants": [
-      {
-        "asm": [
-          "RORS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "rors_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "RORS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "rors_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "RORS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "rors_mov_rr",
         "desc": 0,
         "prio": 0
       }
@@ -2639,23 +2175,9 @@
     "variants": [
       {
         "asm": [
-          "RRX<CQ>",
+          "RRX<SCQ>",
           "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "rrx_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "RRX<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
+          "<Rm>"
         ],
         "doc": "rrx_mov_r",
         "desc": 0,
@@ -2663,36 +2185,7 @@
       }
     ]
   },
-  "RRXS": {
-    "Name": "Rotate Right with Extend, setting flags",
-    "variants": [
-      {
-        "asm": [
-          "RRXS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "rrxs_mov_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "RRXS<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "rrxs_mov_r",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "RS": {
+  "RSB": {
     "Name": "Reverse Subtract",
     "variants": [
       {
@@ -2741,18 +2234,6 @@
         "doc": "rsb_rr",
         "desc": 0,
         "prio": 0
-      },
-      {
-        "asm": [
-          "RSC<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<SHR>"
-        ],
-        "doc": "rsc_rr",
-        "desc": 0,
-        "prio": 0
       }
     ]
   },
@@ -2793,6 +2274,18 @@
         "doc": "rsc_r",
         "desc": 0,
         "prio": 0
+      },
+      {
+        "asm": [
+          "RSC<SCQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>",
+          "<SHR>"
+        ],
+        "doc": "rsc_rr",
+        "desc": 0,
+        "prio": 0
       }
     ]
   },
@@ -2805,7 +2298,8 @@
         ],
         "doc": "sadd16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2818,7 +2312,8 @@
         ],
         "doc": "sadd8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2831,7 +2326,8 @@
         ],
         "doc": "sasx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2844,7 +2340,8 @@
         ],
         "doc": "sb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2909,7 +2406,8 @@
         ],
         "doc": "sbfx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2918,7 +2416,10 @@
     "variants": [
       {
         "asm": [
-          "SDIV<CQ>"
+          "SDIV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>"
         ],
         "doc": "sdiv",
         "desc": 0,
@@ -2935,7 +2436,8 @@
         ],
         "doc": "sel",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -2948,7 +2450,8 @@
         ],
         "doc": "setend",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2961,7 +2464,8 @@
         ],
         "doc": "setpan",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2974,7 +2478,8 @@
         ],
         "doc": "sev",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -2987,7 +2492,8 @@
         ],
         "doc": "sevl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3000,7 +2506,8 @@
         ],
         "doc": "shadd16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3013,7 +2520,8 @@
         ],
         "doc": "shadd8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3026,7 +2534,8 @@
         ],
         "doc": "shasx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3039,7 +2548,8 @@
         ],
         "doc": "shsax",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3052,7 +2562,8 @@
         ],
         "doc": "shsub16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3065,7 +2576,8 @@
         ],
         "doc": "shsub8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3078,7 +2590,8 @@
         ],
         "doc": "smc",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3091,7 +2604,8 @@
         ],
         "doc": "smlabb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3099,7 +2613,8 @@
         ],
         "doc": "smlabb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3107,7 +2622,8 @@
         ],
         "doc": "smlabb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3115,7 +2631,8 @@
         ],
         "doc": "smlabb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3123,7 +2640,8 @@
         ],
         "doc": "smlawb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3131,7 +2649,8 @@
         ],
         "doc": "smlawb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3144,7 +2663,8 @@
         ],
         "doc": "smlad",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3152,7 +2672,8 @@
         ],
         "doc": "smlad",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3161,7 +2682,11 @@
     "variants": [
       {
         "asm": [
-          "SMLAL<SCQ>"
+          "SMLAL<SCQ>",
+          "<RdLo>",
+          "<RdHi>",
+          "<Rn>",
+          "<Rm>"
         ],
         "doc": "smlal",
         "desc": 0,
@@ -3173,7 +2698,8 @@
         ],
         "doc": "smlalbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3181,7 +2707,8 @@
         ],
         "doc": "smlalbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3189,7 +2716,8 @@
         ],
         "doc": "smlalbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3197,7 +2725,8 @@
         ],
         "doc": "smlalbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3210,7 +2739,8 @@
         ],
         "doc": "smlald",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3218,11 +2748,12 @@
         ],
         "doc": "smlald",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
-  "SM": {
+  "SMLSD": {
     "Name": "Signed Multiply Subtract Dual",
     "variants": [
       {
@@ -3231,7 +2762,8 @@
         ],
         "doc": "smlsd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3239,15 +2771,22 @@
         ],
         "doc": "smlsd",
         "desc": 0,
-        "prio": 0
-      },
+        "prio": 0,
+        "flags": 2
+      }
+    ]
+  },
+  "SMUSD": {
+    "Name": "Signed Multiply Subtract Dual",
+    "variants": [
       {
         "asm": [
           "SMUSD<CQ>"
         ],
         "doc": "smusd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3255,7 +2794,8 @@
         ],
         "doc": "smusd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3268,7 +2808,8 @@
         ],
         "doc": "smlsld",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3276,7 +2817,8 @@
         ],
         "doc": "smlsld",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3289,7 +2831,8 @@
         ],
         "doc": "smmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3297,7 +2840,8 @@
         ],
         "doc": "smmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3310,7 +2854,8 @@
         ],
         "doc": "smmls",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3318,7 +2863,8 @@
         ],
         "doc": "smmls",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3331,7 +2877,8 @@
         ],
         "doc": "smmul",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3339,7 +2886,8 @@
         ],
         "doc": "smmul",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3352,7 +2900,8 @@
         ],
         "doc": "smuad",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3360,7 +2909,8 @@
         ],
         "doc": "smuad",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3373,7 +2923,8 @@
         ],
         "doc": "smulbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3381,7 +2932,8 @@
         ],
         "doc": "smulbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3389,7 +2941,8 @@
         ],
         "doc": "smulbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3397,7 +2950,8 @@
         ],
         "doc": "smulbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3405,7 +2959,8 @@
         ],
         "doc": "smulwb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       },
       {
         "asm": [
@@ -3413,7 +2968,8 @@
         ],
         "doc": "smulwb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3422,7 +2978,11 @@
     "variants": [
       {
         "asm": [
-          "SMULL<SCQ>"
+          "SMULL<SCQ>",
+          "<RdLo>",
+          "<RdHi>",
+          "<Rn>",
+          "<Rm>"
         ],
         "doc": "smull",
         "desc": 0,
@@ -3439,7 +2999,8 @@
         ],
         "doc": "srs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -3447,7 +3008,8 @@
         ],
         "doc": "srs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -3455,7 +3017,8 @@
         ],
         "doc": "srs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -3463,7 +3026,8 @@
         ],
         "doc": "srs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       },
       {
         "asm": [
@@ -3471,7 +3035,8 @@
         ],
         "doc": "srs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3484,7 +3049,8 @@
         ],
         "doc": "ssat",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3497,7 +3063,8 @@
         ],
         "doc": "ssat16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3510,7 +3077,8 @@
         ],
         "doc": "ssax",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3523,7 +3091,8 @@
         ],
         "doc": "ssbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3536,7 +3105,8 @@
         ],
         "doc": "ssub16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3549,7 +3119,8 @@
         ],
         "doc": "ssub8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3562,7 +3133,8 @@
         ],
         "doc": "stc",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -3575,7 +3147,8 @@
         ],
         "doc": "stl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3588,7 +3161,8 @@
         ],
         "doc": "stlb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3601,7 +3175,8 @@
         ],
         "doc": "stlex",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3614,7 +3189,8 @@
         ],
         "doc": "stlexb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3627,7 +3203,8 @@
         ],
         "doc": "stlexd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3640,7 +3217,8 @@
         ],
         "doc": "stlexh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3653,7 +3231,8 @@
         ],
         "doc": "stlh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3662,15 +3241,9 @@
     "variants": [
       {
         "asm": [
-          "STM<CQ>"
-        ],
-        "doc": "stm_u",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STM<CQ>"
+          "STM<O:IA|EA|x><CQ>",
+          "<Rn!>",
+          "<r>"
         ],
         "doc": "stm",
         "desc": 0,
@@ -3678,23 +3251,9 @@
       },
       {
         "asm": [
-          "STMIA<CQ>"
-        ],
-        "doc": "stm",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STMEA<CQ>"
-        ],
-        "doc": "stm",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STMDA<CQ>"
+          "STM<O:DA|ED><CQ>",
+          "<Rn!>",
+          "<r>"
         ],
         "doc": "stmda",
         "desc": 0,
@@ -3702,15 +3261,9 @@
       },
       {
         "asm": [
-          "STMED<CQ>"
-        ],
-        "doc": "stmda",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STMDB<CQ>"
+          "STM<O:DB|FD><CQ>",
+          "<Rn!>",
+          "<r>"
         ],
         "doc": "stmdb",
         "desc": 0,
@@ -3718,23 +3271,9 @@
       },
       {
         "asm": [
-          "STMFD<CQ>"
-        ],
-        "doc": "stmdb",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STMIB<CQ>"
-        ],
-        "doc": "stmib",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STMFA<CQ>"
+          "STM<O:IB|FA><CQ>",
+          "<Rn!>",
+          "<r>"
         ],
         "doc": "stmib",
         "desc": 0,
@@ -3743,82 +3282,37 @@
     ]
   },
   "STR": {
-    "Name": "Store Register",
+    "name": "Store Register",
     "variants": [
       {
         "asm": [
-          "STR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
+          "STR<O:B|H|x><CQ>",
+          "<Rt>",
+          "<AI>"
         ],
         "doc": "str_i",
-        "desc": 0,
-        "prio": 0
+        "docVariants": {
+          "B": "strb_i",
+          "SB": "strsb_i",
+          "H": "strh_i",
+          "SH": "strsh_i"
+        },
+        "desc": 0
       },
       {
         "asm": [
-          "STR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
+          "STR<O:B|H|x><CQ>",
+          "<Rt>",
+          "<AR>"
         ],
         "doc": "str_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STR<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "str_r",
-        "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "STRB": {
-    "Name": "Store Register Byte",
-    "variants": [
-      {
-        "asm": [
-          "STRB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "strb_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STRB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "strb_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STRB<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "strb_r",
-        "desc": 0,
-        "prio": 0
+        "docVariants": {
+          "B": "strb_r",
+          "SB": "strsb_r",
+          "H": "strh_r",
+          "SH": "strsh_r"
+        },
+        "desc": 0
       }
     ]
   },
@@ -3831,7 +3325,8 @@
         ],
         "doc": "strbt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3884,7 +3379,8 @@
         ],
         "doc": "strex",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3897,7 +3393,8 @@
         ],
         "doc": "strexb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3910,7 +3407,8 @@
         ],
         "doc": "strexd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3923,47 +3421,8 @@
         ],
         "doc": "strexh",
         "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "STRH": {
-    "Name": "Store Register Halfword",
-    "variants": [
-      {
-        "asm": [
-          "STRH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "strh_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STRH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "strh_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "STRH<CQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "strh_r",
-        "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3976,7 +3435,8 @@
         ],
         "doc": "strht",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -3989,21 +3449,14 @@
         ],
         "doc": "strt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
   "SUB": {
-    "Name": "Subtract from PC",
+    "Name": "Subtract",
     "variants": [
-      {
-        "asm": [
-          "SUB<CQ>"
-        ],
-        "doc": "sub_adr",
-        "desc": 0,
-        "prio": 0
-      },
       {
         "asm": [
           "SUB<SCQ>",
@@ -4050,41 +3503,6 @@
         "doc": "sub_rr",
         "desc": 0,
         "prio": 0
-      },
-      {
-        "asm": [
-          "SUB<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Ic>"
-        ],
-        "doc": "sub_sp_i",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "SUB<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<?SHI>"
-        ],
-        "doc": "sub_sp_r",
-        "desc": 0,
-        "prio": 0
-      },
-      {
-        "asm": [
-          "SUB<SCQ>",
-          "<?Rd>",
-          "<Rn>",
-          "<Rm>",
-          "<RRX>"
-        ],
-        "doc": "sub_sp_r",
-        "desc": 0,
-        "prio": 0
       }
     ]
   },
@@ -4093,11 +3511,22 @@
     "variants": [
       {
         "asm": [
-          "SVC<CQ>"
+          "SVC<CQ>",
+          "<I24>"
         ],
         "doc": "svc",
         "desc": 0,
         "prio": 0
+      },
+      {
+        "asm": [
+          "SWI<CQ>",
+          "<I24>"
+        ],
+        "doc": "svc",
+        "desc": 0,
+        "prio": 0,
+        "flags": 8
       }
     ]
   },
@@ -4110,7 +3539,8 @@
         ],
         "doc": "sxtab",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4123,7 +3553,8 @@
         ],
         "doc": "sxtab16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4136,7 +3567,8 @@
         ],
         "doc": "sxtah",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4149,7 +3581,8 @@
         ],
         "doc": "sxtb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4162,7 +3595,8 @@
         ],
         "doc": "sxtb16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4175,12 +3609,13 @@
         ],
         "doc": "sxth",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
-  "TB": {
-    "Name": "Table Branch Byte or Halfword",
+  "TBB": {
+    "Name": "Table Branch Byte",
     "variants": [
       {
         "asm": [
@@ -4188,15 +3623,22 @@
         ],
         "doc": "tbb",
         "desc": 0,
-        "prio": 0
-      },
+        "prio": 0,
+        "flags": 4
+      }
+    ]
+  },
+  "TBH": {
+    "Name": "Table Branch Halfword",
+    "variants": [
       {
         "asm": [
           "TBH<CQ>"
         ],
         "doc": "tbb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -4206,7 +3648,6 @@
       {
         "asm": [
           "TEQ<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Ic>"
         ],
@@ -4217,7 +3658,6 @@
       {
         "asm": [
           "TEQ<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Rm>",
           "<?SHI>"
@@ -4229,7 +3669,6 @@
       {
         "asm": [
           "TEQ<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Rm>",
           "<RRX>"
@@ -4241,7 +3680,6 @@
       {
         "asm": [
           "TEQ<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Rm>",
           "<SHR>"
@@ -4257,11 +3695,12 @@
     "variants": [
       {
         "asm": [
-          "TSB CSYNC<CQ>"
+          "TSB CSYNC"
         ],
         "doc": "tsb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -4271,7 +3710,6 @@
       {
         "asm": [
           "TST<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Ic>"
         ],
@@ -4282,7 +3720,6 @@
       {
         "asm": [
           "TST<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Rm>",
           "<?SHI>"
@@ -4294,7 +3731,6 @@
       {
         "asm": [
           "TST<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Rm>",
           "<RRX>"
@@ -4306,7 +3742,6 @@
       {
         "asm": [
           "TST<CQ>",
-          "<?Rd>",
           "<Rn>",
           "<Rm>",
           "<SHR>"
@@ -4326,7 +3761,8 @@
         ],
         "doc": "uadd16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4339,7 +3775,8 @@
         ],
         "doc": "uadd8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4352,7 +3789,8 @@
         ],
         "doc": "uasx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4365,7 +3803,8 @@
         ],
         "doc": "ubfx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4378,7 +3817,8 @@
         ],
         "doc": "udf",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -4387,7 +3827,10 @@
     "variants": [
       {
         "asm": [
-          "UDIV<CQ>"
+          "UDIV<CQ>",
+          "<?Rd>",
+          "<Rn>",
+          "<Rm>"
         ],
         "doc": "udiv",
         "desc": 0,
@@ -4404,7 +3847,8 @@
         ],
         "doc": "uhadd16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4417,7 +3861,8 @@
         ],
         "doc": "uhadd8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4430,7 +3875,8 @@
         ],
         "doc": "uhasx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4443,7 +3889,8 @@
         ],
         "doc": "uhsax",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4456,7 +3903,8 @@
         ],
         "doc": "uhsub16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4469,7 +3917,8 @@
         ],
         "doc": "uhsub8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4482,7 +3931,8 @@
         ],
         "doc": "umaal",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4491,7 +3941,11 @@
     "variants": [
       {
         "asm": [
-          "UMLAL<SCQ>"
+          "UMLAL<SCQ>",
+          "<RdLo>",
+          "<RdHi>",
+          "<Rn>",
+          "<Rm>"
         ],
         "doc": "umlal",
         "desc": 0,
@@ -4504,7 +3958,11 @@
     "variants": [
       {
         "asm": [
-          "UMULL<SCQ>"
+          "UMULL<SCQ>",
+          "<RdLo>",
+          "<RdHi>",
+          "<Rn>",
+          "<Rm>"
         ],
         "doc": "umull",
         "desc": 0,
@@ -4521,7 +3979,8 @@
         ],
         "doc": "uqadd16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4534,7 +3993,8 @@
         ],
         "doc": "uqadd8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4547,7 +4007,8 @@
         ],
         "doc": "uqasx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4560,7 +4021,8 @@
         ],
         "doc": "uqsax",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4573,7 +4035,8 @@
         ],
         "doc": "uqsub16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4586,7 +4049,8 @@
         ],
         "doc": "uqsub8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4599,7 +4063,8 @@
         ],
         "doc": "usad8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4612,7 +4077,8 @@
         ],
         "doc": "usada8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4625,7 +4091,8 @@
         ],
         "doc": "usat",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4638,7 +4105,8 @@
         ],
         "doc": "usat16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4651,7 +4119,8 @@
         ],
         "doc": "usax",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4664,7 +4133,8 @@
         ],
         "doc": "usub16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4677,7 +4147,8 @@
         ],
         "doc": "usub8",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4690,7 +4161,8 @@
         ],
         "doc": "uxtab",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4703,7 +4175,8 @@
         ],
         "doc": "uxtab16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4716,7 +4189,8 @@
         ],
         "doc": "uxtah",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4729,7 +4203,8 @@
         ],
         "doc": "uxtb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4742,7 +4217,8 @@
         ],
         "doc": "uxtb16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4755,7 +4231,8 @@
         ],
         "doc": "uxth",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 2
       }
     ]
   },
@@ -4768,7 +4245,8 @@
         ],
         "doc": "wfe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -4781,7 +4259,8 @@
         ],
         "doc": "wfi",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -4794,20 +4273,8 @@
         ],
         "doc": "yield",
         "desc": 0,
-        "prio": 0
-      }
-    ]
-  },
-  "Proprietary Notice": {
-    "Name": "</div></td></tr></table><hr/><h1 class=\"alphindextitle\">AArch32 -- SIMD&amp;FP Instructions",
-    "variants": [
-      {
-        "asm": [
-          "Proprietary Notice<CQ>"
-        ],
-        "doc": "index",
-        "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 4
       }
     ]
   },
@@ -4820,7 +4287,8 @@
         ],
         "doc": "aesd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4833,7 +4301,8 @@
         ],
         "doc": "aese",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4846,7 +4315,8 @@
         ],
         "doc": "aesimc",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4859,7 +4329,8 @@
         ],
         "doc": "aesmc",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4872,7 +4343,8 @@
         ],
         "doc": "fldmx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -4880,7 +4352,8 @@
         ],
         "doc": "fldmx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4893,7 +4366,8 @@
         ],
         "doc": "fstmx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -4901,7 +4375,8 @@
         ],
         "doc": "fstmx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4914,7 +4389,8 @@
         ],
         "doc": "sha1c",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -4922,7 +4398,8 @@
         ],
         "doc": "sha1m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -4930,7 +4407,8 @@
         ],
         "doc": "sha1p",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4943,7 +4421,8 @@
         ],
         "doc": "sha1h",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4956,7 +4435,8 @@
         ],
         "doc": "sha1su0",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4969,7 +4449,8 @@
         ],
         "doc": "sha1su1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4982,7 +4463,8 @@
         ],
         "doc": "sha256h",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -4995,7 +4477,8 @@
         ],
         "doc": "sha256h2",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5008,7 +4491,8 @@
         ],
         "doc": "sha256su0",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5021,7 +4505,8 @@
         ],
         "doc": "sha256su1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5034,7 +4519,8 @@
         ],
         "doc": "vaba",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5047,7 +4533,8 @@
         ],
         "doc": "vabal",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5060,7 +4547,8 @@
         ],
         "doc": "vabd_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5071,7 +4559,8 @@
         ],
         "doc": "vabd_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5087,7 +4576,8 @@
         ],
         "doc": "vabdl_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5100,7 +4590,8 @@
         ],
         "doc": "vabs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5113,7 +4604,8 @@
         ],
         "doc": "vacge",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5126,7 +4618,8 @@
         ],
         "doc": "vacgt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5139,7 +4632,8 @@
         ],
         "doc": "vacle_vacge",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5152,7 +4646,8 @@
         ],
         "doc": "vaclt_vacgt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5165,7 +4660,8 @@
         ],
         "doc": "vadd_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5176,7 +4672,8 @@
         ],
         "doc": "vadd_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5189,7 +4686,8 @@
         ],
         "doc": "vaddhn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5202,7 +4700,8 @@
         ],
         "doc": "vaddl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5215,7 +4714,8 @@
         ],
         "doc": "vaddw",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5231,7 +4731,8 @@
         ],
         "doc": "vand_vbic_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5243,7 +4744,8 @@
         ],
         "doc": "vand_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5255,7 +4757,8 @@
         ],
         "doc": "vand_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5271,7 +4774,8 @@
         ],
         "doc": "vbic_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5283,7 +4787,8 @@
         ],
         "doc": "vbic_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5295,7 +4800,8 @@
         ],
         "doc": "vbic_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5308,7 +4814,8 @@
         ],
         "doc": "vbif",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5321,7 +4828,8 @@
         ],
         "doc": "vbit",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5334,7 +4842,8 @@
         ],
         "doc": "vbsl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5347,7 +4856,8 @@
         ],
         "doc": "vcadd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5363,7 +4873,8 @@
         ],
         "doc": "vceq_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5375,7 +4886,8 @@
         ],
         "doc": "vceq_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5387,7 +4899,8 @@
         ],
         "doc": "vceq_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5403,7 +4916,8 @@
         ],
         "doc": "vcge_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5415,7 +4929,8 @@
         ],
         "doc": "vcge_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5427,7 +4942,8 @@
         ],
         "doc": "vcge_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5443,7 +4959,8 @@
         ],
         "doc": "vcgt_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5455,7 +4972,8 @@
         ],
         "doc": "vcgt_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5467,7 +4985,8 @@
         ],
         "doc": "vcgt_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5483,7 +5002,8 @@
         ],
         "doc": "vcle_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5495,7 +5015,8 @@
         ],
         "doc": "vcle_vcge_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5507,7 +5028,8 @@
         ],
         "doc": "vcle_vcge_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5520,7 +5042,8 @@
         ],
         "doc": "vcls",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5536,7 +5059,8 @@
         ],
         "doc": "vclt_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5548,7 +5072,8 @@
         ],
         "doc": "vclt_vcgt_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5560,7 +5085,8 @@
         ],
         "doc": "vclt_vcgt_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5573,7 +5099,8 @@
         ],
         "doc": "vclz",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5586,7 +5113,8 @@
         ],
         "doc": "vcmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5594,7 +5122,8 @@
         ],
         "doc": "vcmla_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5607,7 +5136,8 @@
         ],
         "doc": "vcmp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5620,7 +5150,8 @@
         ],
         "doc": "vcmpe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5633,7 +5164,8 @@
         ],
         "doc": "vcnt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5646,7 +5178,8 @@
         ],
         "doc": "vcvt_ds",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5654,7 +5187,8 @@
         ],
         "doc": "vcvt_xs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5662,7 +5196,8 @@
         ],
         "doc": "vcvt_xv",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5670,7 +5205,8 @@
         ],
         "doc": "vcvt_is",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5678,7 +5214,8 @@
         ],
         "doc": "vcvt_hs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5686,7 +5223,8 @@
         ],
         "doc": "vcvt_iv",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5694,7 +5232,8 @@
         ],
         "doc": "vcvt_bfs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5702,7 +5241,8 @@
         ],
         "doc": "vcvt_vi",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5715,7 +5255,8 @@
         ],
         "doc": "vcvta_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5723,7 +5264,8 @@
         ],
         "doc": "vcvta_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5736,7 +5278,8 @@
         ],
         "doc": "vcvtb",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5744,7 +5287,8 @@
         ],
         "doc": "vcvtb_bfs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5757,7 +5301,8 @@
         ],
         "doc": "vcvtm_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5765,7 +5310,8 @@
         ],
         "doc": "vcvtm_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5778,7 +5324,8 @@
         ],
         "doc": "vcvtn_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5786,7 +5333,8 @@
         ],
         "doc": "vcvtn_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5799,7 +5347,8 @@
         ],
         "doc": "vcvtp_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5807,7 +5356,8 @@
         ],
         "doc": "vcvtp_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5820,7 +5370,8 @@
         ],
         "doc": "vcvtr_iv",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5833,7 +5384,8 @@
         ],
         "doc": "vcvtt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5841,7 +5393,8 @@
         ],
         "doc": "vcvtt_bfs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5854,7 +5407,8 @@
         ],
         "doc": "vdiv",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5867,7 +5421,8 @@
         ],
         "doc": "vdot_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5875,7 +5430,8 @@
         ],
         "doc": "vdot",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5892,7 +5448,8 @@
         ],
         "doc": "vdup_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5904,7 +5461,8 @@
         ],
         "doc": "vdup_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5912,7 +5470,8 @@
         ],
         "doc": "vdup_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5925,7 +5484,8 @@
         ],
         "doc": "veor",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5938,7 +5498,8 @@
         ],
         "doc": "vext",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5946,7 +5507,8 @@
         ],
         "doc": "vext_vext",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -5959,7 +5521,8 @@
         ],
         "doc": "vfma",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5967,7 +5530,8 @@
         ],
         "doc": "vfma_bfs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5975,7 +5539,8 @@
         ],
         "doc": "vfma_bfs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5983,7 +5548,8 @@
         ],
         "doc": "vfma_bf",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -5991,7 +5557,8 @@
         ],
         "doc": "vfma_bf",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6004,7 +5571,8 @@
         ],
         "doc": "vfmal_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6012,7 +5580,8 @@
         ],
         "doc": "vfmal",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6025,7 +5594,8 @@
         ],
         "doc": "vfms",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6038,7 +5608,8 @@
         ],
         "doc": "vfmsl_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6046,7 +5617,8 @@
         ],
         "doc": "vfmsl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6059,7 +5631,8 @@
         ],
         "doc": "vfnma",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6072,7 +5645,8 @@
         ],
         "doc": "vfnms",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6085,7 +5659,8 @@
         ],
         "doc": "vhadd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6098,7 +5673,8 @@
         ],
         "doc": "vhsub",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6111,7 +5687,8 @@
         ],
         "doc": "vins",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6124,7 +5701,8 @@
         ],
         "doc": "vjcvt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6137,7 +5715,8 @@
         ],
         "doc": "vld1_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6145,7 +5724,8 @@
         ],
         "doc": "vld1_a",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6153,7 +5733,8 @@
         ],
         "doc": "vld1_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6166,7 +5747,8 @@
         ],
         "doc": "vld2_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6174,7 +5756,8 @@
         ],
         "doc": "vld2_a",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6182,7 +5765,8 @@
         ],
         "doc": "vld2_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6195,7 +5779,8 @@
         ],
         "doc": "vld3_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6203,7 +5788,8 @@
         ],
         "doc": "vld3_a",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6211,7 +5797,8 @@
         ],
         "doc": "vld3_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6224,7 +5811,8 @@
         ],
         "doc": "vld4_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6232,7 +5820,8 @@
         ],
         "doc": "vld4_a",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6240,7 +5829,8 @@
         ],
         "doc": "vld4_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6253,7 +5843,8 @@
         ],
         "doc": "vldm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6261,7 +5852,8 @@
         ],
         "doc": "vldm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6269,7 +5861,8 @@
         ],
         "doc": "vldm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6285,7 +5878,8 @@
         ],
         "doc": "vldr_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6293,7 +5887,8 @@
         ],
         "doc": "vldr_l",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6306,7 +5901,8 @@
         ],
         "doc": "vmax_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6317,7 +5913,8 @@
         ],
         "doc": "vmax_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6330,7 +5927,8 @@
         ],
         "doc": "vmaxnm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6343,7 +5941,8 @@
         ],
         "doc": "vmin_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6354,7 +5953,8 @@
         ],
         "doc": "vmin_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6367,7 +5967,8 @@
         ],
         "doc": "vminnm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6380,7 +5981,8 @@
         ],
         "doc": "vmla_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6388,7 +5990,8 @@
         ],
         "doc": "vmla_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6399,7 +6002,8 @@
         ],
         "doc": "vmla_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6412,7 +6016,8 @@
         ],
         "doc": "vmlal_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6423,7 +6028,8 @@
         ],
         "doc": "vmlal_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6436,7 +6042,8 @@
         ],
         "doc": "vmls_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6444,7 +6051,8 @@
         ],
         "doc": "vmls_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6455,7 +6063,8 @@
         ],
         "doc": "vmls_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6468,7 +6077,8 @@
         ],
         "doc": "vmlsl_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6479,7 +6089,8 @@
         ],
         "doc": "vmlsl_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6492,7 +6103,8 @@
         ],
         "doc": "vmmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6505,7 +6117,8 @@
         ],
         "doc": "vmov_h",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6513,7 +6126,8 @@
         ],
         "doc": "vmov_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6521,7 +6135,8 @@
         ],
         "doc": "vmov_d",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6529,7 +6144,8 @@
         ],
         "doc": "vmov_ss",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6537,7 +6153,8 @@
         ],
         "doc": "vmov_rs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6548,7 +6165,8 @@
         ],
         "doc": "vmov_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6560,7 +6178,8 @@
         ],
         "doc": "vmov_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6572,7 +6191,8 @@
         ],
         "doc": "vmov_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6584,7 +6204,8 @@
         ],
         "doc": "vmov_vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6596,7 +6217,8 @@
         ],
         "doc": "vmov_vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6604,7 +6226,8 @@
         ],
         "doc": "vmov_sr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6617,7 +6240,8 @@
         ],
         "doc": "vmovl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6630,7 +6254,8 @@
         ],
         "doc": "vmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6643,7 +6268,8 @@
         ],
         "doc": "vmovx",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6656,7 +6282,8 @@
         ],
         "doc": "vmrs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6669,7 +6296,8 @@
         ],
         "doc": "vmsr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6682,7 +6310,8 @@
         ],
         "doc": "vmul_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6690,7 +6319,8 @@
         ],
         "doc": "vmul_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6701,7 +6331,8 @@
         ],
         "doc": "vmul_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6714,7 +6345,8 @@
         ],
         "doc": "vmull_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6725,7 +6357,8 @@
         ],
         "doc": "vmull_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6741,7 +6374,8 @@
         ],
         "doc": "vmvn_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6753,7 +6387,8 @@
         ],
         "doc": "vmvn_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6765,7 +6400,8 @@
         ],
         "doc": "vmvn_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6778,7 +6414,8 @@
         ],
         "doc": "vneg",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6791,7 +6428,8 @@
         ],
         "doc": "vnmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6804,7 +6442,8 @@
         ],
         "doc": "vnmls",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6817,7 +6456,8 @@
         ],
         "doc": "vnmul",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6833,7 +6473,8 @@
         ],
         "doc": "vorn_vorr_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6845,7 +6486,8 @@
         ],
         "doc": "vorn_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6857,7 +6499,8 @@
         ],
         "doc": "vorn_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6873,7 +6516,8 @@
         ],
         "doc": "vorr_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6885,7 +6529,8 @@
         ],
         "doc": "vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6897,7 +6542,8 @@
         ],
         "doc": "vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6910,7 +6556,8 @@
         ],
         "doc": "vpadal",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6923,7 +6570,8 @@
         ],
         "doc": "vpadd_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6934,7 +6582,8 @@
         ],
         "doc": "vpadd_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6947,7 +6596,8 @@
         ],
         "doc": "vpaddl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6960,7 +6610,8 @@
         ],
         "doc": "vpmax_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6971,7 +6622,8 @@
         ],
         "doc": "vpmax_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -6984,7 +6636,8 @@
         ],
         "doc": "vpmin_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -6995,7 +6648,8 @@
         ],
         "doc": "vpmin_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7008,7 +6662,8 @@
         ],
         "doc": "vpop_vldm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7021,7 +6676,8 @@
         ],
         "doc": "vpush_vstm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7034,7 +6690,8 @@
         ],
         "doc": "vqabs",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7047,7 +6704,8 @@
         ],
         "doc": "vqadd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7060,7 +6718,8 @@
         ],
         "doc": "vqdmlal",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7073,7 +6732,8 @@
         ],
         "doc": "vqdmlsl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7086,7 +6746,8 @@
         ],
         "doc": "vqdmulh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7099,7 +6760,8 @@
         ],
         "doc": "vqdmull",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7112,7 +6774,8 @@
         ],
         "doc": "vqmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7120,7 +6783,8 @@
         ],
         "doc": "vqmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7133,7 +6797,8 @@
         ],
         "doc": "vqneg",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7146,7 +6811,8 @@
         ],
         "doc": "vqrdmlah",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7159,7 +6825,8 @@
         ],
         "doc": "vqrdmlsh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7172,7 +6839,8 @@
         ],
         "doc": "vqrdmulh",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7185,7 +6853,8 @@
         ],
         "doc": "vqrshl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7198,7 +6867,8 @@
         ],
         "doc": "vqrshrn_vqmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7206,7 +6876,8 @@
         ],
         "doc": "vqrshrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7214,7 +6885,8 @@
         ],
         "doc": "vqrshrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7222,7 +6894,8 @@
         ],
         "doc": "vqrshrun_vqmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7239,7 +6912,8 @@
         ],
         "doc": "vqshl_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7251,7 +6925,8 @@
         ],
         "doc": "vqshl_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7262,7 +6937,8 @@
         ],
         "doc": "vqshl_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7273,7 +6949,8 @@
         ],
         "doc": "vqshl_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7286,7 +6963,8 @@
         ],
         "doc": "vqshrn_vqmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7294,7 +6972,8 @@
         ],
         "doc": "vqshrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7302,7 +6981,8 @@
         ],
         "doc": "vqshrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7310,7 +6990,8 @@
         ],
         "doc": "vqshrun_vqmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7323,7 +7004,8 @@
         ],
         "doc": "vqsub",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7336,7 +7018,8 @@
         ],
         "doc": "vraddhn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7349,7 +7032,8 @@
         ],
         "doc": "vrecpe",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7362,7 +7046,8 @@
         ],
         "doc": "vrecps",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7375,7 +7060,8 @@
         ],
         "doc": "vrev16",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7388,7 +7074,8 @@
         ],
         "doc": "vrev32",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7401,7 +7088,8 @@
         ],
         "doc": "vrev64",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7414,7 +7102,8 @@
         ],
         "doc": "vrhadd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7427,7 +7116,8 @@
         ],
         "doc": "vrinta_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7435,7 +7125,8 @@
         ],
         "doc": "vrinta_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7448,7 +7139,8 @@
         ],
         "doc": "vrintm_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7456,7 +7148,8 @@
         ],
         "doc": "vrintm_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7469,7 +7162,8 @@
         ],
         "doc": "vrintn_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7477,7 +7171,8 @@
         ],
         "doc": "vrintn_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7490,7 +7185,8 @@
         ],
         "doc": "vrintp_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7498,7 +7194,8 @@
         ],
         "doc": "vrintp_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7511,7 +7208,8 @@
         ],
         "doc": "vrintr_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7524,7 +7222,8 @@
         ],
         "doc": "vrintx_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7532,7 +7231,8 @@
         ],
         "doc": "vrintx_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7545,7 +7245,8 @@
         ],
         "doc": "vrintz_asimd",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7553,7 +7254,8 @@
         ],
         "doc": "vrintz_vfp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7566,7 +7268,8 @@
         ],
         "doc": "vrshl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7579,7 +7282,8 @@
         ],
         "doc": "vrshr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7591,7 +7295,8 @@
         ],
         "doc": "vrshr_vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7603,7 +7308,8 @@
         ],
         "doc": "vrshr_vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7616,7 +7322,8 @@
         ],
         "doc": "vrshrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7624,7 +7331,8 @@
         ],
         "doc": "vrshrn_vmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7637,7 +7345,8 @@
         ],
         "doc": "vrsqrte",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7650,7 +7359,8 @@
         ],
         "doc": "vrsqrts",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7663,7 +7373,8 @@
         ],
         "doc": "vrsra",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7676,7 +7387,8 @@
         ],
         "doc": "vrsubhn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7689,7 +7401,8 @@
         ],
         "doc": "vsdot_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7697,7 +7410,8 @@
         ],
         "doc": "vsdot",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7710,7 +7424,8 @@
         ],
         "doc": "vsel",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7718,7 +7433,8 @@
         ],
         "doc": "vsel",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7726,7 +7442,8 @@
         ],
         "doc": "vsel",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7734,7 +7451,8 @@
         ],
         "doc": "vsel",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7750,7 +7468,8 @@
         ],
         "doc": "vshl_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7762,7 +7481,8 @@
         ],
         "doc": "vshl_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7774,7 +7494,8 @@
         ],
         "doc": "vshl_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7787,7 +7508,8 @@
         ],
         "doc": "vshll",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7800,7 +7522,8 @@
         ],
         "doc": "vshr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7812,7 +7535,8 @@
         ],
         "doc": "vshr_vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7824,7 +7548,8 @@
         ],
         "doc": "vshr_vorr_r",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7837,7 +7562,8 @@
         ],
         "doc": "vshrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7845,7 +7571,8 @@
         ],
         "doc": "vshrn_vmovn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7858,7 +7585,8 @@
         ],
         "doc": "vsli",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7871,7 +7599,8 @@
         ],
         "doc": "vsmmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7884,7 +7613,8 @@
         ],
         "doc": "vsqrt",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7897,7 +7627,8 @@
         ],
         "doc": "vsra",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7910,7 +7641,8 @@
         ],
         "doc": "vsri",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7923,7 +7655,8 @@
         ],
         "doc": "vst1_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7931,7 +7664,8 @@
         ],
         "doc": "vst1_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7944,7 +7678,8 @@
         ],
         "doc": "vst2_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7952,7 +7687,8 @@
         ],
         "doc": "vst2_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7965,7 +7701,8 @@
         ],
         "doc": "vst3_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7973,7 +7710,8 @@
         ],
         "doc": "vst3_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -7986,7 +7724,8 @@
         ],
         "doc": "vst4_m",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -7994,7 +7733,8 @@
         ],
         "doc": "vst4_1",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8007,7 +7747,8 @@
         ],
         "doc": "vstm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8015,7 +7756,8 @@
         ],
         "doc": "vstm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8023,7 +7765,8 @@
         ],
         "doc": "vstm",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8036,7 +7779,8 @@
         ],
         "doc": "vstr",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8049,7 +7793,8 @@
         ],
         "doc": "vsub_f",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8060,7 +7805,8 @@
         ],
         "doc": "vsub_i",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8073,7 +7819,8 @@
         ],
         "doc": "vsubhn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8086,7 +7833,8 @@
         ],
         "doc": "vsubl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8099,7 +7847,8 @@
         ],
         "doc": "vsubw",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8112,7 +7861,8 @@
         ],
         "doc": "vsudot_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8125,7 +7875,8 @@
         ],
         "doc": "vswp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8138,7 +7889,8 @@
         ],
         "doc": "vtbl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8146,7 +7898,8 @@
         ],
         "doc": "vtbl",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8159,7 +7912,8 @@
         ],
         "doc": "vtrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8172,7 +7926,8 @@
         ],
         "doc": "vtst",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8185,7 +7940,8 @@
         ],
         "doc": "vudot_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8193,7 +7949,8 @@
         ],
         "doc": "vudot",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8206,7 +7963,8 @@
         ],
         "doc": "vummla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8219,7 +7977,8 @@
         ],
         "doc": "vusdot_s",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8227,7 +7986,8 @@
         ],
         "doc": "vusdot",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8240,7 +8000,8 @@
         ],
         "doc": "vusmmla",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8253,7 +8014,8 @@
         ],
         "doc": "vuzp",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8261,7 +8023,8 @@
         ],
         "doc": "vuzp_vtrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   },
@@ -8274,7 +8037,8 @@
         ],
         "doc": "vzip",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       },
       {
         "asm": [
@@ -8282,7 +8046,8 @@
         ],
         "doc": "vzip_vtrn",
         "desc": 0,
-        "prio": 0
+        "prio": 0,
+        "flags": 1
       }
     ]
   }

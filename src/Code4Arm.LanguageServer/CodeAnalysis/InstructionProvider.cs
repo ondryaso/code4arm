@@ -1,12 +1,20 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections.Concurrent;
+using System.Collections.Immutable;
+using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.XPath;
 using Code4Arm.LanguageServer.CodeAnalysis.Abstractions;
 using Code4Arm.LanguageServer.CodeAnalysis.Models;
 using Code4Arm.LanguageServer.CodeAnalysis.Models.Abstractions;
 using Code4Arm.LanguageServer.Extensions;
 using Code4Arm.LanguageServer.Services.Abstractions;
+using HtmlAgilityPack;
 using Newtonsoft.Json;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using ReverseMarkdown;
+using ReverseMarkdown.Converters;
 
 namespace Code4Arm.LanguageServer.CodeAnalysis;
 
@@ -51,6 +59,7 @@ internal class InstructionVariantModel
         };
 
         Array.Copy(this.Definition, ret.Definition, this.Definition.Length);
+
         return ret;
     }
 }
@@ -81,17 +90,30 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             return Enum.GetValues<VectorDataType>();
         }
     }
-    
+
     private readonly string _definitionPath;
 
     private Dictionary<string, InstructionDefinition>? _definitions;
 
     private List<InstructionVariant>? _allVariants;
 
+    private readonly IsaReferenceDocumentationProvider? _docProvider;
+
     public InstructionProvider()
     {
         // TODO: Where do I want to get the definition file from?
         _definitionPath = "instruction_defs.json";
+
+        var args = Environment.GetCommandLineArgs();
+        if (args.Length > 1)
+        {
+            var path = args[1];
+            if (Directory.Exists(path))
+            {
+                _docProvider = new IsaReferenceDocumentationProvider(
+                    path);
+            }
+        } 
     }
 
     private void EnsureLoaded()
@@ -242,7 +264,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
 
                 // Has variants <O:x|y|z...>
                 var allVariants = match.Groups["varA"].Captures.Concat(match.Groups["varB"].Captures)
-                    .Concat(match.Groups["varC"].Captures).Select(c => c.Value);
+                                       .Concat(match.Groups["varC"].Captures).Select(c => c.Value);
 
                 foreach (var variant in allVariants)
                 {
@@ -308,12 +330,14 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             if (matches.Count == 0)
             {
                 ret.Add(new BasicOperandDescriptor(instructionVariant, operandDefinition));
+
                 continue;
             }
 
             if (matches.Count == 1)
             {
                 ret.Add(this.MakeSingleSymbolOperand(instructionVariant, matches[0]));
+
                 continue;
             }
 
@@ -341,7 +365,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     // Match things like <Rd>, <Rdm>, <Rt2>, <RdHi>; register mask may be specified by :reg|reg or :!reg|reg (blacklist)
     // e.g. <Rd:0|10|2|LR> or <Rs:!PC>.
     private readonly Regex _regRegex =
-        new(@"^(?<name>R\w{1,3})(?::(?<reverse>!)?(?:(?<reg>1[543210]|[9876543210]|PC|LR)(?(?=.)\||))+)?$",
+        new(@"^(?<name>R\w{1,3})(?::(?<reverse>!)?(?:(?<reg>1[543210]|[9876543210]|PC|LR)(?(?=.)\||))+)?(?<wback>!)?$",
             RegexOptions.Compiled);
 
     // Match <Ic> (modified const.), <I[imm size]> (imm) or <I[imm size>D> (imm /4).
@@ -437,7 +461,12 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             }
         }
 
-        var descriptor = new BasicOperandDescriptor(mnemonic, $@"\G{RegisterTargetRegex}",
+        var hasWriteBack = registerMatch.Groups["wback"].Success && registerMatch.Groups["wback"].Length > 0;
+        var regexes = hasWriteBack
+            ? new [] { $@"\G{RegisterTargetRegex}", "\\G!?" }
+            : new [] { $@"\G{RegisterTargetRegex}" };
+        
+        var descriptor = new BasicOperandDescriptor(mnemonic, regexes,
             OperandType.Register, optional,
             (0, 1,
                 new OperandTokenDescriptor(OperandTokenType.Register, registerMatch.Groups["name"].Value)
@@ -478,8 +507,8 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         if (shiftMatch.Groups["shift"].Captures.Count > 0)
         {
             var shiftTypes = shiftMatch.Groups["shift"].Captures.Distinct()
-                .Select(c => (EnumExtensions.TryParseName(c.Value, out ShiftType s), s))
-                .Where(c => c.Item1).Select(c => c.s);
+                                       .Select(c => (EnumExtensions.TryParseName(c.Value, out ShiftType s), s))
+                                       .Where(c => c.Item1).Select(c => c.s);
 
             if (shiftMatch.Groups["reverse"].Length > 0)
             {
@@ -559,7 +588,11 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         {
             // Offset
             return new BasicOperandDescriptor(mnemonic,
-                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?[+-]?{RegisterTargetRegex}", @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?", "\\G ?\\]" },
+                new[]
+                {
+                    "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?[+-]?{RegisterTargetRegex}",
+                    @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?", "\\G ?\\]"
+                },
                 OperandType.RegisterOffset, optional,
                 (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
                 (2, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rm")),
@@ -571,7 +604,11 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         {
             // Pre-indexed
             return new BasicOperandDescriptor(mnemonic,
-                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?[+-]?{RegisterTargetRegex}", @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?", "\\G ?\\]!" },
+                new[]
+                {
+                    "\\[", $"\\G ?{RegisterTargetRegex}", $"\\G ?, ?[+-]?{RegisterTargetRegex}",
+                    @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?", "\\G ?\\]!"
+                },
                 OperandType.RegisterPreIndexed, optional,
                 (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
                 (2, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rm")),
@@ -583,7 +620,11 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         {
             // Post-indexed
             return new BasicOperandDescriptor(mnemonic,
-                new[] { "\\[", $"\\G ?{RegisterTargetRegex}", "\\G ?\\]", $"\\G ?, ?[+-]?{RegisterTargetRegex}", @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?" },
+                new[]
+                {
+                    "\\[", $"\\G ?{RegisterTargetRegex}", "\\G ?\\]", $"\\G ?, ?[+-]?{RegisterTargetRegex}",
+                    @"\G ?(?:, ?(?:(?<1>LS[RL]|ASR|ROR) #?(?<2>[+\-]?[0-9]+))|(?<1>RRX))?"
+                },
                 OperandType.RegisterPostIndexed, optional,
                 (1, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rn")),
                 (3, 1, new OperandTokenDescriptor(OperandTokenType.Register, "Rm")),
@@ -644,6 +685,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             if (tokenSymbol == "_")
             {
                 operandOptional = tokenOptional;
+
                 continue;
             }
 
@@ -696,6 +738,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
     public Task<List<InstructionVariant>> GetAllInstructions()
     {
         this.EnsureLoaded();
+
         return Task.FromResult(_allVariants!);
     }
 
@@ -704,7 +747,8 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         this.EnsureLoaded();
 
         return Task.FromResult(_allVariants!
-            .Where(m => m.Mnemonic.StartsWith(line, StringComparison.InvariantCultureIgnoreCase)).ToList());
+                               .Where(m => m.Mnemonic.StartsWith(line, StringComparison.InvariantCultureIgnoreCase))
+                               .ToList());
     }
 
     public Task<List<InstructionVariant>?> GetVariants(string mnemonic,
@@ -717,8 +761,8 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             return Task.FromResult<List<InstructionVariant>?>(null);
 
         return Task.FromResult<List<InstructionVariant>?>(model.Variants
-            .Where(m => (m.VariantFlags & exclude) == 0)
-            .ToList());
+                                                               .Where(m => (m.VariantFlags & exclude) == 0)
+                                                               .ToList());
     }
 
     public IOperandAnalyser For(IOperandDescriptor descriptor)
@@ -732,6 +776,9 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
 
     public IInstructionValidator? For(InstructionVariant instructionVariant)
     {
+        if (instructionVariant.IsVector)
+            return new SimdValidator();
+
         return null;
     }
 
@@ -748,11 +795,203 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
 
     public MarkupContent? InstructionEntry(InstructionVariant instructionVariant)
     {
-        return new MarkupContent() { Kind = MarkupKind.Markdown, Value = "test - instruction" };
+        if (_docProvider == null)
+        {
+            return new MarkupContent()
+            {
+                Kind = MarkupKind.Markdown,
+                Value = "[Download documentation files](command:code4arm.fetchDocs \"Download documentation files\")"
+            };
+        }
+        
+        var doc = _docProvider.Get(instructionVariant.Model.Documentation);
+        if (doc != null)
+        {
+            return new MarkupContent()
+            {
+                Kind = MarkupKind.Markdown,
+                Value =
+                    $"### {IsaReferenceDocumentationProvider.MakeIsaLink(doc.DocName, doc.Name)}\n{doc.Description}\n\n{IsaReferenceDocumentationProvider.MakeIsaLink(doc.DocName, "See full documentation")}"
+            };
+        }
+
+        return null;
     }
 
     public MarkupContent? InstructionOperandEntry(InstructionVariant instructionVariant, string tokenName)
     {
-        return new MarkupContent() { Kind = MarkupKind.Markdown, Value = "test - op" };
+        if (_docProvider == null)
+        {
+            return null;
+        }
+        
+        var doc = _docProvider.InstructionOperandEntry(instructionVariant.Model.Documentation, tokenName);
+        if (doc != null)
+        {
+            return new MarkupContent()
+            {
+                Kind = MarkupKind.Markdown,
+                Value = doc
+            };
+        }
+
+        return null;
+    }
+}
+
+internal class IsaReferenceDocumentationProvider
+{
+    private readonly string _isaDir;
+
+    internal record ReferenceFile(string Name, string Description, string DocName, Dictionary<string, string>? Tokens);
+
+    private readonly ConcurrentDictionary<string, ReferenceFile?> _cache = new();
+
+    public IsaReferenceDocumentationProvider(string isaDir)
+    {
+        _isaDir = isaDir;
+    }
+
+    public string? InstructionOperandEntry(string docName, string tokenName)
+    {
+        if (this.Get(docName)?.Tokens?.TryGetValue(tokenName, out var doc) ?? false)
+            return doc;
+
+        return null;
+    }
+
+    public ReferenceFile? Get(string docName)
+    {
+        return _cache.GetOrAdd(docName, (n =>
+        {
+            var fileName = Path.Combine(_isaDir, n + ".html");
+
+            if (!File.Exists(fileName))
+                return null;
+
+            return ParseReference(docName + ".html", fileName);
+        }));
+    }
+
+    private static ReferenceFile? ParseReference(string docName, string fileName)
+    {
+        using var sr = new StreamReader(fileName);
+        var doc = new XPathDocument(sr);
+        var nav = doc.CreateNavigator();
+        var manager = new XmlNamespaceManager(nav.NameTable);
+        manager.AddNamespace("x", "http://www.w3.org/1999/xhtml");
+
+        var query = nav.Compile("//x:h2[@class='instruction-section'][1]");
+        query.SetContext(manager);
+
+        var instrNameIt = nav.Select(query);
+        instrNameIt.MoveNext();
+        var instrName = instrNameIt.Current?.InnerXml;
+
+        query = nav.Compile(
+            @"//x:h2[@class='instruction-section'][1]/following-sibling::*");
+        query.SetContext(manager);
+
+        var nodes = nav.Select(query);
+        var sb = new StringBuilder();
+        foreach (XPathNavigator node in nodes)
+        {
+            if (node.GetAttribute("class", string.Empty) == "desc")
+                break;
+
+            if (node.GetAttribute("class", string.Empty) == "classheading")
+                break;
+
+            sb.Append(node.OuterXml);
+        }
+
+        var converter = new Converter();
+        converter.Register("a", new CustomAConverter(converter));
+
+        var descMd = converter.Convert(sb.ToString());
+        Dictionary<string, string>? tokens = null;
+
+        query = nav.Compile(@"//x:div[@class='explanations']/x:table");
+        query.SetContext(manager);
+
+        nodes = nav.Select(query);
+        if (nodes.Count != 0)
+        {
+            sb.Clear();
+            tokens = new Dictionary<string, string>();
+            foreach (XPathNavigator tokenNode in nodes)
+            {
+                var c = tokenNode.SelectChildren(XPathNodeType.All).OfType<XPathNavigator>()
+                                 .FirstOrDefault(x => x.Name == "tr")?.SelectChildren(XPathNodeType.All)
+                                 .OfType<XPathNavigator>().Where(x => x.Name == "td");
+
+                if (c == null)
+                    continue;
+
+                var ce = c.GetEnumerator();
+
+                if (!ce.MoveNext())
+                    continue;
+                var name = ce.Current;
+
+                if (!ce.MoveNext())
+                    continue;
+                var desc = ce.Current;
+
+                ce.Dispose();
+
+                var nameText = WebUtility.HtmlDecode(name.InnerXml).Replace("<", string.Empty)
+                                         .Replace(">", string.Empty);
+
+                tokens.Add(nameText, converter.Convert(desc.InnerXml));
+            }
+        }
+
+        return new ReferenceFile(instrName ?? string.Empty, descMd, docName, tokens);
+    }
+
+    public static string MakeIsaLink(string docName, string text, string? title = null)
+    {
+        const string cmdName = "code4arm.showInstructionReference";
+        var argsJson = $"[null,\"{docName}\"]";
+
+        return $"[{text}](command:{cmdName}?{WebUtility.UrlEncode(argsJson)} \"{title ?? text}\")";
+    }
+}
+
+public class CustomAConverter : ConverterBase
+{
+    public CustomAConverter(Converter converter) : base(converter)
+    {
+    }
+
+    public override string Convert(HtmlNode node)
+    {
+        var text = this.TreatChildren(node).Trim();
+
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+
+        var cls = node.Attributes["class"]?.Value;
+
+        if (cls != null)
+        {
+            if (cls.Contains("armarm-xref"))
+            {
+                return $"_{text}_";
+            }
+        }
+
+        var href = node.GetAttributeValue("href", string.Empty)
+                       .Trim().Replace("(", "%28").Replace(")", "%29")
+                       .Replace(" ", "%20");
+        var title = ExtractTitle(node) ?? text;
+
+        if (href.StartsWith("#"))
+        {
+            return text;
+        }
+
+        return IsaReferenceDocumentationProvider.MakeIsaLink(href, text, title);
     }
 }

@@ -49,7 +49,7 @@ public class SignatureHelpHandler : SignatureHelpHandlerBase
             return null;
         }
 
-        if (lineAnalysis.PreFinishState != LineAnalysisState.MnemonicLoaded
+        if (lineAnalysis.PreFinishState is not (LineAnalysisState.MnemonicLoaded or LineAnalysisState.HasFullMatch)
             || lineAnalysis.Mnemonic is not { HasOperands: true })
         {
             return null;

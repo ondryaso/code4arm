@@ -18,7 +18,7 @@ public class DummyDocumentationProvider : ISymbolDocumentationProvider, IInstruc
 
     public MarkupContent? this[string key] => _localizationService.TryGetValue(key, out var val)
         ? new MarkupContent { Kind = MarkupKind.Markdown, Value = val! }
-        : new MarkupContent { Kind = MarkupKind.Markdown, Value = $"### {key} docstring" };
+        : null;
 
     public string InstructionDetail(InstructionVariant instructionVariant)
     {

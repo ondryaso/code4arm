@@ -68,7 +68,7 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
     private void MakeRegions()
     {
         _regions.Clear();
-        var started = new List<Position>(4);
+        var started = new Stack<Position>(4);
 
         foreach (var (pos, isStart, type) in _regionBounds)
         {
@@ -77,17 +77,26 @@ public class MapPreprocessedSource : BufferedSourceBase, IPreprocessorSource
 
             if (isStart)
             {
-                started.Add(pos);
+                started.Push(pos);
             }
             else
             {
-                foreach (var s in started)
-                {
-                    _regions.Add(new Range(s, pos));
-                }
-
-                started.Clear();
+                if (started.Count == 0)
+                    continue;
+                
+                _regions.Add(new Range(started.Pop(), pos));
             }
+        }
+
+        if (started.Count > 0 && _lastInputText != null)
+        {
+            var endPos = _lastInputText.GetPositionForIndex(_lastInputText.Length - 1);
+            foreach (var start in started)
+            {
+                _regions.Add(new Range(start, endPos));
+            }
+            
+            started.Clear();
         }
     }
 
