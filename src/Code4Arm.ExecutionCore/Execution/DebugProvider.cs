@@ -1449,6 +1449,15 @@ internal partial class DebugProvider : IDebugProvider, IDebugProtocolSourceLocat
             }
         }
     }
+    
+    /// <summary>
+    /// Removes all stored variables.
+    /// </summary>
+    public void ClearVariables()
+    {
+        _variables.Clear();
+        _topLevel.Clear();
+    }
 
     #endregion
 

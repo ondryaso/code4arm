@@ -4,12 +4,29 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Code4Arm.ExecutionCore.Execution.Configuration;
 using Code4Arm.ExecutionCore.Execution.Exceptions;
 
 namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 internal static class FormattingUtils
 {
+    /// <summary>
+    /// Formats a number according to the configuration in a given <see cref="VariableContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// If <see cref="VariableContext.ForceSigned"/> is true, the call is passed to <see cref="FormatSignedVariable"/>.
+    /// If <see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Hex"/>, the call is passed to
+    /// <see cref="FormatHex{T}"/>.
+    /// If <see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Binary"/>, the number is formatted
+    /// in binary, optionally left-padded (controlled by <see cref="DebuggerOptions.PadUnsignedBinaryNumbers"/>.
+    /// If <see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Float"/>, the unsigned int's
+    /// binary value is interpreted as a float which is formatted accordingly.
+    /// </remarks>
+    /// <param name="variable">The input number.</param>
+    /// <param name="context">A variable context with formatting options.</param>
+    /// <param name="actualBinarySize">The maximum bit width of the input number used when padding.</param>
+    /// <returns>The formatted number.</returns>
     public static string FormatVariable(uint variable, VariableContext context, int actualBinarySize = 32)
     {
         if (context.ForceSigned)
@@ -33,6 +50,21 @@ internal static class FormattingUtils
         return variable.ToString(context.CultureInfo);
     }
 
+    /// <summary>
+    /// Formats a number according to the configuration in a given <see cref="VariableContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// If <see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Hex"/>, the call is passed to
+    /// <see cref="FormatHex{T}"/>.
+    /// If <see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Binary"/>, the number is
+    /// formatted as a left-padded binary. Negative numbers will be formatted as their 2's complement, prefixed with a - sign.
+    /// If <see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Float"/>, the int's
+    /// binary value is interpreted as a float which is formatted accordingly.
+    /// </remarks>
+    /// <param name="variable">The input number.</param>
+    /// <param name="context">A variable context with formatting options.</param>
+    /// <param name="actualBinarySize">The maximum bit width of the input number used when padding.</param>
+    /// <returns>The formatted number.</returns>
     public static string FormatSignedVariable(int variable, VariableContext context, int actualBinarySize = 32)
     {
         if (context.NumberFormat == VariableNumberFormat.Hex)
@@ -58,6 +90,14 @@ internal static class FormattingUtils
         return variable.ToString(context.CultureInfo);
     }
 
+    /// <summary>
+    /// Formats any numeric value according to the configuration in a given <see cref="VariableContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// This method's behaviour is the same as in <see cref="FormatVariable"/> and <see cref="FormatSignedVariable"/>.
+    /// </remarks>
+    /// <exception cref="ArgumentException"><see cref="VariableContext.NumberFormat"/> is <see cref="VariableNumberFormat.Float"/>
+    /// but the target type is not 4 or 8 bytes wide.</exception>
     public static string FormatAnyVariable<T>(T variable, VariableContext context, int singedBinaryPad = -1,
         bool isNegative = false)
         where T : struct
@@ -108,12 +148,18 @@ internal static class FormattingUtils
         return variable.ToString()!;
     }
 
+    /// <summary>
+    /// Formats an address (as a hexadecimal number prefixed with 0x).
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string FormatAddress(uint address)
     {
         return $"0x{address:x}";
     }
 
+    /// <summary>
+    /// Parses an address (a hexadecimal number, possibly prefixed with 0x)
+    /// </summary>
     public static bool TryParseAddress(string value, out uint address)
     {
         return value.StartsWith("0x")
@@ -121,6 +167,17 @@ internal static class FormattingUtils
             : uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out address);
     }
 
+    /// <summary>
+    /// Parses a 32bit number and returns its bit value as an unsigned int.
+    /// The number may be hexadecimal (starts with 0x or ends with x/h) or binary (starts with 0b or ends with b).
+    /// The method tries to parse the input first as an uint, then as an int and then as a float.
+    /// Non-uint numbers are reinterpreted as uint but their bit value stays the same.
+    /// If all this fails, it tries again using the invariant culture.
+    /// </summary>
+    /// <param name="value">The input value.</param>
+    /// <param name="formatProvider">An object that supplies culture-specific formatting information about the input.</param>
+    /// <returns>The parsed integer.</returns>
+    /// <exception cref="InvalidVariableFormatException">The input doesn't contain any recognizable 32b number.</exception>
     public static uint ParseNumber32U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
@@ -158,6 +215,13 @@ internal static class FormattingUtils
         throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32);
     }
 
+    /// <summary>
+    /// Parses a 32b float. If it fails, tries again using the invariant culture.
+    /// </summary>
+    /// <param name="value">The input value.</param>
+    /// <param name="formatProvider">An object that supplies culture-specific formatting information about the input.</param>
+    /// <returns>The parsed float.</returns>
+    /// <exception cref="InvalidVariableFormatException">The input doesn't contain a float.</exception>
     public static uint ParseNumber32F(string value, IFormatProvider? formatProvider)
     {
         if (float.TryParse(value, NumberStyles.Float, formatProvider, out var f))
@@ -169,6 +233,10 @@ internal static class FormattingUtils
         throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat32Float);
     }
 
+    /// <summary>
+    /// Checks if the input is prefixed with 0b or suffixed with b and not prefixed with 0x. 
+    /// </summary>
+    /// <returns></returns>
     public static bool IsBinaryNumber(string value, out bool modifierAtStart)
     {
         if (value.StartsWith("0b"))
@@ -190,6 +258,17 @@ internal static class FormattingUtils
         return false;
     }
 
+    /// <summary>
+    /// Parses a 64bit number and returns its bit value as an unsigned int.
+    /// The number may be hexadecimal (starts with 0x or ends with x/h) or binary (starts with 0b or ends with b).
+    /// The method tries to parse the input first as an uint, then as an int and then as a double (64b float).
+    /// Non-uint numbers are reinterpreted as uint but their bit value stays the same.
+    /// If all this fails, it tries again using the invariant culture.
+    /// </summary>
+    /// <param name="value">The input value.</param>
+    /// <param name="formatProvider">An object that supplies culture-specific formatting information about the input.</param>
+    /// <returns>The parsed integer.</returns>
+    /// <exception cref="InvalidVariableFormatException">The input doesn't contain any recognizable 64b number.</exception>
     public static ulong ParseNumber64U(string value, IFormatProvider? formatProvider)
     {
         ReadOnlySpan<char> span;
@@ -228,6 +307,13 @@ internal static class FormattingUtils
             "Invalid format. Expected 64b integer (decimal; hex, prefixed with 0x; or binary, prefixed with 0b) or float (32b floating-point number).");
     }
 
+    /// <summary>
+    /// Parses a 64b float (double). If it fails, tries again using the invariant culture.
+    /// </summary>
+    /// <param name="value">The input value.</param>
+    /// <param name="formatProvider">An object that supplies culture-specific formatting information about the input.</param>
+    /// <returns>The parsed float.</returns>
+    /// <exception cref="InvalidVariableFormatException">The input doesn't contain a double.</exception>
     public static ulong ParseNumber64F(string value, IFormatProvider? formatProvider)
     {
         if (double.TryParse(value, NumberStyles.Float, formatProvider, out var d))
@@ -239,6 +325,10 @@ internal static class FormattingUtils
         throw new InvalidVariableFormatException(ExceptionMessages.InvalidVariableFormat64Float);
     }
 
+    /// <summary>
+    /// If <typeparamref name="T"/> is a signed numeral type, formats the input number as a signed hex, prefixed with 0x.
+    /// Otherwise formats the number as a hex in the normal way and prefixes it with 0x.
+    /// </summary>
     public static string FormatHex<T>(T variable, CultureInfo cultureInfo) where T : struct
     {
         return variable switch
@@ -253,6 +343,10 @@ internal static class FormattingUtils
         };
     }
 
+    /// <summary>
+    /// Parses a 32b binary number.
+    /// </summary>
+    /// <exception cref="InvalidVariableFormatException">Invalid character.</exception>
     public static uint ParseBinary32(ReadOnlySpan<char> s)
     {
         uint value = 0;
@@ -279,6 +373,10 @@ internal static class FormattingUtils
         return value;
     }
 
+    /// <summary>
+    /// Parses a 64b binary number.
+    /// </summary>
+    /// <exception cref="InvalidVariableFormatException">Invalid character.</exception>
     public static ulong ParseBinary64(ReadOnlySpan<char> s)
     {
         ulong value = 0;

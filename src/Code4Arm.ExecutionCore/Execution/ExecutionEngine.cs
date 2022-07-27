@@ -175,11 +175,33 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     private readonly Dictionary<nuint, Delegate> _nativeCodeHooks = new();
     private readonly Random _rnd = new();
 
+    /// <summary>
+    /// A merged collection of the currently set breakpoints and instruction breakpoints.
+    /// The keys are the addresses to break on.
+    /// </summary>
     private readonly Dictionary<uint, AddressBreakpoint> _currentBreakpoints = new();
+
+    /// <summary>
+    /// A collection of the currently set instruction breakpoints.
+    /// The keys are the addresses to break on.
+    /// </summary>
     private readonly Dictionary<uint, AddressBreakpoint> _currentInstructionBreakpoints = new();
+
+    /// <summary>
+    /// A collection of the currently set basic breakpoints.
+    /// The keys are the addresses to break on.
+    /// </summary>
     private readonly Dictionary<uint, AddressBreakpoint> _currentBasicBreakpoints = new();
+
+    /// <summary>
+    /// A collection of the currently set logpoints.
+    /// The keys are the addresses to break on.
+    /// </summary>
     private readonly Dictionary<uint, (UnicornHookRegistration Hook, Source Source)> _currentLogPoints = new();
 
+    /// <summary>
+    /// A list of the currently registered strict access hook.
+    /// </summary>
     private readonly List<UnicornHookRegistration> _strictAccessHooks = new();
 
     /// <summary>
@@ -198,30 +220,46 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// A buffer used fo the emulated input.
     /// </summary>
     private readonly StringBuilder _emulatedInputBuffer = new();
+
+    /// <summary>
+    /// An object to lock on when accessing <see cref="_emulatedInputBuffer"/>.
+    /// </summary>
     private readonly object _emulatedInputLocker = new();
 
+    /// <summary>
+    /// An instance of the heap state feature.
+    /// </summary>
     private readonly HeapFeature _heapFeature;
+
+    /// <summary>
+    /// An instance of the errno feature.
+    /// </summary>
     private readonly ErrnoFeature _errnoFeature;
 
     private Executable? _exe;
     private List<MemorySegment>? _segments;
     private MemorySegment? _stackSegment;
     private ExecutionOptions _options;
+
+    /// <summary>
+    /// The cancellation token source carrying the current emulation step's timeout cancellation token.
+    /// </summary>
     private CancellationTokenSource? _currentCts;
+
     private UnicornHookRegistration _trampolineHookRegistration;
-    
+
     /// <summary>
     /// A flag signalising if this instance has been loaded with an executable for the first time. Used to control
     /// certain registers & memory initialization modes.
     /// </summary>
     private bool _firstRun = true;
-    
+
     /// <summary>
     /// A flag controlling if <see cref="MakeExits"/> should include breakpoint addresses. Used mainly in
     /// <see cref="Continue"/> to execute the first instruction without exiting.
     /// </summary>
     private bool _breakpointExitsDisabled;
-    
+
     /// <summary>
     /// A flag used in <see cref="Restart"/> to notify <see cref="StartEmulation"/> that it shouldn't trigger emulation
     /// result handling when restarting while an execution cycle is running.
@@ -238,31 +276,37 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// Used to wait in the execution thread started in <see cref="InitLaunch"/> for <see cref="Launch"/> to be called.
     /// </summary>
     private readonly ManualResetEventSlim _configurationDoneEvent = new(false);
-    
+
     /// <summary>
     /// Used to wait for an execution cycle (running on a different thread) to stop when <see cref="Restart"/> is called.
     /// </summary>
     private readonly ManualResetEventSlim _resetEvent = new(false);
-    
+
     /// <summary>
     /// Used to wait inside an execution cycle thread for some user input to be received.
     /// </summary>
     private readonly ManualResetEventSlim _waitForInputEvent = new(false);
-    
+
     /// <summary>
     /// Used to wait for the output buffer to be sent to the client (when invoking it from a hook).
     /// </summary>
     private readonly ManualResetEventSlim _waitForOutputEvent = new(false);
-    
+
     /// <summary>
     /// Used to synchronize a single run of the emulation cycle.
     /// </summary>
     private readonly SemaphoreSlim _runSemaphore = new(1, 1);
-    
+
     /// <summary>
     /// Used to synchronize logpoint messages sending.
     /// </summary>
     private readonly SemaphoreSlim _logPointSemaphore = new(1, 1);
+
+    /// <summary>
+    /// A flag signalising whether the long 'waiting for input' message has been sent.
+    /// </summary>
+    /// <seealso cref="SendWaitingForInputReminder"/>
+    private int _inputHelpSent = 0;
 
     public ExecutionState State { get; private set; }
     public IExecutableInfo? ExecutableInfo => _exe;
@@ -274,6 +318,16 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public uint StackTopAddress { get; private set; }
     public uint StackEndAddress { get; private set; }
 
+    /// <summary>
+    /// The configuration object for this instance. Only can be set when the engine is in the <see cref="ExecutionState.Unloaded"/>,
+    /// <see cref="ExecutionState.Ready"/> or <see cref="ExecutionState.Finished"/> state.
+    /// </summary>
+    /// <remarks>
+    /// The setter doesn't check if the configuration change requires reloading the executable or the whole engine.
+    /// This must be carried out by the caller.
+    /// </remarks>
+    /// <seealso cref="ExecutionOptions.Compare"/>
+    /// <exception cref="ConfigurationException">The property is set while the engine is running or paused.</exception>
     public ExecutionOptions Options
     {
         get => _options;
@@ -348,6 +402,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Emulated input
 
+    /// <summary>
+    /// Starts another thread that sends a 'waiting for input' message after 5 seconds.
+    /// </summary>
+    /// <returns>A <see cref="CancellationTokenSource"/> that may be used to cancel the operation.</returns>
     private CancellationTokenSource SendWaitingForInputReminder()
     {
         var cts = new CancellationTokenSource();
@@ -363,6 +421,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
                 return;
             }
 
+            // Thread-safe read&set of the 'long input help sent' flag
             var helpSent = Interlocked.Exchange(ref _inputHelpSent, 1);
 
             await this.LogDebugConsole(helpSent == 0
@@ -504,6 +563,13 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
     }
 
+    /// <summary>
+    /// Called by the REPL handling method in <see cref="DebugProvider"/> to append incoming user input.
+    /// Sets the <see cref="_waitForInputEvent"/> that enables the waiting <see cref="WaitForEmulatedInput(bool,System.Nullable{int})"/>
+    /// to continue. 
+    /// </summary>
+    /// <param name="input">The input text.</param>
+    /// <param name="appendNewline">If <see langword="true"/>, a '\n' character will be appended after the actual input.</param>
     public void AcceptEmulatedInput(string input, bool appendNewline)
     {
         lock (_emulatedInputLocker)
@@ -524,10 +590,6 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     /// Creates a <see cref="MemorySegment"/> for the stack and maps it to Unicorn virtual memory.
     /// Its placement (address range) and initial contents are controlled by <see cref="ExecutionOptions.StackPlacementOptions"/>.
     /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
-    /// <exception cref="InvalidOperationException"></exception>
     /// <exception cref="ArgumentOutOfRangeException"></exception>
     private async Task MakeStackSegment()
     {
@@ -535,7 +597,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             throw new InvalidOperationException("_segments must be initialized.");
 
         // StackPlacementOptions has options for both placement and behaviour on restart.
-        // Extract the addres options only first.
+        // Extract the address options only first.
         var stOpt = _options.StackPlacementOptions;
         var addressOpts = (int)(stOpt & (StackPlacementOptions.FixedAddress |
             StackPlacementOptions.RandomizeAddress | StackPlacementOptions.AlwaysKeepFirstAddress));
@@ -711,6 +773,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         State = ExecutionState.Ready;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Currently, only <see cref="HeapFeature"/> and <see cref="ErrnoFeature"/> are available.
+    /// </remarks>
     public TFeature? GetStateFeature<TFeature>() where TFeature : class, IExecutionStateFeature
     {
         var type = typeof(TFeature);
@@ -719,7 +785,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             return _heapFeature as TFeature;
         if (type == typeof(ErrnoFeature))
             return _errnoFeature as TFeature;
-        
+
         /*
         if (_features.TryGetValue(type, out var feature))
             return (TFeature)feature;*/
@@ -860,6 +926,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         await this.MakeStackSegment();
     }
 
+    /// <summary>
+    /// Initializes registers according to <see cref="ExecutionOptions.RegisterInitOptions"/>,
+    /// enables the SIMD/FP unit, switches to the User mode and writes <see cref="StackTopAddress"/> to SP.
+    /// </summary>
     private void InitRegisters()
     {
         if (_options.RegisterInitOptions != RegisterInitOptions.Keep
@@ -912,7 +982,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
         }
 
-        // Enable NEON/VFP
+        // Enable SIMD/FP
         var p15 = new Arm.CoprocessorRegister()
         {
             CoprocessorId = 15,
@@ -941,6 +1011,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         Engine.RegWrite(Arm.Register.SP, StackTopAddress);
     }
 
+    /// <summary>
+    /// Unmaps all registered segments EXCEPT stack and heap.
+    /// Removes strict access hooks and native code hooks.
+    /// </summary>
     private void UnmapAllMemory()
     {
         if (_segments == null)
@@ -974,10 +1048,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _segments.Clear();
     }
 
+    /// <summary>
+    /// Fills a block of memory with random data.
+    /// </summary>
+    /// <param name="start">The starting address (incl.).</param>
+    /// <param name="size">Number of bytes to fill.</param>
     private void RandomizeMemory(uint start, uint size)
     {
         // The other option is to allocate _size_ bytes worth of memory and do a single write
-        // but I prefer this version which takes (many?) more CPU cycles but allocates MaxStackAllocatedSize B max 
+        // but I prefer this version which takes more CPU cycles but allocates MaxStackAllocatedSize B max 
 
         var bufferSize = Math.Min(size, MaxStackAllocatedSize);
         Span<byte> buffer = stackalloc byte[(int)bufferSize];
@@ -990,6 +1069,11 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
     }
 
+    /// <summary>
+    /// Clears a block of memory (sets it to zeros).
+    /// </summary>
+    /// <param name="start">The starting address (incl.).</param>
+    /// <param name="size">Number of bytes to set to zero.</param>
     internal void ClearMemory(uint start, uint size)
     {
         // Same as in RandomizeMemory()
@@ -1009,6 +1093,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Unicorn hook handlers
 
+    // Called before each instruction.
     private void CodeHookNativeHandler(UIntPtr engine, ulong address, uint size, IntPtr userData)
     {
         _debugProvider.RefreshSteppedTraces();
@@ -1407,6 +1492,14 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Emulation finished logic
 
+    /// <summary>
+    /// Determines the index to the <see cref="IExecutableInfo.Sources"/> list of the source object that contains
+    /// a given address.
+    /// </summary>
+    /// <remarks>
+    /// This uses <see cref="Executable.TextSectionStarts"/> which is based on the linker output.
+    /// </remarks>
+    /// <returns>The index or -1 if it cannot be determined.</returns>
     internal int DetermineSourceIndexForAddress(uint address)
     {
         for (var i = 0; i < _exe!.SourceObjects.Count; i++)
@@ -1425,6 +1518,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return -1;
     }
 
+    /// <summary>
+    /// Reads the current value of the Program Counter and updates <see cref="CurrentPc"/>, <see cref="CurrentStopLine"/>
+    /// and <see cref="CurrentStopSourceIndex"/>.
+    /// </summary>
     private void DetermineCurrentStopPositions()
     {
         CurrentPc = Engine.RegRead<uint>(Arm.Register.PC);
@@ -1436,12 +1533,15 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         var lineInfo = LineResolver!.GetSourceLine(pc, out var displacement);
         if (displacement != 0 || lineInfo.File == null)
         {
+            // The line cannot be determined. Try to at least move to the correct source using the linker output data
             CurrentStopLine = -1;
             CurrentStopSourceIndex = this.DetermineSourceIndexForAddress(pc);
         }
         else
         {
             CurrentStopLine = (int)lineInfo.Line - 1; // in DWARF, the lines are numbered from 1
+            
+            // Match the source index based on the DWARF 'build path' value
             var i = 0;
             foreach (var exeSource in _exe!.Sources)
             {
@@ -1815,50 +1915,71 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Main execution flow logic
 
+    /// <summary>
+    /// Performs an 'emulation step': Calls Unicorn's uc_emu_start and handles the result based on <see cref="LastStopCause"/>
+    /// that may have been changed from within the emulation hooks OR based on the thrown <see cref="UnicornException"/>.
+    /// If <paramref name="release"/> is <see langword="true"/>, RELEASES the 'run semaphore'.
+    /// </summary>
+    /// <param name="startAddress">The starting address.</param>
+    /// <param name="count">Number of instructions to emulate. If 0, the number is unlimited. Otherwise, this call is
+    /// considered to be handling a 'step' request and calls <see cref="StepDone"/> if successful.</param>
+    /// <param name="release">If <see langword="true"/>, releases the 'run semaphore'.</param>
     private async Task StartEmulation(uint startAddress, ulong count = 0ul, bool release = true)
     {
         try
         {
+            // Unset the 'waiting for emulation to end because I want to make a reset' event
             _resetEvent.Reset();
+            
             _logger.LogTrace("Execution {Id}: Starting on {StartAddress:x8}.", _executionId, startAddress);
             if (_debugProvider.Options.ShowRunningAtMessage)
                 await this.LogDebugConsole($"Running at {FormattingUtils.FormatAddress(startAddress)}.", true);
 
+            // Clear the state flags
             LastStopCause = StopCause.Normal;
             State = ExecutionState.Running;
 
+            // Start emulation
             CurrentPc = startAddress;
             Engine.EmuStart(startAddress, 0, 0, count);
 
+            // If our caller spun up a timeout timer, dispose it
             if (_currentCts != null)
             {
                 _currentCts.Dispose();
                 _currentCts = null;
             }
 
+            // If a restart request came during the emulation, we don't have to handle the results
             if (_restarting)
-            {
                 return;
-            }
 
+            // Determine where the emulation stopped
             this.DetermineCurrentStopPositions();
+            // Send possible generated program output
             await this.HandleEmulatedOutputBuffer();
+            // Clear unneeded evaluate variables
             _debugProvider.ClearEvaluateVariables();
 
+            // Handle the result
             try
             {
+                // The LastStopCause always has priority
                 if (LastStopCause != StopCause.Normal)
                 {
                     await this.HandleStopCause();
                 }
+                // The current address is a breakpoint
                 else if (_currentBreakpoints.TryGetValue(CurrentPc, out var breakpoint))
                 {
                     await this.BreakpointHit(breakpoint);
                 }
+                // This was a 'step' emulation
                 else if (count != 0)
                 {
                     await this.StepDone();
                 }
+                // End of program reached
                 else
                 {
                     await this.EmulationEnded();
@@ -1866,6 +1987,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
             }
             catch (Exception e)
             {
+                // Shouldn't happen
                 _logger.LogError(e, "Execution {Id}: Emulation result handling exception.", _executionId);
                 await this.LogDebugConsole(ExceptionMessages.GeneralError);
                 await this.HandleExternalTermination();
@@ -1875,6 +1997,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
         catch (UnicornException e)
         {
+            // Similar to above but handling an unexpected emulation error (like an invalid memory read)
             this.DetermineCurrentStopPositions();
 
             if (LastStopCause == StopCause.Normal)
@@ -1896,6 +2019,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         {
             if (release)
             {
+                // Release the 'run semaphore' and notify the reset event that emulation has ended
                 _runSemaphore.Release();
                 _resetEvent.Set();
             }
@@ -1927,6 +2051,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         // Launch semaphore acquired
         try
         {
+            // Init everything
             await this.InitMemoryFromExecutable();
             this.InitRegisters();
             _heapFeature.ClearAllocatedMemory();
@@ -1937,6 +2062,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         }
         catch
         {
+            // If something fails, remember to release the 'run semaphore'
             _runSemaphore.Release();
 
             throw;
@@ -2028,6 +2154,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         });
     }
 
+    /// <inheritdoc />
+    /// <returns>A completed Task.</returns>
     public Task Launch()
     {
         _configurationDoneEvent.Set();
@@ -2220,6 +2348,7 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
     public async Task ReverseContinue(int enterTimeout = Timeout.Infinite)
     {
         // This effectively only jumps to the first stored context
+        // or to the closest breakpoint
 
         this.CheckLoaded();
 
@@ -2378,6 +2507,8 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         return this.Step(enterTimeout);
     }
 
+    /// <inheritdoc/>
+    /// <returns>A completed Task.</returns>
     public Task Pause()
     {
         this.CheckLoaded();
@@ -2411,6 +2542,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
 
     #region Helper methods
 
+    /// <summary>
+    /// Throws a <see cref="ExecutableNotLoadedException"/> if no executable has been loaded.
+    /// </summary>
+    /// <exception cref="ExecutableNotLoadedException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [MemberNotNull(nameof(_exe), nameof(_segments), nameof(_debugProvider), nameof(LineResolver))]
     private void CheckLoaded()
@@ -2566,6 +2701,10 @@ public class ExecutionEngine : IExecutionEngine, IRuntimeInfo
         _waitForOutputEvent.Set();
     }
 
+    /// <summary>
+    /// Returns true if <see cref="State"/> is one of the 'paused' states, that is, <see cref="ExecutionState.Paused"/>,
+    /// <see cref="ExecutionState.PausedBreakpoint"/> or <see cref="ExecutionState.PausedException"/>.
+    /// </summary>
     private bool IsPaused =>
         State is ExecutionState.Paused or ExecutionState.PausedBreakpoint or ExecutionState.PausedException;
 

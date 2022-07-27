@@ -220,6 +220,12 @@ public class ExecutionOptions
     [OptionChangeBehavior(OptionChangeBehavior.RecreateEngine)]
     public StepBackMode StepBackMode { get; set; } = StepBackMode.CaptureOnStep;
 
+    /// <summary>
+    /// Compares two instances of <see cref="ExecutionOptions"/> and returns a <see cref="OptionChangeBehavior"/>
+    /// value that determines what action must be taken if the <paramref name="other"/> options object is to be assigned
+    /// to an <see cref="ExecutionEngine"/> instance currently using this instance of the options object. 
+    /// </summary>
+    /// <param name="other">The other execution options object.</param>
     public OptionChangeBehavior Compare(ExecutionOptions other)
     {
         var type = typeof(ExecutionOptions);

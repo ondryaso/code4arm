@@ -7,13 +7,26 @@ using Code4Arm.ExecutionCore.Protocol.Requests;
 
 namespace Code4Arm.ExecutionCore.Execution.Abstractions;
 
+/// <summary>
+/// Exposes functions of the Debug Adapter Protocol used to inspect the state of the emulated program.
+/// For reference, see <a href="https://microsoft.github.io/debug-adapter-protocol/specification">the DAP specification</a>.
+/// The debug provider's behaviour is configured using the settable <see cref="DebuggerOptions"/> property.
+/// </summary>
 public interface IDebugProvider
 {
     DebuggerOptions Options { get; set; }
+    
+    /// <summary>
+    /// The <see cref="InitializeRequestArguments"/> object received from the client after debugging has started.
+    /// Contains the current client's capabilities. 
+    /// </summary>
     InitializeRequestArguments? ClientInfo { get; }
 
+    /// <summary>
+    /// Handles the DAP 'Initialize' request from the client. Must be called before any other method of the debug provider.
+    /// </summary>
     InitializeResponse Initialize(InitializeRequestArguments clientData);
-
+    
     IEnumerable<GotoTarget> GetGotoTargets(Source source, int line, int? column);
     SetExpressionResponse SetExpression(string expression, string value, ValueFormat? format);
 

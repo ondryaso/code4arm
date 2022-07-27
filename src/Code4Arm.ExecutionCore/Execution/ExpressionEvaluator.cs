@@ -20,6 +20,11 @@ namespace Code4Arm.ExecutionCore.Execution;
 // Contains the expression evaluating functionality of DebugProvider.
 internal partial class DebugProvider
 {
+    /// <summary>
+    /// An expression target is either a pair of variable and context (most expressions; typically those that can be set) or a pre-made
+    /// <see cref="EvaluateResponse"/> object (hover or symbol value expressions).
+    /// This is used to unify the logic of <see cref="DebugProvider.EvaluateExpression"/>.
+    /// </summary>
     private struct ExpressionTarget
     {
         public IVariable? Variable;
@@ -54,31 +59,48 @@ internal partial class DebugProvider
             return Variable.GetAsEvaluateResponse(Context.Value, true);
         }
 
+        /// <summary>
+        /// Set the current <see cref="SetValue"/> to the current <see cref="Variable"/>.
+        /// <see cref="Context"/> must not be null and <see cref="DirectResponse"/> must be null.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"><see cref="SetValue"/> is null.</exception>
+        /// <exception cref="InvalidExpressionException">This expression target doesn't allow setting a value.</exception>
         [MemberNotNull(nameof(SetValue), nameof(Variable), nameof(Context))]
         public void InvokeSet()
         {
             if (SetValue == null)
                 throw new InvalidOperationException("Cannot set a null value.");
 
-            if (DirectResponse != null || Variable == null || Context == null)
+            if (DirectResponse != null || Variable == null || Context == null || !Variable.CanSet)
                 throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionNotSettable);
 
             Variable.Set(SetValue, Context.Value);
         }
     }
 
+    /// <summary>
+    /// Used to analyze the raw input and split it into (type), expr and :format parts.
+    /// </summary>
     private static readonly Regex TopExpressionRegex = new(
         @"(?:\((?<type>float|single|double|byte|short|hword|int|word|long|dword|sbyte|ushort|uhword|uint|uword|ulong|udword|string)\))?(?<expr>[\w\s\[\],.+\-&]+)(?::(?<format>x|b|d|ieee))?",
         RegexOptions.Compiled);
 
     private static Regex GetTopExpressionRegex() => TopExpressionRegex;
 
+    /// <summary>
+    /// Used to analyze a register expression.
+    /// </summary>
+    /// <seealso cref="EvaluateRegisterExpression"/>
     private static readonly Regex RegisterRegex = new(
         @"(?:(?<reg>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?:S(?<s_reg>(?:1[0-5])|[0-9]))|(?:D(?<d_reg>31|30|(?:[12][0-9])|[0-9]))|(?:Q(?<q_reg>(?:1[0-5])|[0-9])))(?:\s*\[(?<indexer>[0-9]+)\])?$",
         RegexOptions.Compiled);
 
     private static Regex GetRegisterRegex() => RegisterRegex;
 
+    /// <summary>
+    /// Used to analyze an addressing expression.
+    /// </summary>
+    /// <seealso cref="EvaluateAddressingExpression"/>
     private static readonly Regex AddressingRegex = new(
         @"\[\s*(?:(?<reg>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?<imm>(?:0x)?[0-9a-fA-F]+)|(?<symbol>[a-zA-Z\._]\w+))\s*(,\s*(?<sign>[+\-])?(?:(?<reg_off>R(?:(?:1[0-5])|[0-9])|PC|LR|SP)|(?<imm_off>(?:0x)?[0-9a-fA-F]+))\s*(,\s*(?<shift>LSL|LSR|ASR|ROR|ROL)\s+(?<imm_shift>(?:0x)?[0-9a-fA-F]+))?)?\s*\]$",
         RegexOptions.Compiled);
@@ -88,6 +110,9 @@ internal partial class DebugProvider
     private int _nextEvaluateVariableId = 1;
     private int _lastEvaluateVariableClearPoint = 1;
 
+    /// <summary>
+    /// Removes all stored variables that have an evaluate ID in their reference.
+    /// </summary>
     public void ClearEvaluateVariables()
     {
         var toDelete = _variables.Where(varPair =>
@@ -112,17 +137,17 @@ internal partial class DebugProvider
         _lastEvaluateVariableClearPoint = _nextEvaluateVariableId = 1;
     }
 
-    public void ClearVariables()
-    {
-        _variables.Clear();
-        _topLevel.Clear();
-    }
-
+    /// <summary>
+    /// Evaluates an expression. Does special handling for hover and REPL contexts or uses
+    /// <see cref="GetExpressionTarget"/> to actually parse and evaluate the expression.
+    /// </summary>
     public EvaluateResponse EvaluateExpression(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
     {
         this.CheckInitialized();
 
+        // In hovers, the expression is always a single simple syntactic 'token'.
+        // This is handled separately.
         if (context == EvaluateArgumentsContext.Hover)
         {
             var simpleTarget = this.GetSimpleExpressionTarget(expression);
@@ -133,6 +158,7 @@ internal partial class DebugProvider
         // Emulated input
         if (context == EvaluateArgumentsContext.Repl && expression.Length > 0)
         {
+            // Not an expression but user input instead
             if (expression[0] == '>')
             {
                 if (expression.StartsWith(">>>>"))
@@ -143,13 +169,14 @@ internal partial class DebugProvider
                     _engine.AcceptEmulatedInput(expression[2..], false);
                 else
                     _engine.AcceptEmulatedInput(expression[1..], true);
-                
+
                 return new EvaluateResponse()
                 {
                     Result = string.Empty
                 };
             }
 
+            // Special 'hacky' way to set a data breakpoint on an expression
             if (expression[0] == '*')
             {
                 var b = this.SetDataBreakpoint(new DataBreakpoint() { DataId = "!" + expression[1..] });
@@ -159,8 +186,10 @@ internal partial class DebugProvider
             }
         }
 
+        // Evaluate the expression
         var target = this.GetExpressionTarget(expression, context, format);
 
+        // If the expression contained a 'set' operation, invoke it
         if (target.SetValue != null)
             target.InvokeSet();
 
@@ -171,10 +200,13 @@ internal partial class DebugProvider
     {
         this.CheckInitialized();
 
+        // Evaluate the expression and use its InvokeSet() to set the value.
+        // This throws if the target cannot be set.
         var target = this.GetExpressionTarget(expression, null, format);
         target.SetValue = value;
         target.InvokeSet();
 
+        // Evaluate the variable again and return the new value
         var targetVar = target.Variable!;
         var ctx = target.Context.Value;
 
@@ -192,7 +224,8 @@ internal partial class DebugProvider
     private ExpressionTarget GetExpressionTarget(string expression, EvaluateArgumentsContext? context,
         ValueFormat? format)
     {
-        // !!! variablesReference . childName
+        // This is a special, undocumented feature to access existing variables using expressions
+        // !!!variablesReference.childName
         if (expression.StartsWith("!!!") && expression.Length > 3)
         {
             var target = this.EvaluateDirectVariableExpression(expression);
@@ -200,19 +233,22 @@ internal partial class DebugProvider
             return new ExpressionTarget(target, new VariableContext(_engine, _clientCulture, Options, format));
         }
 
+        // Match the whole expression
         var topLevelMatch = GetTopExpressionRegex().Match(expression);
         var expressionValue = topLevelMatch.Groups["expr"].Value.Trim();
 
         if (!topLevelMatch.Success || string.IsNullOrEmpty(expressionValue) || topLevelMatch.Index != 0)
             throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionTop);
 
+        // In REPL context (only), a "= [value]" section may follow 
         string? setValue = null;
         if (topLevelMatch.Length != expression.Length)
         {
             if (context != EvaluateArgumentsContext.Repl)
                 throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionTop);
-            
+
             var rest = expression.AsSpan(topLevelMatch.Length).Trim();
+
             if (rest.StartsWith("="))
                 setValue = rest[1..].Trim().ToString();
             else
@@ -254,6 +290,7 @@ internal partial class DebugProvider
                 _ => throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionFormatSpecifier)
             };
 
+        // Expressions starting with & are always symbol value expressions
         if (expressionValue[0] == '&' && expressionValue.Length > 1)
         {
             var result = this.EvaluateSymbolAddressExpression(expressionValue[1..], expressionType, expressionFormat);
@@ -280,6 +317,7 @@ internal partial class DebugProvider
 
     /// <summary>
     /// Returns a target for a 'simple expression' – a source token evaluated in a hover.
+    /// Tries to use existing variables or creates new ones. Errors are silently ignored.
     /// </summary>
     private ExpressionTarget GetSimpleExpressionTarget(string expression)
     {
@@ -287,11 +325,12 @@ internal partial class DebugProvider
         {
             var ctxFloat = new VariableContext(_engine, _clientCulture, Options, VariableNumberFormat.Float);
             // TODO: resolve corresponding Variable, don't use the expression evaluator here
-            
+
             try
             {
                 var level = expression[0] switch { 'S' => 0, 'D' => 1, 'Q' => 2, _ => 0 };
-                var regVariable = this.GetSimdRegisterVariable(expression, level, null, null, Options.ShowFloatIeeeSubvariables);
+                var regVariable =
+                    this.GetSimdRegisterVariable(expression, level, null, null, Options.ShowFloatIeeeSubvariables);
 
                 return new ExpressionTarget(regVariable, ctxFloat);
             }
@@ -300,14 +339,14 @@ internal partial class DebugProvider
                 // ignored
             }
         }
-        
+
         var ctx = new VariableContext(_engine, _clientCulture, Options, Options.VariableNumberFormat);
 
         try
         {
             if (this.TryResolveTopVariable(ReferenceUtils.MakeReference(ContainerType.Registers), expression))
                 return new ExpressionTarget(_topLevel[expression], ctx);
-            
+
             var regVariable = this.GetRegisterVariable(expression, null, null, false);
 
             return new ExpressionTarget(regVariable, ctx);
@@ -316,12 +355,12 @@ internal partial class DebugProvider
         {
             // ignored
         }
-        
+
         try
         {
             if (this.TryResolveTopVariable(ReferenceUtils.MakeReference(ContainerType.Symbols), expression))
                 return new ExpressionTarget(_topLevel[expression], ctx);
-            
+
             var symbol = this.EvaluateSymbolAddressExpression(expression, ExpressionValueType.Default,
                 ExpressionValueFormat.Default);
 
@@ -333,28 +372,6 @@ internal partial class DebugProvider
         }
 
         throw new InvalidExpressionException();
-    }
-
-    private IVariable EvaluateDirectVariableExpression(string expression)
-    {
-        var divider = expression.IndexOf('!', 3);
-        var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
-
-        if (!long.TryParse(referenceSpan, out var reference))
-            throw new InvalidExpressionException();
-
-        if (!_variables.TryGetValue(reference, out var toSet))
-            throw new InvalidExpressionException();
-
-        if (divider != -1)
-        {
-            var childName = expression[(divider + 1)..];
-
-            if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
-                throw new InvalidExpressionException();
-        }
-
-        return toSet;
     }
 
     #region Addressing expressions
@@ -507,6 +524,8 @@ internal partial class DebugProvider
 
     #endregion
 
+    #region Register expressions
+
     private (IVariable, VariableContext) EvaluateRegisterExpression(string registerExpression,
         ExpressionValueType valueType,
         ExpressionValueFormat format)
@@ -556,7 +575,8 @@ internal partial class DebugProvider
             if (valueType == ExpressionValueType.Float)
                 variableFormat = VariableNumberFormat.Float;
 
-            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat, valueType == ExpressionValueType.IntS);
+            var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat,
+                valueType == ExpressionValueType.IntS);
 
             return (variable, ctx);
         }
@@ -603,7 +623,7 @@ internal partial class DebugProvider
 
             var forceSigned = valueTypeSize == levelSize &&
                 valueType is ExpressionValueType.IntS or ExpressionValueType.LongS;
-            
+
             var ctx = new VariableContext(_engine, _clientCulture, Options, variableFormat, forceSigned);
 
             return (variable, ctx);
@@ -616,7 +636,7 @@ internal partial class DebugProvider
 
         if (regId == -1)
             throw new InvalidExpressionException(ExceptionMessages.InvalidExpressionRegister);
-        
+
         if (subtype.HasValue || ieee)
         {
             var reference = ReferenceUtils.MakeReference(ContainerType.ExpressionExtras, regId,
@@ -720,6 +740,8 @@ internal partial class DebugProvider
         return variable;
     }
 
+    #endregion
+
     private EvaluateResponse EvaluateSymbolAddressExpression(string symbolName,
         ExpressionValueType valueType, ExpressionValueFormat format)
     {
@@ -736,8 +758,10 @@ internal partial class DebugProvider
 
         return new EvaluateResponse()
         {
-            Result = format == ExpressionValueFormat.Hex ? FormattingUtils.FormatAddress(address)
-                : FormattingUtils.FormatVariable(address, new VariableContext(_engine, _clientCulture, Options, format)),
+            Result = format == ExpressionValueFormat.Hex
+                ? FormattingUtils.FormatAddress(address)
+                : FormattingUtils.FormatVariable(address,
+                    new VariableContext(_engine, _clientCulture, Options, format)),
             Type = "address",
             MemoryReference = FormattingUtils.FormatAddress(address)
         };
@@ -784,6 +808,28 @@ internal partial class DebugProvider
         return (targetVariable, ctx);
     }
 
+    private IVariable EvaluateDirectVariableExpression(string expression)
+    {
+        var divider = expression.IndexOf('!', 3);
+        var referenceSpan = expression.AsSpan(3, (divider == -1 ? expression.Length : divider) - 3);
+
+        if (!long.TryParse(referenceSpan, out var reference))
+            throw new InvalidExpressionException();
+
+        if (!_variables.TryGetValue(reference, out var toSet))
+            throw new InvalidExpressionException();
+
+        if (divider != -1)
+        {
+            var childName = expression[(divider + 1)..];
+
+            if (!(toSet.Children?.TryGetValue(childName, out toSet) ?? false))
+                throw new InvalidExpressionException();
+        }
+
+        return toSet;
+    }
+
     private static int GetRegisterId(string name)
     {
         var constsType = typeof(Arm.Register);
@@ -816,14 +862,17 @@ internal partial class DebugProvider
  Expression EBNF:
 
     in_expr_repl = [ type ], expr, [ format ], [ "=", string ] 
+                 | inp, string | "*", [ type ], expr ;
     in_expr      = [ type ], expr, [ format ] | direct_reference_expr;
+    inp          = ">" | ">>" | ">>>" | ">>>>" ;
 
     type         = "(", type_name, ")" ;
-    type_name    = "float" | "single" | "double" | "byte"   | "short" | "hword" | "int"   | "word"   | "long" 
-                 | "dword" | "sbyte"  | "ushort" | "uhword" | "uint"  | "uword" | "ulong" | "udword" | "string" ;
-              
-    format      = ":", format_type ;
-    format_type = "x" | "b" | "ieee" | "d" ;
+    type_name    = "float"  | "single" | "double" | "byte"  | "short"  
+                 | "hword"  | "int"    | "word"   | "long"  | "dword" 
+                 | "sbyte"  | "ushort" | "uhword" | "uint"  | "uword"  
+                 | "ulong" | "udword" | "string" ;
+    format       = ":", format_type ;
+    format_type  = "x" | "b" | "ieee" | "d" ;
 
     direct_reference_expr = "!!!", { digit }-, ".", string ;
     expr = addressing_expr | register_expr | variable_path | symbol_addr ;
@@ -839,14 +888,12 @@ internal partial class DebugProvider
     symbol          = string ;
 
     variable_path = string, { ".", string }, [ "." ] ;
-
     symbol_addr   = "&", string ;
-
-    register_expr = reg_name, [ indexer ] | s_reg_name, [ indexer ] | d_reg_name, [ indexer ] | q_reg_name, [ indexer ] ;
+    register_expr = reg_name,   [ indexer ] | s_reg_name, [ indexer ] 
+                  | d_reg_name, [ indexer ] | q_reg_name, [ indexer ] ;
 
     s_reg_name    = "S0" | "S1" | ... | "S15" ;
     d_reg_name    = "D0" | "D1" | ... | "D31" ;
     q_reg_name    = "Q0" | "Q1" | ... | "Q15" ;
-
-    indexer    = "[", { digit }-, "]" ;
+    indexer       = "[", { digit }-, "]" ;
 */

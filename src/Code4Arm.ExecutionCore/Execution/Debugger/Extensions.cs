@@ -9,6 +9,13 @@ namespace Code4Arm.ExecutionCore.Execution.Debugger;
 
 public static class Extensions
 {
+    /// <summary>
+    /// Creates a DAP representation of a given <see cref="IVariable"/>.
+    /// </summary>
+    /// <param name="variable">The <see cref="IVariable"/>.</param>
+    /// <param name="context">A context used when reading the variable's value.</param>
+    /// <param name="evaluate">If true, <see cref="IVariable.Evaluate"/> will be called before reading the value.</param>
+    /// <returns>A DAP <see cref="Variable"/> model.</returns>
     public static Variable GetAsProtocol(this IVariable variable, VariableContext context, bool evaluate = false)
     {
         if (evaluate)
@@ -29,6 +36,13 @@ public static class Extensions
         };
     }
 
+    /// <summary>
+    /// Creates a DAP 'Evaluate' response representation of a given <see cref="IVariable"/>.
+    /// </summary>
+    /// <param name="variable">The <see cref="IVariable"/>.</param>
+    /// <param name="context">A context used when reading the variable's value.</param>
+    /// <param name="evaluate">If true, <see cref="IVariable.Evaluate"/> will be called before reading the value.</param>
+    /// <returns>A DAP <see cref="Variable"/> model.</returns>
     public static EvaluateResponse GetAsEvaluateResponse(this IVariable variable, VariableContext context,
         bool evaluate = false)
     {
@@ -49,6 +63,9 @@ public static class Extensions
         };
     }
 
+    /// <summary>
+    /// Returns the length of this <see cref="DebuggerVariableType"/> in bytes.
+    /// </summary>
     public static int GetSize(this DebuggerVariableType type)
     {
         return type switch
@@ -63,6 +80,12 @@ public static class Extensions
         };
     }
 
+    /// <summary>
+    /// Returns the length of this <see cref="ExpressionValueType"/> in bytes.
+    /// </summary>
+    /// <remarks>
+    /// For <see cref="ExpressionValueType.String"/> and <see cref="ExpressionValueType.Default"/>, -1 is returned.
+    /// </remarks>
     public static int GetSize(this ExpressionValueType type)
     {
         return type switch
@@ -78,6 +101,9 @@ public static class Extensions
         };
     }
 
+    /// <summary>
+    /// Returns a human-readable name of this <see cref="DebuggerVariableType"/>.
+    /// </summary>
     public static string GetName(this DebuggerVariableType type)
     {
         return type switch
