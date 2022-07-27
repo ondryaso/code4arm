@@ -6,7 +6,7 @@ set(CMAKE_C_COMPILER   arm-none-linux-gnueabihf-gcc)
 set(CMAKE_CXX_COMPILER arm-none-linux-gnueabihf-g++)
 
 # set the compiler search path
-set(CMAKE_FIND_ROOT_PATH  /home/ondryaso/Projects/bp/gcc-arm-11.2-2022.02-x86_64-arm-none-linux-gnueabihf/arm-none-linux-gnueabihf/)
+set(CMAKE_FIND_ROOT_PATH $ENV{ROOT_ARM})
 
 # adjust the default behaviour of the FIND_XXX() commands:
 # search headers and libraries in the target environment, search 

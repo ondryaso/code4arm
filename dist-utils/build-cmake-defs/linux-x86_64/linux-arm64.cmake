@@ -6,7 +6,7 @@ set(CMAKE_C_COMPILER   aarch64-none-linux-gnu-gcc)
 set(CMAKE_CXX_COMPILER aarch64-none-linux-gnu-g++)
 
 # set the compiler search path
-set(CMAKE_FIND_ROOT_PATH  /home/ondryaso/Projects/bp/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/)
+set(CMAKE_FIND_ROOT_PATH $ENV{ROOT_AARCH64})
 
 # adjust the default behaviour of the FIND_XXX() commands:
 # search headers and libraries in the target environment, search 

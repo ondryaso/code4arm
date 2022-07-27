@@ -1,8 +1,16 @@
 #!/bin/bash
 
-export PATH="$PATH:/home/ondryaso/bp/toolchains/gcc-arm-11.2-2022.02-x86_64-arm-none-linux-gnueabihf/bin/:/home/ondryaso/bp/toolchains/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu/bin/"
-
 . common.sh
+
+if [ ! -z "$BINUTILS_ARM" ];
+then
+    export PATH="$PATH:$BINUTILS_ARM/bin"
+fi
+
+if [ ! -z "$BINUTILS_AARCH64" ];
+then
+    export PATH="$PATH:$BINUTILS_AARCH64/bin"
+fi
 
 if [ ! -d "$PUB_DIR" ];
 then
@@ -34,9 +42,11 @@ build_unicorn() {
 
     if [ -z "$1" ];
     then
+        # Building FOR the SAME platform we're running on
         cmake .. -DCMAKE_BUILD_TYPE=Release -DUNICORN_ARCH=arm > build.log
     elif [[ "$target" == "windows"* ]];
     then
+        # Building for Windows in WSL
         kr="$(uname -r)"
 
         if [[ "$kr" != *"WSL"* ]]; then
@@ -44,15 +54,18 @@ build_unicorn() {
             return 1
         fi
 
+        # Test if the script is saved in the WSL filesystem or in the Windows filesystem
         [[ "$(wslpath -w .)" == "\\\\wsl"* ]]
         is_wsl_path=$?
 
         if [ "$is_wsl_path" -eq 0 ];
         then
+            # If it's saved in WSL, we must copy the build tools to the Windows filesystem
             tmp_dir="/mnt/c/Windows/Temp/_c4a_build"
             rm -rf "$tmp_dir"
             cp -rf "$SCRIPT_DIR" "$tmp_dir"
 
+            # Save variables
             prev_sd=$SCRIPT_DIR
             prev_pb=$PUB_DIR
 
@@ -63,6 +76,8 @@ build_unicorn() {
 
         if [[ "$target" == "windows-x86_64" ]];
         then
+            # 64bit Windows needs a modified CMakeLists to force a specific 
+            # MSVC runtime library linking mode
             echo "Patching CMakeLists"
             mv ../CMakeLists.txt ../_tmp_cmakelists
             cp "$SCRIPT_DIR/build-cmake-defs/windows-x86_64/CMakeLists.txt" ../CMakeLists.txt
@@ -86,6 +101,7 @@ build_unicorn() {
 
         if [ "$is_wsl_path" -eq 0 ];
         then
+            # Copy the built dll, delete the temporary directory and restore variables
             cp -rf "$PUB_DIR/unicorn/build-$target" "$prev_pb/unicorn/"
             SCRIPT_DIR=$prev_sd
             PUB_DIR=$prev_pb
@@ -95,6 +111,7 @@ build_unicorn() {
 
         return 0
     else
+        # Cross-compiling
         file="$TOOLCHAINS_DIR/$1.cmake"
         if [ ! -f "$file" ]; then
             echo "Toolchain file $1 does not exist."
