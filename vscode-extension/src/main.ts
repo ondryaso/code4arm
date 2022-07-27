@@ -13,6 +13,12 @@ export async function activate(context: ExtensionContext) {
 	configService.onDidChangeRuntimeMode(m => window.showInformationMessage(m ? 'Using a local Arm simulator instance.'
 		: 'Using a remote Arm simulator instance.'));
 
+	configService.onDidUpdateDebuggerServices(m => window.showInformationMessage(m
+		? (configService.get().useLocalRuntimeInstallation
+			? 'Using a local Arm simulator instance.'
+			: 'Using a remote Arm simulator instance.')
+		: 'Arm simulator disabled.'))
+
 	await activateRuntimeOptionPick(context, configService);
 
 	const runtimeService = new RuntimeService(configService, context);
