@@ -36,11 +36,17 @@ prepare_execution_service() {
     if [[ "$uni_platform" == *"windows"* ]];
     then
         uni="$PUB_DIR/unicorn/build-$uni_platform/unicorn.dll"
-        uni_target="./servers/debug/unicorn.dll"
+        uni_ext="dll"
+    elif [[ "$uni_platform" == *"darwin"* ]];
+    then
+        uni="$PUB_DIR/unicorn/build-$uni_platform/libunicorn.2.dylib"
+        uni_ext="dylib"
     else
         uni="$PUB_DIR/unicorn/build-$uni_platform/libunicorn.so.2"
-        uni_target="./servers/debug/unicorn.so"
+        uni_ext="so"
     fi
+
+    uni_target="./servers/debug/unicorn.$uni_ext"
 
     tc="$SCRIPT_DIR/toolchains/$uni_platform"
     if [ ! -d "$tc" ];
@@ -48,6 +54,11 @@ prepare_execution_service() {
         echo "Toolchain (as+ld) not available for $uni_platform; publishing $vsc_platform without local runtime support."
         rm -rf "./servers/debug/"
         return 1
+    fi
+
+    if [ ! -f "$uni" ];
+    then
+        uni="$SCRIPT_DIR/unicorn-dist/unicorn.$uni_platform.$uni_ext"
     fi
 
     if [ ! -f "$uni" ];
@@ -112,11 +123,11 @@ publish_platform() {
 # darwin-x64 and darwin-arm64.
 
 publish_platform "linux-x86_64" "linux-x64" "$@"
-publish_platform "linux-arm64" "linux-arm64" "$@"
+#publish_platform "linux-arm64" "linux-arm64" "$@"
 #publish_platform "linux-arm" "linux-armhf" "$@"
 
-publish_platform "windows-x86_64" "win32-x64" "$@"
-publish_platform "windows-i386" "win32-ia32" "$@"
+#publish_platform "windows-x86_64" "win32-x64" "$@"
+#publish_platform "windows-i386" "win32-ia32" "$@"
 #publish_platform "windows-arm64" "win32-arm64" "$@"
 
 #publish_platform "darwin-x86_64" "darwin-x64" "$@"
