@@ -6,6 +6,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Code4Arm.LanguageServer.CodeAnalysis.Abstractions;
 
+/// <summary>
+/// Represents an analyser capable of performing full language analysis of a single source.
+/// </summary>
 public interface ISourceAnalyser
 {
     /// <summary>

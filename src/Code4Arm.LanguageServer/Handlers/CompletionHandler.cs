@@ -61,14 +61,14 @@ public class CompletionHandler : CompletionHandlerBase
         var config = await _configurationContainer.GetServerOptions(request);
         var isInvoked = request.Context?.TriggerKind == CompletionTriggerKind.Invoked;
 
-        // Kdy ukázat nápovědu instrukcí?
-        // Automaticky při psaní instrukce – PODLE STAVU ANALÝZY:
-        // - HasMatches: píšu instrukci, napovídám pouze mnemoniky
+        // When to show completions?
+        // Automatically when the mnemonic is incomplete – based on the state:
+        // - HasMatches: only mnemonics hints
         // - HasFullMatch:
-        //   1) -S variantu
-        //   2) HasUnterminatedConditionCode -> ukázat i možné CC
-        //   3) další instrukce z MatchingMnemonics
-        // Po ručním triggeru – PODLE POZICE KURZORU
+        //   1) -S variant
+        //   2) HasUnterminatedConditionCode -> show possible condition codes
+        //   3) other MatchingMnemonics
+        // On a manual trigger – based on the cursor position.
 
         var ret = new List<CompletionItem>();
 
@@ -276,6 +276,12 @@ public class CompletionHandler : CompletionHandlerBase
         return new CompletionList(ret, true);
     }
 
+    /// <summary>
+    /// Finds a <see cref="OperandTokenDescriptor"/> and its range for a given position.
+    /// </summary>
+    /// <param name="lineAnalysis"></param>
+    /// <param name="position"></param>
+    /// <returns></returns>
     private (OperandTokenDescriptor? TokenDescriptor, Range? TargetRange) DetermineTokenAtPosition(
         AnalysedLine lineAnalysis,
         Position position)
@@ -473,7 +479,7 @@ public class CompletionHandler : CompletionHandlerBase
 
     public override Task<CompletionItem> Handle(CompletionItem request, CancellationToken cancellationToken)
     {
-        // This is used for Completion Resolve requests. We don't support that (yet?).
+        // This is used for Completion Resolve requests. We don't support that.
         return Task.FromResult(request);
     }
 
@@ -483,7 +489,7 @@ public class CompletionHandler : CompletionHandlerBase
         return new CompletionRegistrationOptions()
         {
             DocumentSelector = Constants.ArmUalDocumentSelector,
-            ResolveProvider = false, // we will see
+            ResolveProvider = false,
             WorkDoneProgress = false,
             TriggerCharacters = new[] { " ", ",", ".", "[", "{", "-" }
         };

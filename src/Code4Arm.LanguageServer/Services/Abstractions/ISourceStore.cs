@@ -8,6 +8,9 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Code4Arm.LanguageServer.Services.Abstractions;
 
+/// <summary>
+/// Manages source files.
+/// </summary>
 public interface ISourceStore
 {
     /// <summary>

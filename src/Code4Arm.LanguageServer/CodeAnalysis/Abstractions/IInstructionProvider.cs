@@ -6,13 +6,15 @@ using Code4Arm.LanguageServer.CodeAnalysis.Models.Abstractions;
 
 namespace Code4Arm.LanguageServer.CodeAnalysis.Abstractions;
 
+/// <summary>
+/// Provides instruction and operand definitions.
+/// </summary>
 public interface IInstructionProvider
 {
     /// <summary>
     /// Returns a list of all instructions. Different variants of the same mnemonic are returned as distinct
     /// <see cref="InstructionVariant"/> definitions.
     /// </summary>
-    /// <returns></returns>
     Task<List<InstructionVariant>> GetAllInstructions();
 
     /// <summary>
@@ -35,5 +37,8 @@ public interface IInstructionProvider
     Task<List<InstructionVariant>?> GetVariants(string mnemonic,
         InstructionVariantFlag exclude = InstructionVariantFlag.NoFlags);
 
+    /// <summary>
+    /// Returns an enumerable of all operand descriptors for the given instruction variant.
+    /// </summary>
     IEnumerable<IOperandDescriptor> GetOperands(InstructionVariant variant);
 }

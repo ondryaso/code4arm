@@ -41,8 +41,7 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
         CancellationToken cancellationToken)
     {
         /*var document = _semanticTokensDocuments.GetOrAdd(@params.TextDocument.Uri,
-            _ => new SemanticTokensDocument(this.RegistrationOptions));
-*/
+            _ => new SemanticTokensDocument(this.RegistrationOptions));*/
         return Task.FromResult(new SemanticTokensDocument(this.RegistrationOptions));
     }
 

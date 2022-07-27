@@ -3,6 +3,9 @@
 
 namespace Code4Arm.LanguageServer.Services.Abstractions;
 
+/// <summary>
+/// Provides localised strings for the user interface.
+/// </summary>
 public interface ILocalizationService
 {
     public const string CompletionLabelTag = nameof(CompletionLabelTag);
@@ -12,8 +15,24 @@ public interface ILocalizationService
     public const string CompletionDocumentationTag = nameof(CompletionDocumentationTag);
     public const string CompletionDocumentationSimdTag = nameof(CompletionDocumentationSimdTag);
 
+    /// <summary>
+    /// Returns a localised string for a given key.
+    /// </summary>
+    /// <param name="entry">The key.</param>
     string this[string entry] { get; }
+    
+    /// <summary>
+    /// Returns a localised string for a given key in a context determined by a tag.
+    /// </summary>
+    /// <param name="entry">The key.</param>
+    /// <param name="tag">The tag.</param>
     string this[string entry, string tag] => this[$"{entry}.{tag}"];
+    
+    /// <summary>
+    /// Returns a localised string for a given key, pluralised for a given number.
+    /// </summary>
+    /// <param name="entry">The key.</param>
+    /// <param name="count">The number.</param>
     string this[string entry, int count] { get; }
 
     bool HasValue(string entry);

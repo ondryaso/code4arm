@@ -75,6 +75,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 }
             }
 
+            // Analysis states that don't signalise success
             switch (analysis.State)
             {
                 case LineAnalysisState.InvalidMnemonic:
@@ -179,6 +180,7 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 }
             }
 
+            // Operands
             if (analysis.Operands is { Count: > 0 })
             {
                 foreach (var token in analysis.Operands

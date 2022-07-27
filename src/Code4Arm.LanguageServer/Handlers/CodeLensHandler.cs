@@ -34,6 +34,7 @@ public class CodeLensHandler : CodeLensHandlerBase
 
         await analyser.TriggerFullAnalysis();
 
+        // Create CodeLens for function labels
         var ret = new List<CodeLens>();
         foreach (var analysedFunction in analyser.GetFunctions())
         {

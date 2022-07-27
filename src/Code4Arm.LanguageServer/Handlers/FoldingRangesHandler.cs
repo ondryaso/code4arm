@@ -27,6 +27,7 @@ public class FoldingRangesHandler : FoldingRangeHandlerBase
         await analyser.TriggerFullAnalysis();
         var originalLines = -1;
 
+        // Folding ranges are created for determined functions and based on the user's custom //#region preprocessor directives
         return new Container<FoldingRange>(analyser.GetFunctions().Where(f => f.StartLine != -1).Select(f =>
             new FoldingRange()
             {
