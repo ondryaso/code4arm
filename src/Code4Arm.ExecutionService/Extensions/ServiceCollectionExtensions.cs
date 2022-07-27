@@ -42,7 +42,8 @@ public static class ServiceCollectionExtensions
     {
         var coreAssembly = typeof(ExecutionEngine).Assembly;
         var simBase = typeof(IFunctionSimulator);
-        var simulators = coreAssembly.GetTypes().Where(t => t.IsAssignableTo(simBase) && t.IsClass);
+        var simulators = coreAssembly.GetTypes().Where(t => t.IsAssignableTo(simBase) && t.IsClass
+            && !t.IsAbstract);
 
         foreach (var simulator in simulators)
         {
