@@ -113,7 +113,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 _docProvider = new IsaReferenceDocumentationProvider(
                     path);
             }
-        } 
+        }
     }
 
     private void EnsureLoaded()
@@ -143,7 +143,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         // TODO: handle failures
     }
 
-    private Regex _symbolRegex = new(@"<(?<optional>\??)(?<symbol>[\w!]*?)>", RegexOptions.Compiled);
+    private Regex _symbolRegex = new(@"<(?<optional>\??)(?<symbol>[\w!=]*?)>", RegexOptions.Compiled);
 
     // Start with a <
     // Match O:... (group var is the whole thing, then there are the parts in varA, varB, varC)
@@ -424,7 +424,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
                 else
                     return this.MakeRegisterAddressingOperand(symbol, mnemonic, optional);
             case 'L':
-                return this.MakeLabelOperand(mnemonic, optional);
+                return this.MakeLabelOperand(symbol, mnemonic, optional);
             case 'D':
                 return this.MakeSRegisterOperand(_sdRegRegex.Match(symbol), mnemonic, optional);
             case 'Q':
@@ -463,9 +463,9 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
 
         var hasWriteBack = registerMatch.Groups["wback"].Success && registerMatch.Groups["wback"].Length > 0;
         var regexes = hasWriteBack
-            ? new [] { $@"\G{RegisterTargetRegex}", "\\G!?" }
-            : new [] { $@"\G{RegisterTargetRegex}" };
-        
+            ? new[] { $@"\G{RegisterTargetRegex}", "\\G!?" }
+            : new[] { $@"\G{RegisterTargetRegex}" };
+
         var descriptor = new BasicOperandDescriptor(mnemonic, regexes,
             OperandType.Register, optional,
             (0, 1,
@@ -635,10 +635,13 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         throw new Exception($"Invalid addressing operand <{symbol}>.");
     }
 
-    private BasicOperandDescriptor MakeLabelOperand(InstructionVariant mnemonic, bool optional)
+    private BasicOperandDescriptor MakeLabelOperand(string symbol, InstructionVariant mnemonic, bool optional)
     {
-        return new BasicOperandDescriptor(mnemonic, $@"\G{LabelTargetRegex}", OperandType.Label, OperandTokenType.Label,
-            "label", 1, optional);
+        var isReloc = (symbol.Length > 1 && symbol[1] == '=');
+        var regexes = isReloc ? new[] { "\\G=", $@"\G{LabelTargetRegex}" } : new[] { $@"\G{LabelTargetRegex}" };
+
+        return new BasicOperandDescriptor(mnemonic, regexes, OperandType.Label, optional,
+            (isReloc ? 1 : 0, 1, new OperandTokenDescriptor(OperandTokenType.Label, "label")));
     }
 
     private BasicOperandDescriptor MakeRegisterListOperand(Match registerListMatch, InstructionVariant mnemonic,
@@ -795,16 +798,18 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
 
     public MarkupContent? InstructionEntry(InstructionVariant instructionVariant)
     {
-        if (_docProvider == null)
+        if (instructionVariant.Model.Documentation == "__ldr_synth")
         {
             return new MarkupContent()
             {
                 Kind = MarkupKind.Markdown,
-                Value = "[Download documentation files](command:code4arm.fetchDocs \"Download documentation files\")"
+                Value = "### LDR (synthetic)\nLoads a symbol or assembler expression value into a register.\n\n"
+                    + "If the expression evaluates to a numeric constant that can be encoded in a MOV or MVN instruction, one of these instructions will be used in place of the LDR instruction."
+                    + " Otherwise the constant will be placed into the nearest literal pool (if it not already there) and a PC-relative LDR instruction will be generated."
             };
         }
-        
-        var doc = _docProvider.Get(instructionVariant.Model.Documentation);
+
+        var doc = _docProvider?.Get(instructionVariant.Model.Documentation);
         if (doc != null)
         {
             return new MarkupContent()
@@ -815,6 +820,15 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
             };
         }
 
+        if (_docProvider == null)
+        {
+            return new MarkupContent()
+            {
+                Kind = MarkupKind.Markdown,
+                Value = "[Download documentation files](command:code4arm.fetchDocs \"Download documentation files\")"
+            };
+        }
+        
         return null;
     }
 
@@ -824,7 +838,7 @@ public class InstructionProvider : IInstructionProvider, IOperandAnalyserProvide
         {
             return null;
         }
-        
+
         var doc = _docProvider.InstructionOperandEntry(instructionVariant.Model.Documentation, tokenName);
         if (doc != null)
         {
