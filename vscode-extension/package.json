@@ -5,7 +5,7 @@
     "description": "Arm® AArch32 Unified Assembly Language Simulator & Language support",
     "repository": "github:ondryaso/bp-code",
     "license": "GPL-3.0+",
-    "version": "0.0.7",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.63.0"
     },
@@ -777,8 +777,7 @@
                     "condition_code": "#1886e0",
                     "sets_flags_flag": "#0ac77ec2",
                     "vector_data_type": "#5236f1",
-                    "instruction_size_qualifier": "#5a5a5a",
-                    "label": "#f17800"
+                    "instruction_size_qualifier": "#5a5a5a"
                 }
             }
         },
