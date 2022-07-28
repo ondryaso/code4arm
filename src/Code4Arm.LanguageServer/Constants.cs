@@ -1,6 +1,7 @@
 // Constants.cs
 // Author: Ondřej Ondryáš
 
+using System.Collections.Immutable;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Code4Arm.LanguageServer;
@@ -21,4 +22,11 @@ public static class Constants
     public const string ArmUalLanguageName = "Arm UAL";
 
     public const string ConfigurationSectionRoot = "code4arm.editor";
+
+    public static readonly ImmutableList<string> SimulatedFunctions = ImmutableList<string>.Empty.AddRange(new []
+    {
+        "calloc", "malloc", "free", "realloc",
+        "getchar", "putchar", "printf", "puts", "ungetc",
+        "ReadInt32", "ReadUInt32", "ReadInt64", "ReadUInt64", "ReadFloat32", "ReadFloat64"
+    });
 }

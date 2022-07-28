@@ -53,7 +53,7 @@ public class Tokenizer : ITokenizer
                 builder.Push(prepSource.GetOriginalRange(analysis.Directive.DirectiveRange),
                     ArmSemanticTokenType.Directive, Enumerable.Empty<SemanticTokenModifier>());
             }
-            
+
             if (!analysis.HasMnemonicMatch)
             {
                 continue;
@@ -119,21 +119,28 @@ public class Tokenizer : ITokenizer
 
                 if (operand.Descriptor.IsSingleToken)
                 {
-                    var tt = GetOperandSemanticTokenType(operand.Descriptor.SingleToken!.Type);
+                    var token = operand.Tokens?.FirstOrDefault();
+
+                    if (token == null)
+                        continue;
+
+                    var tt = GetOperandSemanticTokenType(token);
+
                     if (tt == null)
                         continue;
 
                     builder.Push(prepSource.GetOriginalRange(operand.Range),
                         tt.Value.Type, tt.Value.Modifiers);
                 }
-                else if (operand.Tokens is {Count: > 0})
+                else if (operand.Tokens is { Count: > 0 })
                 {
                     foreach (var token in operand.Tokens)
                     {
                         if (token.Result == OperandTokenResult.SyntaxError)
                             continue;
 
-                        var tt = GetOperandSemanticTokenType(token.Type);
+                        var tt = GetOperandSemanticTokenType(token);
+
                         if (tt == null)
                             continue;
 
@@ -146,17 +153,23 @@ public class Tokenizer : ITokenizer
     }
 
     private static (SemanticTokenType Type, IEnumerable<SemanticTokenModifier> Modifiers)? GetOperandSemanticTokenType(
-        OperandTokenType tokenType)
+        AnalysedOperandToken token)
     {
-        return tokenType switch
+        if (token.Type == OperandTokenType.Label && token.Result == OperandTokenResult.UndefinedLabel
+            && Constants.SimulatedFunctions.Contains(token.Text))
+        {
+            return (SemanticTokenType.Label, new[] { ArmSemanticTokenModifier.SimulatedFunction });
+        }
+
+        return token.Type switch
         {
             OperandTokenType.Immediate or OperandTokenType.ImmediateConstant or OperandTokenType.ImmediateShift => null,
             OperandTokenType.Register => (ArmSemanticTokenType.Register, Enumerable.Empty<SemanticTokenModifier>()),
             OperandTokenType.SimdRegister => (ArmSemanticTokenType.Register,
-                new[] {ArmSemanticTokenModifier.VectorRegister}),
+                new[] { ArmSemanticTokenModifier.VectorRegister }),
             OperandTokenType.Label => (SemanticTokenType.Label, Enumerable.Empty<SemanticTokenModifier>()),
             OperandTokenType.ShiftType => (ArmSemanticTokenType.ShiftType, Enumerable.Empty<SemanticTokenModifier>()),
-            _ => throw new ArgumentOutOfRangeException(nameof(tokenType), tokenType, null)
+            _ => throw new InvalidOperationException()
         };
     }
 }

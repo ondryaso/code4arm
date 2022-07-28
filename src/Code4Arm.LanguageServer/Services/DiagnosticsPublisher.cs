@@ -371,6 +371,17 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
     private static (DiagnosticCode DiagnosticCode, string Message) GetOperandTokenDiagnostic(
         AnalysedOperandToken analysedOperandToken)
     {
+        if (analysedOperandToken.Type == OperandTokenType.Label &&
+            analysedOperandToken.Result == OperandTokenResult.UndefinedLabel)
+        {
+            if (Constants.SimulatedFunctions.Contains(analysedOperandToken.Text))
+            {
+                return (-1, string.Empty);
+            }
+
+            return (-1, "Undefined label.");
+        }
+        
         return analysedOperandToken.Result switch
         {
             OperandTokenResult.InvalidRegister => (-1, "Invalid register."), // TODO: say why

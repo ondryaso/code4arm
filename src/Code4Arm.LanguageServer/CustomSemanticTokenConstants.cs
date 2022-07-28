@@ -51,7 +51,10 @@ public static class ArmSemanticTokenModifier
 
     /// Marks a SIMD/FP register.
     public static readonly SemanticTokenModifier VectorRegister = new("vector_register");
-
+    
+    /// Marks a simulated function label.
+    public static readonly SemanticTokenModifier SimulatedFunction = new("simulated_function");
+    
     public static IEnumerable<SemanticTokenModifier> All => new[]
     {
         Conditional, SetsFlags, VectorInstruction

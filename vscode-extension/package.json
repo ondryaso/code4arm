@@ -185,6 +185,10 @@
             {
                 "id": "vector_register",
                 "description": "Marks a SIMD/FP register."
+            },
+            {
+                "id": "simulated_function",
+                "description": "Marks a simulated function label."
             }
         ],
         "semanticTokenScopes": [
