@@ -151,12 +151,29 @@ export class RuntimeService implements Disposable {
             if (!this._debuggerOutputChannel)
                 this._debuggerOutputChannel = vscode.window.createOutputChannel("Arm Simulator Service");
 
+            let rcvData = "";
+            let appendRcvData = true;
+
             this._currentProcess = spawn(this._dotnetPath, exeArgs, { env: env, detached: false, cwd: serverDirUri.fsPath });
             this._currentProcess.stdout?.on('data', data => {
-                this._debuggerOutputChannel?.append(data.toString());
+                const dataStr = data.toString();
+                this._debuggerOutputChannel?.append(dataStr);
+                
+                if (appendRcvData) {
+                    rcvData += dataStr;
+                }
             });
 
-            await new Promise(r => setTimeout(r, 3000)); // TODO: figure out a better mechanism for waiting for the service initialization
+            // TODO: figure out a nicer mechanism for waiting for the service initialization
+            await new Promise(r => {
+                const id = setInterval(() => { 
+                    if (rcvData.indexOf('started') != -1) { 
+                        appendRcvData = false; 
+                        clearInterval(id); 
+                        r(undefined); 
+                    } 
+                }, 250);
+            }); 
             return url;
         } else {
             if (!config.remoteRuntimeAddress)
