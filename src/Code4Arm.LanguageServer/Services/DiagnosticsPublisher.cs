@@ -191,6 +191,9 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
                 {
                     var (code, message) = GetOperandTokenDiagnostic(token);
 
+                    if (message == string.Empty)
+                        continue;
+
                     diags.Add(new Diagnostic()
                     {
                         Code = code,
