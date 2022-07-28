@@ -111,7 +111,6 @@ export class RuntimeService implements Disposable {
 
             const docsPath = await ensureDocs(this._extensionContext, false);
             if (docsPath) {
-                exeArgs.push("--");
                 exeArgs.push(docsPath);
             }
 
