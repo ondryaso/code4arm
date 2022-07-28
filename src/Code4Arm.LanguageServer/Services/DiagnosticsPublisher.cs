@@ -357,6 +357,23 @@ public class DiagnosticsPublisher : IDiagnosticsPublisher
         _lsFacade.TextDocument.PublishDiagnostics(par);
     }
 
+    public Task ClearDiagnostics(DocumentUri documentUri, int? documentVersion)
+    {
+        if (!_lsFacade.ClientSettings.Capabilities?.TextDocument?.PublishDiagnostics.IsSupported ?? false)
+            return Task.CompletedTask;
+
+        var par = new PublishDiagnosticsParams() 
+        {
+            Uri = documentUri,
+            Version = documentVersion,
+            Diagnostics = new Container<Diagnostic>()
+        };
+
+        _lsFacade.TextDocument.PublishDiagnostics(par);
+
+        return Task.CompletedTask;
+    }
+
     private static (DiagnosticCode DiagnosticCode, string Message) GetOperandDiagnostic(AnalysedOperand analysedOperand)
     {
         return analysedOperand.Result switch

@@ -15,4 +15,9 @@ public interface IDiagnosticsPublisher
     /// Determines the diagnostics based on the state of a given <see cref="ISourceAnalyser"/> and sends them to the client.
     /// </summary>
     Task PublishAnalysisResult(ISourceAnalyser analyser, DocumentUri documentUri, int? documentVersion);
+
+    /// <summary>
+    /// Clears the shown diagnostics for a given file.
+    /// </summary>
+    Task ClearDiagnostics(DocumentUri documentUri, int? documentVersion);
 }

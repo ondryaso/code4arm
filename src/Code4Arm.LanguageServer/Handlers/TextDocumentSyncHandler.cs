@@ -25,11 +25,14 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private readonly ISourceStore _sourceStore;
     private readonly ISourceAnalyserStore _analyserStore;
+    private readonly IDiagnosticsPublisher _diagnosticsPublisher;
 
-    public TextDocumentSyncHandler(ISourceStore sourceStore, ISourceAnalyserStore analyserStore)
+    public TextDocumentSyncHandler(ISourceStore sourceStore, ISourceAnalyserStore analyserStore,
+        IDiagnosticsPublisher diagnosticsPublisher)
     {
         _sourceStore = sourceStore;
         _analyserStore = analyserStore;
+        _diagnosticsPublisher = diagnosticsPublisher;
     }
 
     /// <summary>
@@ -44,6 +47,9 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         await _sourceStore.LoadDocument(request.TextDocument).ConfigureAwait(false);
+        await _diagnosticsPublisher.ClearDiagnostics(request.TextDocument.Uri, request.TextDocument.Version)
+            .ConfigureAwait(false);
+
         var source = await _sourceStore.GetPreprocessedDocument(request.TextDocument.Uri).ConfigureAwait(false);
         var analyser = _analyserStore.GetAnalyser(source);
         await analyser.TriggerFullAnalysis();
@@ -116,6 +122,8 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         await _sourceStore.CloseDocument(request.TextDocument.Uri).ConfigureAwait(false);
+        await _diagnosticsPublisher.ClearDiagnostics(request.TextDocument.Uri, null).ConfigureAwait(false);
+
         return Unit.Value;
     }
 
