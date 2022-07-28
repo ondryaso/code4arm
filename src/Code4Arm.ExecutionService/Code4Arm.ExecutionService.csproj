@@ -13,7 +13,7 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <DefineConstants>TRACE;REMOTE</DefineConstants>
+      <DefineConstants>TRACE;</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,5 +1,24 @@
 // Utils.cs
-// Author: Ondřej Ondryáš
+// 
+// This file is a part of project Code4Arm, created for a thesis "Simulation of an Arm processor for the education
+// of programming in assembler".
+// Copyright (c) 2022 Ondřej Ondryáš <xondry02@stud.fit.vutbr.cz>
+// 
+// This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+// License as published by the Free Software Foundation, either version 3 of the License, or (at your option)
+// any later version.
+// 
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License along with this program.
+// If not, see <https://www.gnu.org/licenses/>.
+//
+// THIS FILE CONTAINS SECTIONS LICENSED UNDER A DIFFERENT LICENSE, Creative Commons Attribution-ShareAlike 4.0.
+// THESE SECTIONS ARE MARKED IN THE SOURCE CODE BELOW. 
+// THE FULL LICENSE TEXT IS AVAILABLE IN FILE 'COPYING.CCBYSA4' or at https://creativecommons.org/licenses/by-sa/4.0/.
+
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -22,6 +41,8 @@ public static class Utils
 
         return Path.Combine(assemblyDir, "SupportFiles", fileName);
     }
+    
+    /* ------ Start of code licensed under CC BY-SA 4.0 (Muhammad Rehan Saeed, Ondřej Ondryáš) ------ */
 
     /// <summary>
     /// Asynchronously starts a process and reads its stdout and stderr in different threads.
@@ -36,19 +57,19 @@ public static class Utils
     /// <returns>A task that will complete when the process exits and the buffers are read. Its result value is the
     /// exit code of the process.</returns>
     /// <remarks>Original source: https://stackoverflow.com/a/39872058. Original author: Muhammad Rehan Saeed. Modified
-    /// by Ondřej Ondryáš. Licensed under CC BY-SA 4.0</remarks>
+    /// by Ondřej Ondryáš. Licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).</remarks>
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public static async Task<int> StartProcess(ProcessStartInfo startInfo, int? timeout = null,
         TextWriter? outputTextWriter = null, TextWriter? errorTextWriter = null)
     {
-        using var process = new Process() {StartInfo = startInfo};
+        using var process = new Process() { StartInfo = startInfo };
         var cancellationTokenSource = timeout.HasValue
             ? new CancellationTokenSource(timeout.Value)
             : new CancellationTokenSource();
 
         process.Start();
 
-        var tasks = new List<Task>(3) {process.WaitForExitAsync(cancellationTokenSource.Token)};
+        var tasks = new List<Task>(3) { process.WaitForExitAsync(cancellationTokenSource.Token) };
         if (outputTextWriter != null)
         {
             tasks.Add(ReadAsync(x =>
@@ -89,7 +110,7 @@ public static class Utils
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>Original source: https://stackoverflow.com/a/39872058. Original author: Muhammad Rehan Saeed. Modified
-    /// by Ondřej Ondryáš. Licensed under CC BY-SA 4.0</remarks>
+    /// by Ondřej Ondryáš. Licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).</remarks>
     private static Task ReadAsync(this Action<DataReceivedEventHandler> addHandler, 
         Action<DataReceivedEventHandler> removeHandler, TextWriter textWriter,
         CancellationToken cancellationToken = default)
@@ -124,4 +145,6 @@ public static class Utils
 
         return taskCompletionSource.Task;
     }
+    
+    /* ------ End of code licensed under CC BY-SA 4.0 ------ */
 }
